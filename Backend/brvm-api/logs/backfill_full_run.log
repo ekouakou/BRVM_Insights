@@ -658,3 +658,65 @@
 [2026-07-31 20:30:09] --- ORGT (oragroup) ---
 [2026-07-31 20:30:09] Scraping des rapports pour 'oragroup': https://www.brvm.org/fr/rapports-societe-cotes/oragroup
 [2026-07-31 20:30:13] 20 rapport(s) trouvé(s) pour 'oragroup'
+[2026-07-31 20:30:16] Téléchargé: 20260504_-_etats_financiers_-_exercice_2025_-_oragroup_tg.pdf
+[2026-07-31 20:30:18] Téléchargé: 20260430_-_rapport_dactivites_annuel_-_exercice_2025_-_oragroup_tg.pdf
+[2026-07-31 20:30:20] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_oragroup_tg_0.pdf
+[2026-07-31 20:30:20] Échec extraction: ORAGROUP TG : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:30:22] Téléchargé: 20251001_-_attestation_des_commissaires_aux_comptes_sur_le_rapport_dactivites_-_1er_semestre_2025_-_oragroup_tg.pdf
+[2026-07-31 20:30:22] Échec extraction: ORAGROUP TOGO : Attestation des Commissaires Aux Comptes sur le rapport d'activités - 1er semestre 2025 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:30:24] Téléchargé: 20250922_-_rapport_dactivites_-_1er_semestre_2025_-_oragroup_tg.pdf
+[2026-07-31 20:30:24] Échec extraction: ORAGROUP TOGO : Rapport d'activités - 1er semestre 2025 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:30:27] Téléchargé: 20250430_-_etats_financiers_-_exercice_2024_-_oragroup_tg.pdf
+[2026-07-31 20:30:27] Échec extraction: ORAGROUP TOGO : Etats financiers - Exercice 2024 (pdftotext a échoué (code 1): Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Couldn't read xref table)
+[2026-07-31 20:30:29] Téléchargé: 20250428_-_rapport_dactivites_-_1er_trimestre_2025_-_oragroup_tg.pdf
+[2026-07-31 20:30:31] Téléchargé: 20241025_-_rapport_dactivites_-_3eme_trimestre_2024_-_oragroup_tg.pdf
+[2026-07-31 20:30:34] Téléchargé: 20240930_-_rapport_dactivites_-_1er_semestre_2024_-_oragroup_tg.pdf
+[2026-07-31 20:30:34] Échec extraction: ORAGROUP TOGO : Rapport d'activités du 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:30:36] Téléchargé: 20240429_-_etats_financiers_-_exercice_2023_-_oragroup_togo.pdf
+[2026-07-31 20:30:38] Téléchargé: 20231030_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_oragroup_togo.pdf
+[2026-07-31 20:30:40] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_oragroup_togo.pdf
+[2026-07-31 20:30:42] Téléchargé: 20230426_-_etats_financiers_exercice_2022_-_oragroup_tg.pdf
+[2026-07-31 20:30:44] Téléchargé: 20230426_-_rapport_dactivite_-_1er_trimestre_2023_-_oragroup_tg.pdf
+[2026-07-31 20:30:46] Téléchargé: 20221025_-_rapport_dactivite_-_3eme_trimestre_2022_-_oragroup_tg.pdf
+[2026-07-31 20:30:49] Téléchargé: 20220926_-_rapport_dactivites_1er_semestre_2022_-_oragroup.pdf
+[2026-07-31 20:30:49] Échec extraction: ORAGROUP TOGO : Rapport d'activités du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:30:53] Téléchargé: 20220926_-_attestation_cac_sur_le_rapport_dactivites_1er_semestre_2022_-_oragroup_tg.pdf
+[2026-07-31 20:30:54] Téléchargé: 20220426_-_rapport_dactivite_-_1er_trimestre_2022_-_oragroup_tg.pdf
+[2026-07-31 20:30:54] --- PALC (palm-ci) ---
+[2026-07-31 20:30:54] Scraping des rapports pour 'palm-ci': https://www.brvm.org/fr/rapports-societe-cotes/palm-ci
+[2026-07-31 20:30:56] 20 rapport(s) trouvé(s) pour 'palm-ci'
+[2026-07-31 20:30:59] Téléchargé: 20260429_-_rapport_dactivites_-_1er_trimestre_2026_-_palm_ci.pdf
+[2026-07-31 20:31:01] Téléchargé: 20260323_-_etats_financiers_-_exercice_2025_-_palm_ci.pdf
+[2026-07-31 20:31:03] Téléchargé: 20251029_-_rapport_dactivites_-_3eme_trimestre_2025_-_palm_ci.pdf
+[2026-07-31 20:31:05] Téléchargé: 20251016_-_attestation_des_commissaires_aux_comptes_et_rapport_dactivites_-_1er_semestre_2025_-_palm_ci.pdf
+[2026-07-31 20:31:12] Téléchargé: 20250626_-_rapport_annuel_-_exercice_2024_-_palm_ci.pdf
+[2026-07-31 20:31:14] Téléchargé: 20250418_-_rapport_dactivites_-_1er_trimestre_2025_-_palm_ci.pdf
+[2026-07-31 20:31:16] Téléchargé: 20250417_-_etats_financiers_provisoires_valides_par_le_ca_-_exercice_2024_-_palm_ci.pdf
+[2026-07-31 20:31:18] Téléchargé: 20241105_-_rapport_dactivites_-_3eme_trimestre_2024_-_palm_ci.pdf
+[2026-07-31 20:31:20] Téléchargé: 20241015_-_rapport_dactivites_certifie_par_les_cacs_-_1er_semestre_2024_-_palm_ci.pdf
+[2026-07-31 20:31:28] Téléchargé: 20240924_-_rapport_rse_-_exercice_2023_-_palm_ci.pdf
+[2026-07-31 20:31:32] Téléchargé: 20231130_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_palm_ci.pdf
+[2026-07-31 20:31:45] Téléchargé: 20231121_-_rapport_rse_-_palm_ci_-_exercice_2022.pdf
+[2026-07-31 20:31:47] Échec extraction: PALM CÔTE D'IVOIRE : États financiers exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:31:47] Échec extraction: PALM CÔTE D'IVOIRE : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:31:49] Téléchargé: 20221031_-_rapport_dactivite_-_3eme_trimestre_2022_-_palm_ci.pdf
+[2026-07-31 20:31:51] Téléchargé: 20221018_-_attestation_des_commissaires_aux_comptes_et_rapport_dactivites_du_1er_semestre_2022_-_palm_ci.pdf
+[2026-07-31 20:31:51] Échec extraction: PALM CI : Attestation des Commissaires Aux Comptes et rapport d'activités du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:31:53] Téléchargé: 20220426_-_etats_financiers_exercice_2021_-_palm_ci.pdf
+[2026-07-31 20:31:53] Échec extraction: PALM CI : Etats financiers exercice 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:31:56] Téléchargé: 20220426_-_rapport_dactivite_-_1er_trimestre_2022_-_palm_ci.pdf
+[2026-07-31 20:31:56] Échec extraction: PALM CI : Rapport d'activité du 1er trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:31:57] Téléchargé: 20211020_-_rapport_dactivite_au_3eme_trimestre_2021_-_palm_ci.pdf
+[2026-07-31 20:31:57] --- SAFC (safca-ci) ---
+[2026-07-31 20:31:57] Scraping des rapports pour 'safca-ci': https://www.brvm.org/fr/rapports-societe-cotes/safca-ci
+[2026-07-31 20:32:01] 20 rapport(s) trouvé(s) pour 'safca-ci'
+[2026-07-31 20:32:04] Téléchargé: 20260609_-_etats_financiers_-_exercice_2025_-_safca_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:32:05] Téléchargé: 20260602_-_etats_financiers_-_exercice_2025_-_safca_ci.pdf
+[2026-07-31 20:32:07] Téléchargé: 20260511_-_rapport_dactivites_-_1er_trimestre_2026_-_safca_ci.pdf
+[2026-07-31 20:32:09] Téléchargé: 20260423_-_rapport_dactivites_au_4eme_trimestre_2025_-_safca_ci.pdf
+[2026-07-31 20:32:11] Téléchargé: 20250729_-_rapport_dactivites_-_2eme_trimestre_2025_-_safca_ci.pdf
+[2026-07-31 20:32:15] Téléchargé: 20250703_-_etats_finaniers_-_exercice_2024_-_safca_ci.pdf
+[2026-07-31 20:32:15] Échec extraction: SAFCA CÔTE D'IVOIRE : Etats financiers - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:32:17] Téléchargé: 20260703_-_rapport_dactivites_-_4e_trimestre_2024_-_safca_ci.pdf
+[2026-07-31 20:32:19] Téléchargé: 20260703_-_rapport_des_commissaires_aux_comptes_sur_les_etats_financiers_-_exercice_2024-_safca_ci.pdf
+[2026-07-31 20:32:21] Téléchargé: 20250502_-_rapport_dactivites_-_1er_trimestre_2025_-_safca_ci.pdf
