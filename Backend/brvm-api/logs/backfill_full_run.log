@@ -1,0 +1,660 @@
+[2026-07-31 20:13:23] === Backfill rapports BRVM ===
+[2026-07-31 20:13:23] Découverte de l'annuaire des sociétés (rapports)...
+[2026-07-31 20:13:23] Découverte annuaire, page 0: https://www.brvm.org/fr/rapports-societes-cotees
+[2026-07-31 20:13:24] Page 0: 30 entrées, dont 30 nouvelles
+[2026-07-31 20:13:24] Découverte annuaire, page 1: https://www.brvm.org/fr/rapports-societes-cotees?page=1
+[2026-07-31 20:13:26] Page 1: 30 entrées, dont 30 nouvelles
+[2026-07-31 20:13:26] Découverte annuaire, page 2: https://www.brvm.org/fr/rapports-societes-cotees?page=2
+[2026-07-31 20:13:28] Page 2: 15 entrées, dont 15 nouvelles
+[2026-07-31 20:13:28] Découverte annuaire, page 3: https://www.brvm.org/fr/rapports-societes-cotees?page=3
+[2026-07-31 20:13:30] Page 3: 0 entrées, dont 0 nouvelles
+[2026-07-31 20:13:30] 75 sociétés trouvées dans l'annuaire brvm.org
+[2026-07-31 20:13:30] --- À vérifier manuellement (utiliser --set-slug=SYMBOLE:slug) ---
+  BICB   suggestion: coris-bank-international       (42%)
+  ETIT   suggestion: coris-bank-international       (59%)
+  NSBC   suggestion: sicable                        (56%)
+  PRSC   suggestion: tractafric-ci                  (74%)
+  SDCC   suggestion: sodeci                         (80%)
+  SDSC   suggestion: bollore-transport-logistics    (52%)
+  SEMC   suggestion: totalenergies-marketing-sn     (46%)
+  TTLC   suggestion: totalenergies-marketing-sn     (100%)
+  TTLS   suggestion: totalenergies-marketing-sn     (100%)
+[2026-07-31 20:13:30] 38 entreprise(s) avec un slug rattaché, à scraper.
+[2026-07-31 20:13:30] --- ABJC (servair-abidjan-ci) ---
+[2026-07-31 20:13:30] Scraping des rapports pour 'servair-abidjan-ci': https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci
+[2026-07-31 20:13:31] 20 rapport(s) trouvé(s) pour 'servair-abidjan-ci'
+[2026-07-31 20:13:35] Téléchargé: 20260427_-_rapport_dactivites_-_1er_trimestre_2026_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:35] Échec extraction: SERVAIR ABIDJAN CI : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:37] Téléchargé: 20260427_-_etats_financiers_ifrs_-_exercice_2025_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:39] Téléchargé: 20260427_-_etats_financiers_syscohada_-_exercice_2025_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:39] Échec extraction: SERVAIR ABIDJAN CI : Etats financiers SYSCOHADA - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:41] Téléchargé: 20251013_-_attestation_des_commissaires_aux_comptes_sur_le_rapport_dactivites_-_1er_semestre_2025_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:42] Échec extraction: SERVAIR ABIDJAN CÔTE D'IVOIRE : Attestation des Commissaires Aux Comptes sur le rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:44] Téléchargé: 20251013_-_rapport_dactivites_-_1er_semestre_2025_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:44] Échec extraction: SERVAIR ABIDJAN CÔTE D'IVOIRE : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:46] Téléchargé: 20251013_-_rapport_dactivites_-_3eme_trimestre_2025_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:46] Échec extraction: SERVAIR ABIDJAN CÔTE D'IVOIRE : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:49] Téléchargé: 20250430_-_etats_financiers_-_norme_ifrs_-_exercice_2024_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:49] Échec extraction: SERVAIR ABIDJAN CÔTE D'IVOIRE :  Etats financiers - Norme IFRS - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:51] Téléchargé: 20250430_-_etats_financiers_-_norme_syscohada_-_exercice_2024_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:51] Échec extraction: SERVAIR ABIDJAN CÔTE D'IVOIRE : Etats financiers - Norme SYSCOHADA - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:53] Téléchargé: 20250430_-_rapport_dactivites_-_1er_trimestre_2025_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:53] Échec extraction: SERVAIR ABIDJAN CÔTE D'IVOIRE : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:55] Téléchargé: 20241104_-_attestation_des_cacs_sur_le_rapport_dactivites_-_1er_semestre_2024_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:55] Échec extraction: SERVAIR ABIDJAN CI : Attestation des Commissaires Aux Comptes sur le rapport d'activités sur le rapport d'activités - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:57] Téléchargé: 20241031_-_rapport_dactivites_-_3eme_trimestre_2024_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:57] Échec extraction: SERVAIR ABIDJAN CI : Rapport d'activités - 3ème trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:13:59] Téléchargé: 20241031_-_rapport_dactivites_atteste_par_les_cacs_-_1er_semestre_2024_-_servair_abidjan_ci.pdf
+[2026-07-31 20:13:59] Échec extraction: SERVAIR ABIDJAN CI : Rapport d'activités attesté par les Commissaires Aux Comptes - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:14:01] Téléchargé: 20240819_-_etats_financiers_approuves_-_exercice_2023_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:04] Téléchargé: 20240425_-_etats_financiers_provisoires_-_exercice_2023_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:04] Échec extraction: SERVAIR ABIDJAN CI : Etats financiers provisoires - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:14:06] Téléchargé: 20240425_-_rapport_dactivites_-_1er_trimestre_2024_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:08] Téléchargé: 20240103_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2022_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:10] Téléchargé: 20240103_-_rapport_dactivites_-_3eme_trimestre_2023_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:12] Téléchargé: 20231102_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:12] Échec extraction: SERVAIR ABIDJAN CI : Rapport d'activités et Attestation des Commissaires Aux Comptes - 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:14:14] Téléchargé: 20231102_-_rapport_dactivites_-_1er_semestre_2023_-_servair_abidjan_ci.pdf
+[2026-07-31 20:14:14] Échec extraction: SERVAIR ABIDJAN CI : Rapport d'activités - 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:14:16] Téléchargé: 20230721_-_rapport_dactivites_-_1er_semestre_2023_-_servair_abidjan_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:14:16] --- BICC (bici-ci) ---
+[2026-07-31 20:14:16] Scraping des rapports pour 'bici-ci': https://www.brvm.org/fr/rapports-societe-cotes/bici-ci
+[2026-07-31 20:14:18] 20 rapport(s) trouvé(s) pour 'bici-ci'
+[2026-07-31 20:14:21] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_bici_ci.pdf
+[2026-07-31 20:14:25] Téléchargé: 20260417_-_etats_financiers_-_exercice_2025_-_bici_ci.pdf
+[2026-07-31 20:14:28] Téléchargé: 20260417_-_rapport_dactivites_annuel_-_exercice_2025_-_bici_ci.pdf
+[2026-07-31 20:14:30] Téléchargé: 20251029_-_rapport_dactivites_-_3eme_trimestre_2025_-_bici_ci.pdf
+[2026-07-31 20:14:32] Téléchargé: 20251021_-_rapport_dactivites_-_1er_semestre_2025_-_bici_ci.pdf
+[2026-07-31 20:14:34] Téléchargé: 20250430_-_rapport_dactivites_-_1er_trimestre_2025_-_bici_ci.pdf
+[2026-07-31 20:14:37] Téléchargé: 20250328_-_etats_financiers_-_exercice_2024_-_bici_ci.pdf
+[2026-07-31 20:14:37] Échec extraction: BICI CÔTE D'IVOIRE : Etats financiers - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:14:39] Téléchargé: 20241128_-_rapport_dactivites_-_3eme_trimestre_2024_-_bici_ci.pdf
+[2026-07-31 20:14:41] Téléchargé: 20241031_-_rapport_dactivites_-_1er_semestre_2024_-_bici_ci.pdf
+[2026-07-31 20:14:43] Téléchargé: 20240502_-_etats_financiers_-_exercice_2023_-_bici_ci.pdf
+[2026-07-31 20:14:45] Téléchargé: 20240430_-_rapport_dactivites_-_1er_trimestre_2024_-_bicici.pdf
+[2026-07-31 20:14:47] Téléchargé: 20240110_-_rapport_dactivites_-_3eme_trimestre_2023_-_bici_ci.pdf
+[2026-07-31 20:14:49] Téléchargé: 20230728_-_rapport_dactivites_-_1er_semestre_2023_-_bicici.pdf
+[2026-07-31 20:14:51] Téléchargé: bilan_et_compte_de_resultat_bicici_31_12_2022_.pdf
+[2026-07-31 20:14:53] Téléchargé: 20221018_-_rapport_dactivite_-_3eme_trimestre_2022_-_bicici.pdf
+[2026-07-31 20:14:55] Téléchargé: 20221018_-_rapport_dactivite_-_3eme_trimestre_2022_-_bicici_0.pdf
+[2026-07-31 20:14:58] Téléchargé: 20220907_-_rapport_dactivite_-_1er_semestre_2022_-_bicici.pdf
+[2026-07-31 20:14:58] Échec extraction: BICICI: Rapport d'activité - 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:00] Téléchargé: 20220729_-_rapport_dactivite_-_2eme_trimestre_2022_-_bicici.pdf
+[2026-07-31 20:15:00] Échec extraction: BICICI : Rapport d'activité du 2ème trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:02] Téléchargé: 20220426_-_rapport_dactivite_-_1er_trimestre_2022_-_bici_ci.pdf
+[2026-07-31 20:15:04] Téléchargé: 20220406_-_etats_financiers_exercice_2021_-_bicici.pdf
+[2026-07-31 20:15:04] --- BNBC (bernabe-ci) ---
+[2026-07-31 20:15:04] Scraping des rapports pour 'bernabe-ci': https://www.brvm.org/fr/rapports-societe-cotes/bernabe-ci
+[2026-07-31 20:15:07] 20 rapport(s) trouvé(s) pour 'bernabe-ci'
+[2026-07-31 20:15:10] Téléchargé: 20260430_-_etats_financiers_-_exercice_2025_-_bernabe_ci.pdf
+[2026-07-31 20:15:12] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_bernabe_ci.pdf
+[2026-07-31 20:15:14] Téléchargé: 20251031_-_rapport_dactivites_-_3eme_trimestre_2025_-_bernabe_ci.pdf
+[2026-07-31 20:15:16] Téléchargé: 20251031_-_rapport_dactivites_-_1er_semestre_2025_-_bernabe_ci.pdf
+[2026-07-31 20:15:18] Téléchargé: 20250502_-_rapport_dactivites_-_1er_trimestre_2025_-_bernabe_ci.pdf
+[2026-07-31 20:15:19] Téléchargé: 20250430_-_etats_financiers_-_exercice_2024_-_bernabe_ci.pdf
+[2026-07-31 20:15:21] Téléchargé: 20241120_-_rapport_dactivites_-_3eme_trimestre_2024_-_bernabe_ci.pdf
+[2026-07-31 20:15:23] Téléchargé: 20241120_-_attestation_des_cacs_sur_le_rapport_dactivites_-_1er_semestre_2024_-_bernabe_ci.pdf
+[2026-07-31 20:15:25] Téléchargé: 20241120_-_rapport_dactivites_-_1er_semestre_2024_-_bernabe_ci.pdf
+[2026-07-31 20:15:27] Téléchargé: 20240507_-_etats_financiers_de_synthese_-_bernabe_ci.pdf
+[2026-07-31 20:15:29] Téléchargé: 20240502_-_rapport_dactivites_-_1er_trimestre_2024_-_bernabe_ci.pdf
+[2026-07-31 20:15:31] Téléchargé: 20231102_-_attestation_des_cac_sur_le_rapport_dactivites_du_1er_semestre_2023_-_bernabe_ci.pdf
+[2026-07-31 20:15:31] Échec extraction: BERNABE CÔTE D'IVOIRE : Attestation des Commissaires Aux Comptes sur le Rapport d'activités du 1er semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:33] Téléchargé: 20231027_-_rapport_dactivites_-_3eme_trimestre_2023_-_bernabe_ci.pdf
+[2026-07-31 20:15:34] Téléchargé: 20230801_-_etats_financiers_certifies_et_approuves_-_exercice_2022_-_bernabe_ci.pdf
+[2026-07-31 20:15:36] Téléchargé: 20230428_-_rapport_dactivite_-_1er_trimestre_2023_-_bernabe_ci.pdf
+[2026-07-31 20:15:38] Téléchargé: 20230425_-_etats_financiers_exercice_2022_-_bernabe_ci.pdf
+[2026-07-31 20:15:40] Téléchargé: 20221215_-_rapport_dactivite_-_3eme_trimestre_2022_-_bernabe_ci.pdf
+[2026-07-31 20:15:42] Téléchargé: 20220926_-_rapport_dactivite_du_1er_semestre_2022_-_bernabe_ci.pdf
+[2026-07-31 20:15:44] Téléchargé: 20220503_-_etats_financiers_exercice_2021_-_bernabe_ci.pdf
+[2026-07-31 20:15:46] Téléchargé: 20220503_-_rapport_dactivite_-_1er_trimestre_2022_-_bernabe_ci.pdf
+[2026-07-31 20:15:46] --- BOAB (bank-africa-bn) ---
+[2026-07-31 20:15:46] Scraping des rapports pour 'bank-africa-bn': https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn
+[2026-07-31 20:15:48] 20 rapport(s) trouvé(s) pour 'bank-africa-bn'
+[2026-07-31 20:15:51] Téléchargé: 20260723_-_rapport_dactivites_-_1er_semestre_2026_-_boa_bn.pdf
+[2026-07-31 20:15:51] Échec extraction: BOA BN : Rapport d'activités - 1er semestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:53] Téléchargé: 20260504_-_rapport_dactivites_-_1er_trimestre_2026_-_boa_benin.pdf
+[2026-07-31 20:15:53] Échec extraction: BOA BENIN : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:55] Téléchargé: 20260415_-_etats_financiers_-_exercice_2025_-_boa_bn.pdf
+[2026-07-31 20:15:55] Échec extraction: BOA BN : Etats financiers - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:57] Téléchargé: 20251205_-_rapport_dactivites_-_3eme_trimestre_2025_-_boa_bn.pdf
+[2026-07-31 20:15:57] Échec extraction: BOA BENIN : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:15:59] Téléchargé: 20251029_-_rapport_dactivites_-_1er_semestre_2025_-_boa_bn.pdf
+[2026-07-31 20:15:59] Échec extraction: BOA BN  : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:01] Téléchargé: 20250512_-_rapport_dactivites_-_1er_trimestre_2025_-_boa_benin.pdf
+[2026-07-31 20:16:01] Échec extraction: BOA BENIN : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:03] Téléchargé: 20250422_-_etats_financiers_certifies_par_les_commissaires_aux_comptes_-_exercice_2024_-_boa_benin.pdf
+[2026-07-31 20:16:04] Échec extraction: BOA BENIN : Etats financiers certifiés par les Commissaires Aux Comptes - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:05] Téléchargé: 20241203_-_rapport_dactivites_-_3eme_trimestre_2024_-_boa_bn.pdf
+[2026-07-31 20:16:05] Échec extraction: BOA BENIN : Rapport d'activités - 3ème trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:07] Téléchargé: 20241125_-_rapport_dactivites_certifie_par_les_cacs_-_1er_semestre_2024_-_boa_bn.pdf
+[2026-07-31 20:16:07] Échec extraction: BOA BENIN : Rapport d'activités certifié par les Commissaires Aux Comptes - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:09] Téléchargé: 20240612_-_rapport_dactivites_-_1er_trimestre_2024_-_boa_benin.pdf
+[2026-07-31 20:16:09] Échec extraction: BOA BENIN  : Rapport d'activités du1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:11] Téléchargé: 20240403_-_etats_financiers_-_exercice_2023_-_boa_benin.pdf
+[2026-07-31 20:16:13] Téléchargé: 20231124_-_rapport_dactivites_-_3eme_trimestre_2023_-_boa_bn.pdf
+[2026-07-31 20:16:13] Échec extraction: BOA BN : Rapport d'activités - 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:15] Téléchargé: 20231103_-_rapport_dactivites_-_1er_semestre_2023_-_boa_bn.pdf
+[2026-07-31 20:16:15] Échec extraction: BOA BENIN : Rapport d'activités du 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:17] Téléchargé: 20230503_-_rapport_dactivite_-_1er_trimestre_2023_-_boa_benin.pdf
+[2026-07-31 20:16:17] Échec extraction: BOA BENIN : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:19] Téléchargé: boa_bn_bilan_hors_bilan_et_compte_de_resultat_2022.pdf
+[2026-07-31 20:16:19] Échec extraction: BOA BENIN : Etats financiers 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:21] Téléchargé: 20221028_-_rapport_dactivite_-_3eme_trimestre_2022_-_boa_bn.pdf
+[2026-07-31 20:16:21] Échec extraction: BOA BENIN : Rapport d'activité du 3ème trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:23] Téléchargé: 20221004_-_rapport_dactivite_du_1er_semestre_2022_-_boa_bn.pdf
+[2026-07-31 20:16:23] Échec extraction: BOA BENIN : Rapport d'activités du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:24] Téléchargé: 20220429_-_rapport_dactivite_-_1er_trimestre_2022_-_boa_benin.pdf
+[2026-07-31 20:16:24] Échec extraction: BOA BENIN : Rapport d'activité 1er trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:28] Téléchargé: 20220420_-_rapport_des_commissaires_aux_comptes_sur_les_etats_financiers_annuels_-_boa_benin.pdf
+[2026-07-31 20:16:28] Échec extraction: BOA BENIN : Rapport des Commissaires aux Comptes sur les états financiers annuels 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:30] Téléchargé: 20220420_-_rapport_special_des_commissaires_aux_comptes_sur_les_conventions_reglementees_-_boa_benin.pdf
+[2026-07-31 20:16:30] Échec extraction: BOA BENIN  : Rapport Spécial des Commissaires aux Comptes sur les Conventions Réglementées (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:30] --- BOABF (bank-africa-bf) ---
+[2026-07-31 20:16:30] Scraping des rapports pour 'bank-africa-bf': https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf
+[2026-07-31 20:16:32] 20 rapport(s) trouvé(s) pour 'bank-africa-bf'
+[2026-07-31 20:16:35] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_boa_bf.pdf
+[2026-07-31 20:16:35] Échec extraction: BOA BF : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:37] Téléchargé: 20260323_-_etats_financiers_-_exercice_2025_-_boa_bf.pdf
+[2026-07-31 20:16:37] Échec extraction: BOA BF - Etats financiers - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:39] Téléchargé: 20260323_-_rapport_dactivite_-deuxieme_semestre_2025_-_boa_bf.pdf
+[2026-07-31 20:16:39] Échec extraction: BOA BF - Rapport d'activité -Deuxième semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:41] Téléchargé: 20251031_-_rapport_dactivites_-_3eme_trimestre_2025_-_boa_bf.pdf
+[2026-07-31 20:16:41] Échec extraction: BOA BURKINA FASO : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:44] Téléchargé: 20250922_-_etats_financiers_-_1er_semestre_2025_-_boa_bf_0.pdf
+[2026-07-31 20:16:44] Échec extraction: BOA BURKINA FASO - Etats financiers - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:46] Téléchargé: 20250922_-_rapport_dactivites_-_1er_semestre_2025_-_boa_bf.pdf
+[2026-07-31 20:16:46] Échec extraction: BOA BURKINA FASO : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:48] Téléchargé: 20250429_-_rapport_dactivites_-_1er_trimestre_2025_-_boa_bf.pdf
+[2026-07-31 20:16:48] Échec extraction: BOA BURKINA FASO : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:50] Téléchargé: 20250416_-_etats_financiers_certifies_par_les_commissaires_aux_comptes_-_exercice_2024_-_boa_bf.pdf
+[2026-07-31 20:16:50] Échec extraction: BOA BURKINA FASO : Etats financiers certifiés par les Commissaires Aux Comptes - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:53] Téléchargé: 20250416_-_rapport_dactivites_-_2eme_semestre_2024_-_boa_bf.pdf
+[2026-07-31 20:16:53] Échec extraction: BOA BURKINA FASO : Rapport d'activités - 2ème semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:55] Téléchargé: 20241031_-_rapport_dactivites_-_3eme_trimestre_2024_-_bank_of_africa_bf.pdf
+[2026-07-31 20:16:55] Échec extraction: BANK OF AFRICA BURKINA FASO : Rapport d’activités – 3ème trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:16:57] Téléchargé: 20241024_-_etats_financiers_-_1er_semestre_2024_-_boa_bf.pdf
+[2026-07-31 20:16:57] Échec extraction: BOA BURKINA FASO : Etats financiers - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:00] Téléchargé: 20241024_-_rapport_dactivites_-_1er_semestre_2024_-_boa_bf.pdf
+[2026-07-31 20:17:00] Échec extraction: BOA BURKINA FASO : Rapport d'activités - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:02] Téléchargé: 20240430_-_rapport_dactivites_-_1er_trimestre_2024_-_boa_bf.pdf
+[2026-07-31 20:17:02] Échec extraction: BANK OF AFRICA BF : Rapport d'activités - 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:04] Téléchargé: 20240301_-_etats_financiers_certifies_-_exercice_2023_-_boa_bf.pdf
+[2026-07-31 20:17:04] Échec extraction: BOA BURKINA FASO : Etats financiers certifiés - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:06] Téléchargé: 20240301_-_rapport_dactivites_-_2eme_semestre_2023_-_boa_bf.pdf
+[2026-07-31 20:17:06] Échec extraction: BOA BURKINA FASO : Rapport d'activités du 2ème semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:08] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_boa_bf.pdf
+[2026-07-31 20:17:08] Échec extraction: BANK OF AFRICA BF : Rapport d'activités - 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:11] Téléchargé: 20230817_-_etats_financiers_-_1er_semestre_2023_-_boa_bf.pdf
+[2026-07-31 20:17:11] Échec extraction: BOA BF : Etats financiers - 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:13] Téléchargé: 20230817_-_rapport_dactivites_-_1er_semestre_2023_-_boa_bf.pdf
+[2026-07-31 20:17:13] Échec extraction: BOA BF : Rapport d'activités - 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:15] Téléchargé: rapport_activite_premier_trimestre_2023_brvm_boa_burkina_faso.pdf
+[2026-07-31 20:17:15] Échec extraction: BOA BURKINA FASO : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:17] Téléchargé: 20230223_-_etats_financiers_exercice_2022_-_boa_bf.pdf
+[2026-07-31 20:17:17] Échec extraction: BOA BURKINA FASO : Etats financiers exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:17] --- BOAC (bank-africa-ci) ---
+[2026-07-31 20:17:17] Scraping des rapports pour 'bank-africa-ci': https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-ci
+[2026-07-31 20:17:19] 20 rapport(s) trouvé(s) pour 'bank-africa-ci'
+[2026-07-31 20:17:23] Téléchargé: 20260612_-_rapport_des_commissaires_aux_comptes_et_etats_financiers_annuels_-_exercice_2025_-_boa_ci.pdf
+[2026-07-31 20:17:23] Échec extraction: BOA CI : Rapport des Commissaires Aux Comptes et Etats Financiers annuels - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:25] Téléchargé: 20260601_-_rapport_dactivites_-_1er_trimestre_2026_-_boa_ci.pdf
+[2026-07-31 20:17:25] Échec extraction: BOA CI : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:27] Téléchargé: 20251201_-_rapport_dactivites_-_3eme_trimestre_2025_-_boa_ci.pdf
+[2026-07-31 20:17:27] Échec extraction: BOA CI : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:30] Téléchargé: 20251106_-_rapport_dactivites_-_1er_semestre_2025_-_boa_ci.pdf
+[2026-07-31 20:17:30] Échec extraction: BOA CÔTE D'IVOIRE : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:32] Téléchargé: 20250516_-_rapport_dactivites_-_1er_trimestre_2025_-_boa_ci.pdf
+[2026-07-31 20:17:34] Téléchargé: 20241120_-_rapport_dactivites_-_3eme_trimestre_2024_-_boa_ci.pdf
+[2026-07-31 20:17:37] Téléchargé: 20241016_-_rapport_dactivites_-_1er_semestre_2024_-_boa_ci.pdf
+[2026-07-31 20:17:40] Téléchargé: 20240514_-_rapport_dactivites_-_1er_trimestre_2024_-_boa_ci.pdf
+[2026-07-31 20:17:43] Téléchargé: 20240314_-_etats_financiers_-_exercice_2023_-_boa_ci.pdf
+[2026-07-31 20:17:46] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_boa_ci.pdf
+[2026-07-31 20:17:46] Échec extraction: BANK OF AFRICA CI : Rapport d'activités - 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:50] Téléchargé: 20231010_-_rapport_dactivites_-_1er_semestre_2023_-_boa_ci.pdf
+[2026-07-31 20:17:50] Échec extraction: BOA CÔTE D'IVOIRE : Rapport d'activités du 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:17:52] Téléchargé: 20230427_-_rapport_dactivite_-_1er_trimestre_2023_-_boa_ci.pdf
+[2026-07-31 20:18:01] Téléchargé: 20230405_-_etats_financiers_exercice_2022_-_boa_ci.pdf
+[2026-07-31 20:18:01] Échec extraction: BOA CI : Etats financiers exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:03] Téléchargé: 20221107_-_rapport_dactivite_-_3eme_trimestre_2022_-_boa_ci.pdf
+[2026-07-31 20:18:05] Téléchargé: 20221027_-_etats_financiers_-_1er_semestre_2022_-_boa_ci.pdf
+[2026-07-31 20:18:07] Téléchargé: 20221027_-_etats_financiers_certifies_-_1er_semestre_2022_-_boa_ci_0.pdf
+[2026-07-31 20:18:10] Téléchargé: 1er_semestre_final_-_boa_ci.pdf
+[2026-07-31 20:18:10] Échec extraction: BOA CI: Rapport d'activités du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:12] Téléchargé: 20220429_-_rapport_dactivite_-_1er_trimestre_2022_-_boa_ci.pdf
+[2026-07-31 20:18:12] Échec extraction: BOA CÔTE D'IVOIRE : Rapport d'activité 1er trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:14] Téléchargé: 20211102_-_rapport_dactivite_au_3eme_trimestre_2021_-_boa_ci.pdf
+[2026-07-31 20:18:14] Échec extraction: BOA CI : Rapport d'activité au 3ème trimestre 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:14] --- BOAM (bank-africa-ml) ---
+[2026-07-31 20:18:14] Scraping des rapports pour 'bank-africa-ml': https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-ml
+[2026-07-31 20:18:16] 20 rapport(s) trouvé(s) pour 'bank-africa-ml'
+[2026-07-31 20:18:19] Téléchargé: 20260623_-_rapport_dactivites_-_1er_trimestre_2026_-_boa_mali.pdf
+[2026-07-31 20:18:20] Échec extraction: BOA MALI  : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:22] Téléchargé: 20260324_-_etats_financiers_-_exercice_2025_-_boa_ml.pdf
+[2026-07-31 20:18:22] Échec extraction: BOA ML : Etats financiers - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:27] Téléchargé: 20251110_-_rapport_dactivites_-_3eme_trimestre_2025_-_boa_ml.pdf
+[2026-07-31 20:18:27] Échec extraction: BOA MALI : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:30] Téléchargé: 20250919_-_rapport_dactivites_-_1er_semestre_2025_-_boa_ml.pdf
+[2026-07-31 20:18:32] Téléchargé: 20250603_-_rapport_dactivites_-_1er_trimestre_2025_-_boa_mali.pdf
+[2026-07-31 20:18:32] Échec extraction: BOA MALI : Rapport d'activités au 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:34] Téléchargé: 20250319_-_etats_financiers_certifies_par_les_cacs_-_exercice_2024_-_boa_mali.pdf
+[2026-07-31 20:18:34] Échec extraction: BOA MALI : Etats financiers certifiés par les Commissaires Aux Comptes - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:37] Téléchargé: 20250319_-_etats_financiers_certifies_par_les_cacs_-_exercice_2024_-_boa_mali_0.pdf
+[2026-07-31 20:18:37] Échec extraction: BOA MALI: Financial statements certified by the Statutory Auditors of 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:39] Téléchargé: 20241002_-_rapport_dactivites_-_1er_semestre_2024_-_boa_mali.pdf
+[2026-07-31 20:18:42] Téléchargé: 20240725_-_etats_financiers_certifies_par_les_cacs_-_exercice_2023_-_boa_mali.pdf
+[2026-07-31 20:18:42] Échec extraction: BOA MALI : Etats financiers certifiés par les Commissaires Aux Comptes - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:44] Téléchargé: 20240605_-_rapport_dactivites_-_1er_trimestre_2024_-_boa_mali.pdf
+[2026-07-31 20:18:47] Téléchargé: 20240405_-_etats_financiers_-_exercice_2023_-_boa_mali.pdf
+[2026-07-31 20:18:47] Échec extraction: BOA MALI : Etats financiers - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:49] Téléchargé: 20240321_-_rapport_dactivites_-_4eme_trimestre_2023_-_boa_mali.pdf
+[2026-07-31 20:18:49] Échec extraction: BOA MALI : Rapport d'activités du 4ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:51] Téléchargé: 20231026_-_rapport_dactivites_-_3eme_trimestre_2023_-_boa_mali.pdf
+[2026-07-31 20:18:53] Téléchargé: 20230928_-_attestation_des_cac_sur_le_rapport_dactivites_du_1er_semestre_2023_-_boa_ml.pdf
+[2026-07-31 20:18:53] Échec extraction: BOA MALI : Attestation des Commissaires Aux Compte sur le Rapport d'activités du 1er semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:55] Téléchargé: 20230928_-_rapport_dactivites_-_1er_semestre_2023_-_boa_ml.pdf
+[2026-07-31 20:18:55] Échec extraction: BOA MALI : Rapport d'activités du 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:18:59] Téléchargé: 20230928_-_etats_financiers_-_1er_semestre_2023_-_boa_ml.pdf
+[2026-07-31 20:19:01] Téléchargé: 20230428_-_rapport_dactivite_-_1er_trimestre_2023_-_boa_mali.pdf
+[2026-07-31 20:19:01] Échec extraction: BOA MALI : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:03] Téléchargé: 20230404_-_rapport_dactivite_4eme_trimestre_2022_-_boa_mali.pdf
+[2026-07-31 20:19:03] Échec extraction: BOA MALI : Rapport d'activité 4ème trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:05] Téléchargé: etats_financiers_certifies_2022_boa-mali.pdf
+[2026-07-31 20:19:05] Échec extraction: BOA MALI : Etats financiers certifiés 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:08] Téléchargé: 20221027_-_rapport_dactivite_-_3eme_trimestre_2022_-_boa_mali.pdf
+[2026-07-31 20:19:08] --- BOAN (bank-africa-ng) ---
+[2026-07-31 20:19:08] Scraping des rapports pour 'bank-africa-ng': https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-ng
+[2026-07-31 20:19:09] 20 rapport(s) trouvé(s) pour 'bank-africa-ng'
+[2026-07-31 20:19:13] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_boa_ng.pdf
+[2026-07-31 20:19:13] Échec extraction: BOA NG : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:15] Téléchargé: 20260429_-_rapport_dactivites_-_2eme_semestre_2025_-_boa_ng.pdf
+[2026-07-31 20:19:15] Échec extraction: BOA NG : Rapport d'activités - 2ème semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:19] Téléchargé: 20260401_-_rapport_des_commissaires_aux_comptes_sur_les_etats_financiers_annuels_-_exercice_2025_-_boa_ng.pdf
+[2026-07-31 20:19:19] Échec extraction: BOA NG : Rapport des Commissaires Aux Comptes sur les Etats Financiers annuels - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:21] Téléchargé: 20260401_-_rapport_des_cac_sur_les_conventions_reglementees_et_les_credits_accordes_aux_dirigeants_de_la_banque_-_exercice_2025_-_boa_ng.pdf
+[2026-07-31 20:19:21] Échec extraction: BOA NG : Rapport des Commissaires Aux Comptes sur les Conventions règlementées et les crédits accordés aux dirigeants de la banque - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:24] Téléchargé: 20260324_-_rapport_du_conseil_dadministration_a_lassemblee_generale_ordinaire_des_actionnaires_-_exercice_2025_-_boa_ng_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:19:27] Téléchargé: 20260318_-_rapport_du_ca_a_lago_-_exercice_2025_-_boa_ng.pdf
+[2026-07-31 20:19:29] Téléchargé: 20251106_-_rapport_dactivites_-_3eme_trimestre_2025_-_boa_ng.pdf
+[2026-07-31 20:19:29] Échec extraction: BOA NIGER : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:31] Téléchargé: 20251002_-_attestation_des_commissaires_aux_comptes_sur_le_rapport_dactivites_-_1er_semestre_2025_-_boa_niger.pdf
+[2026-07-31 20:19:31] Échec extraction: BOA NIGER : Attestation des Commissaires Aux Comptes sur le rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:33] Téléchargé: 20251002_-_rapport_dactivites_-_1er_semestre_2025_-_boa_niger_0.pdf
+[2026-07-31 20:19:33] Échec extraction: BOA NIGER : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:35] Téléchargé: 20250429_-_rapport_dactivites_-_1er_trimestre_2025_-_boa_ng.pdf
+[2026-07-31 20:19:35] Échec extraction: BOA NIGER : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:37] Téléchargé: 20250319_-_rapport_du_ca_a_lassemblee_generale_ordinaire_-_exercice_2024_-_boa_niger.pdf
+[2026-07-31 20:19:39] Téléchargé: 20241105_-_rapport_dactivites_-_3eme_trimestre_2024_-_boa_niger.pdf
+[2026-07-31 20:19:39] Échec extraction: BOA NIGER : Rapport d'activités - 3ème trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:42] Téléchargé: 20241024_-_attestation_des_cacs_sur_le_rapport_dactivites_du_1er_semestre_2024_-_boa_niger.pdf
+[2026-07-31 20:19:42] Échec extraction: BOA NIGER : Attestation des Commissaires Aux Comptes sur le rapport d'activités du 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:44] Téléchargé: 20240502_-_rapport_dactivites_-_1er_trimestre_2024_-_boa_niger.pdf
+[2026-07-31 20:19:44] Échec extraction: BOA NIGER : Rapport d'activités - 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:47] Téléchargé: 20240325_-_etats_financiers_-_exercice_2023_-_boa_niger.pdf
+[2026-07-31 20:19:47] Échec extraction: BOA NIGER : Etats financiers - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:49] Téléchargé: 20240306_-_rapport_dactivites_-_2eme_semestre_2023_-_boa_niger.pdf
+[2026-07-31 20:19:49] Échec extraction: BOA NIGER : Rapport d'activités du 2ème semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:52] Téléchargé: 20231130_-_rapport_dactivites_-_3eme_trimestre_2023_-_boa_niger.pdf
+[2026-07-31 20:19:52] Échec extraction: BOA NIGER : Rapport d'activités - 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:54] Téléchargé: 20230503_-_rapport_dactivite_-_1er_trimestre_2023_-_boa_niger.pdf
+[2026-07-31 20:19:54] Échec extraction: BOA NIGER : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:56] Téléchargé: boa-niger_etats_financiers_2022.pdf
+[2026-07-31 20:19:56] Échec extraction: BOA NIGER : Etats financiers 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:59] Téléchargé: 20221207_-_attestation_des_commissaires_aux_comptes_et_rapport_dactivites_-_1er_semestre_2022_-_boa_niger.pdf
+[2026-07-31 20:19:59] Échec extraction: BOA NIGER : Attestation des Commissaires aux Comptes et Rapport d'activités du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:19:59] --- BOAS (bank-africa-sn) ---
+[2026-07-31 20:19:59] Scraping des rapports pour 'bank-africa-sn': https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-sn
+[2026-07-31 20:20:01] 20 rapport(s) trouvé(s) pour 'bank-africa-sn'
+[2026-07-31 20:20:04] Téléchargé: 20260422_-_etats_financiers_-_1er_trimestre_2026_-_boa_sn.pdf
+[2026-07-31 20:20:04] Échec extraction: BOA SN : Etats Financiers - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:06] Téléchargé: 20260422_-_rapport_dactivites_-_1er_trimestre_2026_-_boa_sn.pdf
+[2026-07-31 20:20:06] Échec extraction: BOA SN : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:08] Téléchargé: 20260317_-_etats_financiers_-_exercice_2025_-_boa_sn.pdf
+[2026-07-31 20:20:08] Échec extraction: BOA SN : Etats financiers - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:10] Téléchargé: 20251117_-_rapport_dactivites_-_3eme_trimestre_2025_-_boa_sn.pdf
+[2026-07-31 20:20:10] Échec extraction: BOA SN : Rapport d'activités – 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:13] Téléchargé: 20250918_-_rapport_dactivites_-_1er_semestre_2025_-_boa_sn.pdf
+[2026-07-31 20:20:13] Échec extraction: BOA SENEGAL : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:15] Téléchargé: 20250623_-_rapport_dactivites_-_1er_trimestre_2025_-_boa_sn.pdf
+[2026-07-31 20:20:15] Échec extraction: BOA SENEGAL : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:24] Téléchargé: 20250505_-_rapport_dactivites_-_4eme_trimestre_2025_-_boa_sn.pdf
+[2026-07-31 20:20:24] Échec extraction: BANK OF AFRICA SENEGAL : Rapport d'activités du 4ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:30] Téléchargé: 20250319_-_etats_financiers_certifies_par_les_cacs_-_exercice_2024_-_boa_senegal.pdf
+[2026-07-31 20:20:30] Échec extraction: BOA SENEGAL : Etats financiers certifiés par les Commissaires Aux Comptes - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:33] Téléchargé: 20241121_-_rapport_dactivites_-_1er_semestre_-_boa_sn.pdf
+[2026-07-31 20:20:33] Échec extraction: BOA SENEGAL  : Rapport d'activités – 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:37] Téléchargé: 20240508_-_rapport_dactivites_-_1er_trimestre_2024_-_boa_senegal.pdf
+[2026-07-31 20:20:37] Échec extraction: BOA SENEGAL : Rapport d'activités du 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:40] Téléchargé: 20240403_-_etats_financiers_certifies_-_exercice_2023_-_boa_senegal.pdf
+[2026-07-31 20:20:40] Échec extraction: BOA SENEGAL : Etats financiers certifiés - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:43] Téléchargé: 20231122_-_rapport_dactivites_-_3eme_trimestre_2023_-_boa_sn.pdf
+[2026-07-31 20:20:43] Échec extraction: BOA SENEGAL : Rapport d'activités du 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:46] Téléchargé: 20230918_-_rapport_dactivites_du_1er_semestre_2023_-_boa_sn.pdf
+[2026-07-31 20:20:46] Échec extraction: BOA SENEGAL : Rapport d’activités du 1er semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:50] Téléchargé: 20230918_-_rapport_dactivites_du_1er_trimestre_2023_-_boa_sn.pdf
+[2026-07-31 20:20:50] Échec extraction: BOA SENEGAL : Rapport d’activités du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:53] Téléchargé: rapport_dactivite_2nd_semestre_2022_-_boa_senegal.pdf
+[2026-07-31 20:20:53] Échec extraction: BOA SENEGAL : Rapport d’activités deuxième semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:57] Téléchargé: 20230310_-_etats_financiers_certifies_2022_-_boa_sn.pdf
+[2026-07-31 20:20:57] Échec extraction: BANK OF AFRICA SENEGAL : Etats financiers certifiés exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:20:57] Échec extraction: BOA SENEGAL : Rapport d'activité 3e trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:21:00] Téléchargé: 20221116_-_rapport_dactivite_-_1er_semestre_2022_-_boa_senegal.pdf
+[2026-07-31 20:21:00] Échec extraction: BOA SENEGAL : Rapport d'activité du 1er Semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:21:02] Téléchargé: 20220429_-_rapport_dactivite_-_1er_trimestre_2022_-_boa_senegal.pdf
+[2026-07-31 20:21:02] Échec extraction: BOA SENEGAL : Rapport d'activité 1er trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:21:04] Téléchargé: 20220429_-_rapport_dactivite_-_2nd_semestre_2021_-_boa_senegal.pdf
+[2026-07-31 20:21:04] Échec extraction: BOA SENEGAL : Rapport d'activité 2ème semestre 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:21:04] --- CABC (sicable) ---
+[2026-07-31 20:21:04] Scraping des rapports pour 'sicable': https://www.brvm.org/fr/rapports-societe-cotes/sicable
+[2026-07-31 20:21:06] 20 rapport(s) trouvé(s) pour 'sicable'
+[2026-07-31 20:21:09] Téléchargé: 20260420_-_rapport_dactivites_-_1er_trimestre_2026_-_sicable_ci.pdf
+[2026-07-31 20:21:11] Téléchargé: 20260311_-_etats_financiers_ifrs_-_exercice_2025_-_sicable_ci.pdf
+[2026-07-31 20:21:13] Téléchargé: 20260310_-_etats_financiers_syscohada_-_exercice_2025_-_sicable_ci.pdf
+[2026-07-31 20:21:15] Téléchargé: 20251030_-_rapport_dactivites_-_1er_semestre_2025_-_sicable_ci.pdf
+[2026-07-31 20:21:18] Téléchargé: 20251030_-_rapport_dactivites_-_3eme_trimestre_2025_-_sicable_ci.pdf
+[2026-07-31 20:21:19] Téléchargé: 20250903_-_etats_financiers_-_exercice_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:22] Téléchargé: 20250903_-_rapport_des_commissaires_aux_comptes_-_exercice_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:24] Téléchargé: 20250515_-_rapport_dactivites_-_1er_trimestre_2025_-_sicable_ci.pdf
+[2026-07-31 20:21:24] Échec extraction: SICABLE CÔTE D'IVOIRE : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:21:26] Téléchargé: 20250314_-_rapport_des_cacs_sur_les_etats_financiers_-_exercice_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:28] Téléchargé: 20250314_-_rapport_special_des_cacs_sur_les_conventions_reglementees_-_exercice_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:28] Échec extraction: SICABLE CÔTE D'IVOIRE : Rapport spécial des Commissaires Aux Comptes sur les conventions réglementées - Exercice 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:30] Téléchargé: 20250313_-_etats_financiers_verifies_par_les_cacs_-_exercice_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:30] Échec extraction: SICABLE CÔTE D'IVOIRE : Etats financiers non approuvés par l'AG et vérifiés par les Commissaires Aux Comptes - Exercice 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:31] Téléchargé: 20241106_-_attestation_des_cacs_sur_le_rapport_dactivites_-_1er_semestre_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:31] Échec extraction: SICABLE CI : Attestation des Commissaires Aux Comptes sur le rapport d'activités - 1er semestre 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:33] Téléchargé: 20241030_-_rapport_dactivites_-_1er_semestre_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:33] Échec extraction: SICABLE CI : Rapport d'activités - 1er semestre 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:35] Téléchargé: 20241030_-_rapport_dactivites_-_3eme_trimestre_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:35] Échec extraction: SICABLE CI : Rapport d'activités - 3ème trimestre 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:37] Téléchargé: 20240426_-_rapport_dactivites_-_1er_trimestre_2024_-_sicable_ci.pdf
+[2026-07-31 20:21:37] Échec extraction: SICABLE CI : Rapport d'activités - 1er trimestre 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:40] Téléchargé: 20240319_-_rapport_annuel_-_exercice_2023_-_sicable_ci.pdf
+[2026-07-31 20:21:41] Téléchargé: 20231030_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_sicable_ci.pdf
+[2026-07-31 20:21:42] Échec extraction: SICABLE CI : Rapport d'activités et Attestation des Commissaires Aux Comptes - 1er Semestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:43] Téléchargé: 20231030_-_rapport_dactivites_-_1er_semestre_2023_-_sicable_ci.pdf
+[2026-07-31 20:21:43] Échec extraction: SICABLE CI : Rapport d'activités - 1er Semestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:45] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_sicable_ci.pdf
+[2026-07-31 20:21:45] Échec extraction: SICABLE CI : Rapport d'activités - 3ème trimestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:21:45] --- CBIBF (coris-bank-international) ---
+[2026-07-31 20:21:45] Scraping des rapports pour 'coris-bank-international': https://www.brvm.org/fr/rapports-societe-cotes/coris-bank-international
+[2026-07-31 20:21:49] 18 rapport(s) trouvé(s) pour 'coris-bank-international'
+[2026-07-31 20:21:59] Téléchargé: 20260707_-_etats_financiers_-_exercice_2025_-_coris_bank_international_bf.pdf
+[2026-07-31 20:21:59] Échec extraction: CORIS BANK INTERNATIONAL BF : Etats financiers - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:02] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:02] Échec extraction: CORIS BANK INTERNATIONAL BF : Rapport d'activités - 1er trimestre 2026 (pdftotext a échoué (code 1): Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Couldn't read xref table)
+[2026-07-31 20:22:04] Téléchargé: 20260423_-_rapport_dactivites_annuel_-_exercice_2025_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:04] Échec extraction: CORIS BANK INTERNATIONAL BF : Rapport d'activités annuel - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:07] Téléchargé: 20251030_-_rapport_dactivites_-_3eme_trimestre_2025_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:07] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FASO : Rapport d'activités - 3ème trimestre 2025 (pdftotext a échoué (code 1): Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Couldn't read xref table)
+[2026-07-31 20:22:10] Téléchargé: 20250825_-_rapport_dactivites_-_1er_semestre_2025_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:10] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FASO : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:12] Téléchargé: 20250430_-_rapport_dactivites_-_1er_trimestre_2025_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:12] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FSAO : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:15] Téléchargé: 20250430_-_rapport_dactivites_annuel_-_exercice_2024_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:15] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FASO : Rapport d'activités annuel - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:17] Téléchargé: 20241031_-_rapport_dactivites_-_3eme_trimestre_2024_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:17] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FASO : Rapport d’activités – 3ème trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:19] Téléchargé: 20240820_-_rapport_dactivites_-_1er_semestre_2024_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:22] Téléchargé: 20240820_-_rapport_dactivites_-_1er_semestre_2024_-_coris_bank_international_bf_0.pdf
+[2026-07-31 20:22:24] Téléchargé: 20240502_-_rapport_dactivites_-_1er_trimestre_2024_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:24] Échec extraction: CORIS BANK INTERNATIONAL BF : Rapport d'activités - 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:28] Téléchargé: 20240430_-_rapport_dactivite_annuel_-_exercice_2023_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:28] Échec extraction: CORIS BANK INTERNATIONAL BF : Rapport d'activités annuel - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:30] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_cbibf.pdf
+[2026-07-31 20:22:30] Échec extraction: CORIS Bank International BF : Rapport d'activités - 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:33] Téléchargé: 20230830_-_rapport_dactivites_-_1er_semestre_2023_-_coris_bank_international.pdf
+[2026-07-31 20:22:33] Échec extraction: CORIS BANK INTERNATIONAL : Rapport d'activités - 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:36] Téléchargé: rapport_dactivites_du_1er_trimestre_2023_-_cbibf.pdf
+[2026-07-31 20:22:37] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FASO : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:41] Téléchargé: 20230427_-_rapport_dactivites_exercice_2022_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:41] Échec extraction: CORIS BANK INTERNATIONAL BURKINA FASO : Rapport d'activités exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:45] Téléchargé: 20230427_-_etats_financiers_exercice_2022_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:51] Téléchargé: 20230427_-_rapport_des_commissaires_aux_comptes_exercice_2022_-_coris_bank_international_bf.pdf
+[2026-07-31 20:22:51] --- CFAC (cfao-motors-ci) ---
+[2026-07-31 20:22:51] Scraping des rapports pour 'cfao-motors-ci': https://www.brvm.org/fr/rapports-societe-cotes/cfao-motors-ci
+[2026-07-31 20:22:54] 20 rapport(s) trouvé(s) pour 'cfao-motors-ci'
+[2026-07-31 20:22:57] Téléchargé: 20260713_-_rapport_annuel_-_exercice_2025_-_cfao_motors_ci.pdf
+[2026-07-31 20:22:57] Échec extraction: CFAO MOTORS CI : Rapport annuel - Exercice 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:22:59] Téléchargé: 20251222_-_rapport_dactivites_-_3eme_trimestre_2025_-_cfao_motors_ci.pdf
+[2026-07-31 20:22:59] Échec extraction: CFAO MOTORS CI : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:02] Téléchargé: 20251030_-_rapport_dactivites_-_1er_semestre_2025_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:02] Échec extraction: CFAO MOTORS CÔTE D'IVOIRE : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:04] Téléchargé: 20250617_-_etats_financiers_-_exercices_2018_a_2023_-_tractafric_motors_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:23:06] Téléchargé: 20250516_-_rapport_dactivites_-_1er_trimestre_2025_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:06] Échec extraction: CFAO MOTORS CÔTE D'IVOIRE : Rapport d'activités du 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:08] Téléchargé: 20250516_-_rapport_dactivites_annuel_-_exercice_2024_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:08] Échec extraction: CFAO MOTORS CÔTE D'IVOIRE : Rapport d'activités annuel - Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:10] Téléchargé: 20241030_-_rapport_dactivites_-_1er_trimestre_2024_-_cfao_motors_ci_1.pdf
+[2026-07-31 20:23:10] Échec extraction: CFAO MOTORS CI : Rapport d'activités - 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:10] Échec extraction: CFAO MOTORS CI : Rapport d'activités - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:12] Téléchargé: 20241030_-_rapport_dactivites_-_1er_trimestre_2024_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:12] Échec extraction: TRACTAFRIC MOTORS CI : Rapport d'activités - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:14] Téléchargé: 20240426_-_rapport_annuel_-_exercice_2023_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:14] Échec extraction: CFAO MOTORS CI : Rapport Annuel - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:16] Téléchargé: 20231114_-_rapport_dactivites_-_1er_semestre_2023_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:17] Échec extraction: CFAO MOTORS CI : Rapport d'activités du 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:19] Téléchargé: 20231114_-_attestation_des_cac_sur_le_rapport_dactivites_du_1er_semestre_2023_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:19] Échec extraction: CFAO MOTORS CI : Attestation des Commissaires Aux Comptes sur le Rapport d'activités du 1er semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:21] Téléchargé: 20230525_-_rapport_dactivite_-_1er_trimestre_2023_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:21] Échec extraction: CFAO MOTORS CI : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:23] Téléchargé: etats_financiers_provisoire_exercice_2022_-_cfao_motors_ci_.pdf
+[2026-07-31 20:23:23] Échec extraction: CFAO MOTORS CI : Etats financiers provisoire exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:26] Téléchargé: rapport_dactivite_2022_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:26] Échec extraction: CFAO MOTORS CI : Rapport d'activité 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:28] Téléchargé: rapport_dactivite_-_3eme_trimestre_2022_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:28] Échec extraction: CFAO MOTORS CI : Rapport d'activité du 3ème  trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:30] Téléchargé: rapport_dactivite_-_3eme_trimestre_2022_-_cfao_motors_ci_0.pdf
+[2026-07-31 20:23:30] Échec extraction: CFAO MOTORS CI : Activty report for 3rd quater of 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:32] Téléchargé: 20221024_-_rapport_dactivite_-_1er_semestre_2022_-_cfao_motors_ci.pdf
+[2026-07-31 20:23:32] Échec extraction: CFAO MOTORS CI : Rapport d'activité du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:35] Téléchargé: 20221024_-_attestation_des_commissaires_aux_comptes_-_1er_semestre_2022_-_cfao_motors_ci_0.pdf
+[2026-07-31 20:23:35] Échec extraction: CFAO MOTORS CI : Attestation des Commissaires Aux Comptes du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:35] --- CIEC (cie-ci) ---
+[2026-07-31 20:23:35] Scraping des rapports pour 'cie-ci': https://www.brvm.org/fr/rapports-societe-cotes/cie-ci
+[2026-07-31 20:23:37] 20 rapport(s) trouvé(s) pour 'cie-ci'
+[2026-07-31 20:23:44] Téléchargé: 20260520_-_etats_financiers_syscohada_et_ifrs_-_exercice_2025_-_cie_ci.pdf
+[2026-07-31 20:23:48] Téléchargé: 20251030_-_rapport_dactivites_-_1er_semestre_2025_-_cie_ci.pdf
+[2026-07-31 20:23:48] Échec extraction: CIE CÔTE D'IVOIRE : Rapport d'activités - 1er semestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:23:52] Téléchargé: 20251030_-_attestation_des_commissaires_aux_comptes_et_rapport_dactivites_-_1er_semestre_2025_-_cie_ci.pdf
+[2026-07-31 20:23:54] Téléchargé: 20250430_-_etats_financiers_-_norme_syscohada_-_exercice_2024_-_cie_ci.pdf
+[2026-07-31 20:24:00] Téléchargé: 20240606_-_etats_financiers_-_exercice_2023_-_cie_ci.pdf
+[2026-07-31 20:24:00] Échec extraction: CIE CI : Etats financiers - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:02] Téléchargé: 20240502_-_etats_financiers_syscohada_-_exercice_2023_-_cie_ci.pdf
+[2026-07-31 20:24:04] Téléchargé: 20240430_-_rapport_dactivites_-_1er_trimestre_2024_-_cie_ci.pdf
+[2026-07-31 20:24:04] Échec extraction: CIE CI : Rapport d'activités - 1er trimestre 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:24:06] Téléchargé: 20240131_-_rapport_dactivites_-_3eme_trimestre_2023_-_cie_ci.pdf
+[2026-07-31 20:24:06] Échec extraction: CIE CI : Rapport d'activités du 3ème trimestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:24:09] Téléchargé: 20231031_-_rapport_dactivites_-_1er_semestre_2023_-_cie_ci.pdf
+[2026-07-31 20:24:09] Échec extraction: CIE CÔTE D'IVOIRE : Rapport d'activités - 1er Semestre 2023 (pdftotext a échoué (code 1): Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Couldn't read xref table)
+[2026-07-31 20:24:11] Téléchargé: 20231031_-_rapport_dactivites_consolide_-_1er_semestre_2023_-_cie_ci.pdf
+[2026-07-31 20:24:11] Échec extraction: CIE CÔTE D'IVOIRE : Rapport d'activités consolidé - 1er Semestre 2023 (pdftotext a échoué (code 1): Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Invalid XRef entry 0 Syntax Error: Missing 'endstream' or incorrect stream length Syntax Error: Couldn't find trailer dictionary Syntax Error: Couldn't read xref table)
+[2026-07-31 20:24:15] Téléchargé: etats_financiers_de_synthese_cie.pdf
+[2026-07-31 20:24:15] Échec extraction: CIE CI : Etats financiers de synthèse exercice 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:17] Téléchargé: 20230427_-_etats_financiers_ifrs_exercice_2022_-_cie_ci.pdf
+[2026-07-31 20:24:18] Téléchargé: 20230427_-_etats_financiers_syscohada_exercice_2022_-_cie_ci.pdf
+[2026-07-31 20:24:20] Téléchargé: 20230427_-_etats_financiers_par_secteur_syscohada_exercice_2022_-_cie_ci.pdf
+[2026-07-31 20:24:24] Téléchargé: 20221031_-_rapport_dactivite_-_1er_semestre_2022_-_cie_ci.pdf
+[2026-07-31 20:24:24] Échec extraction: CIE CÔTE D'IVOIRE : Rapport d'activité du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:26] Téléchargé: 20221031_-_attestation_des_commissaires_aux_comptes_-_1er_semestre_2022_-_cie_ci.pdf
+[2026-07-31 20:24:26] Échec extraction: CIE CÔTE D'IVOIRE : Attestation des Commissaires Aux Comptes du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:28] Téléchargé: 20220603_-_etat_financier_exercice_2021_-_cie.pdf
+[2026-07-31 20:24:28] Échec extraction: CIE CI : Etats financiers Exercice 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:30] Téléchargé: 20220429_-_etats_financiers_syscohada_exercice_2021_-_cie.pdf
+[2026-07-31 20:24:30] --- ECOC (ecobank-ci) ---
+[2026-07-31 20:24:30] Scraping des rapports pour 'ecobank-ci': https://www.brvm.org/fr/rapports-societe-cotes/ecobank-ci
+[2026-07-31 20:24:32] 20 rapport(s) trouvé(s) pour 'ecobank-ci'
+[2026-07-31 20:24:36] Téléchargé: 20260429_-_rapport_dactivites_-_1er_trimestre_2026_-_ecobank_ci.pdf
+[2026-07-31 20:24:39] Téléchargé: 20260414_-_rapport_dactivites_et_etats_financiers_-_exercice_2025_-_ecobank_ci.pdf
+[2026-07-31 20:24:41] Téléchargé: 20251028_-_rapport_dactivites_-_3eme_trimestre_2025_-_ecobank_ci.pdf
+[2026-07-31 20:24:41] Échec extraction: ECOBANK CÔTE D'IVOIRE : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:45] Téléchargé: 20250902_-_rapport_dactivites_-_1er_semestre_2025_-_ecobank_ci.pdf
+[2026-07-31 20:24:47] Téléchargé: 20250425_-_rapport_dactivites_-_1er_trimestre_2025_-_ecobank_ci.pdf
+[2026-07-31 20:24:47] Échec extraction: ECOBANK CI : Rapport d'activités - 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:24:50] Téléchargé: 20250325_-_rapport_dactivites_annuel_-_exercice_2024_-_ecobank_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:24:53] Téléchargé: 20250320_-_rapport_dactivites_annuel_-_exercice_2024_-_ecobank_ci.pdf
+[2026-07-31 20:24:55] Téléchargé: 20241030_-_rapport_dactivites_-_3eme_trimestre_2024_-_ecobank_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:24:57] Téléchargé: 20241030_-_rapport_dactivites_-_3eme_trimestre_2024_-_ecobank_ci.pdf
+[2026-07-31 20:24:59] Téléchargé: 20240430_-_rapport_dactivites_-_1er_trimestre_2024_-_ecobank_ci.pdf
+[2026-07-31 20:25:01] Téléchargé: 20240328_-_resultats_financiers_-_exercice_2023_-_ecobank_ci.pdf
+[2026-07-31 20:25:05] Téléchargé: 20231031_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_ecobank_ci.pdf
+[2026-07-31 20:25:07] Téléchargé: 20231025_-_rapport_dactivites_-_3eme_trimestre_2023_-_ecobank_ci.pdf
+[2026-07-31 20:25:07] Échec extraction: ECOBANK CI : Rapport d'activités du 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:10] Téléchargé: 20230911_-_rapport_dactivites_-_1er_semestre_2023_-_ecobank_ci.pdf
+[2026-07-31 20:25:10] Échec extraction: ECOBANK CÔTE D'IVOIRE : Rapport d'activités du 1er Semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:13] Téléchargé: 20230428_-_rapport_dactivite_-_1er_trimestre_2023_-_ecobank_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:25:13] Échec extraction: ECOBANK CI : Rapport d'activité du 1er trimestre 2023 (Annule et remplace le précédent) (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:15] Téléchargé: 20230427_-_rapport_dactivite_-_1er_trimestre_2023_-_ecobank_ci.pdf
+[2026-07-31 20:25:15] Échec extraction: ECOBANK CI : Rapport d'activité du 1er trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:19] Téléchargé: 20230405_-_etats_financiers_exercice_2022_-_ecobank_ci.pdf
+[2026-07-31 20:25:21] Téléchargé: 20221102_-_rapport_dactivite_-_3eme_trimestre_2022_-_ecobank_ci.pdf
+[2026-07-31 20:25:24] Téléchargé: 20221018_-_attestation_des_commissaires_aux_comptes_et_rapport_dactivites_du_1er_semestre_2022_-_ecobank_ci.pdf
+[2026-07-31 20:25:24] Échec extraction: ECOBANK CI : Attestation des Commissaires Aux Comptes et rapport d'activités du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:24] --- FTSC (filtisac-ci) ---
+[2026-07-31 20:25:24] Scraping des rapports pour 'filtisac-ci': https://www.brvm.org/fr/rapports-societe-cotes/filtisac-ci
+[2026-07-31 20:25:26] 20 rapport(s) trouvé(s) pour 'filtisac-ci'
+[2026-07-31 20:25:29] Téléchargé: 20260610_-_rapport_dactivites_-_1er_trimestre_2026_-_filtisac_ci.pdf
+[2026-07-31 20:25:31] Téléchargé: 20260610_-_etats_financiers_-_exercice_2025_-_filtisac_ci.pdf
+[2026-07-31 20:25:33] Téléchargé: 20251031_-_rapport_dactivites_-_3eme_trimestre_2025_-_filtisac_ci.pdf
+[2026-07-31 20:25:34] Téléchargé: 20251031_-_rapport_dactivites_-_1er_semestre_2025_-_filtisac_ci.pdf
+[2026-07-31 20:25:36] Téléchargé: 20250523_-_etats_financiers_-_exercice_2024_-_filtisac_ci.pdf
+[2026-07-31 20:25:38] Téléchargé: 20250523_-_rapport_dactivites_-_1er_trimestre_2025_-_filtisac_ci.pdf
+[2026-07-31 20:25:40] Téléchargé: 20241031_-_rapport_dactivites_-_3eme_trimestre_2024_-_filtisac_ci.pdf
+[2026-07-31 20:25:42] Téléchargé: 20241031_-_rapport_dactivites_atteste_par_les_cacs_-_1er_semestre_2024_-_filtisac_ci.pdf
+[2026-07-31 20:25:45] Téléchargé: 20240513_-_etats_financiers_-_exercice_2023_-_filtisac_ci.pdf
+[2026-07-31 20:25:45] Échec extraction: FILTISAC CI : Etats financiers - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:47] Téléchargé: 20240513_-_rapport_dactivites_-_1er_trimestre_2024_-_filtisac_ci.pdf
+[2026-07-31 20:25:47] Échec extraction: FILTISAC CI : Rapport d'activités du 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:25:49] Téléchargé: 20231106_-_rapport_dactivites_-_3eme_trimestre_2023_-_filtisac_ci.pdf
+[2026-07-31 20:25:51] Téléchargé: 20231030_-_rapport_dactivites_-_1er_semestre_2023_-_filtisac_ci.pdf
+[2026-07-31 20:25:53] Téléchargé: 20230511_-_etats_financiers_exercice_2022_-_filtisac_ci.pdf
+[2026-07-31 20:25:55] Téléchargé: 20230511-1_-_rapport_dactivite_-_1er_trimestre_2023_-_filtisac_ci.pdf
+[2026-07-31 20:25:57] Téléchargé: 20221104_-_rapport_dactivite_-_3eme_trimestre_2022_-_filtisac_ci.pdf
+[2026-07-31 20:25:59] Téléchargé: 20221011_-_rapport_dactivites_du_1er_semestre_2022_-_filtisac_ci.pdf
+[2026-07-31 20:26:01] Téléchargé: 20220506_-_rapport_dactivite_-_1er_trimestre_2022_-_filtisac_ci.pdf
+[2026-07-31 20:26:01] Échec extraction: FILTISAC CI : Rapport d'activités du 1er trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:26:01] Échec extraction: FILTISAC CI : Etats financiers Exercice 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:26:03] Téléchargé: 20211109_-_attestation_des_commissaires_aux_comptes_-_1er_semestre_2021_-_filtisac_ci.pdf
+[2026-07-31 20:26:03] Échec extraction: FILTISAC CI : Attestation des commissaires aux comptes du 1er semestre 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:26:05] Téléchargé: 20211029_-_rapport_dactivite_au_3eme_trimestre_2021_-_filtisac_ci.pdf
+[2026-07-31 20:26:05] --- LNBB (lnb) ---
+[2026-07-31 20:26:05] Scraping des rapports pour 'lnb': https://www.brvm.org/fr/rapports-societe-cotes/lnb
+[2026-07-31 20:26:07] 6 rapport(s) trouvé(s) pour 'lnb'
+[2026-07-31 20:26:10] Téléchargé: 20260507_-_rapport_dactivites_-_1er_trimestre_2026_-_lnb_bn.pdf
+[2026-07-31 20:26:13] Téléchargé: 20260430_-_etats_financiers_-_exercice_2025_-_lnb_bn.pdf
+[2026-07-31 20:26:15] Téléchargé: 20251027_-_rapport_dactivites_-_3eme_trimestre_2025_-_lnb_bn.pdf
+[2026-07-31 20:26:20] Téléchargé: 20250926_-_rapport_dactivites_-_1er_semestre_2025_-_lnb_bn.pdf
+[2026-07-31 20:26:23] Téléchargé: 20250602_-_etats_financiers_-_exercice_2024_-_lnb_bn.pdf
+[2026-07-31 20:26:26] Téléchargé: 20250602_-_rapport_dactivites_-_1er_trimestre_2025_-_lnb_bn.pdf
+[2026-07-31 20:26:26] --- NEIC (nei-ceda-ci) ---
+[2026-07-31 20:26:26] Scraping des rapports pour 'nei-ceda-ci': https://www.brvm.org/fr/rapports-societe-cotes/nei-ceda-ci
+[2026-07-31 20:26:28] 20 rapport(s) trouvé(s) pour 'nei-ceda-ci'
+[2026-07-31 20:26:31] Téléchargé: 20260423_-_etats_financiers_syscohada_-_exercice_2025_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:34] Téléchargé: 20260423_-_rapport_dactivites_-_1er_trimestre_2026_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:36] Téléchargé: 20251104_-_rapport_dactivites_-_3eme_trimestre_2025_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:38] Téléchargé: 20250613_-_etats_financiers_approuves_-_exercice_2024_-_nei-ceda_ci.pdf
+[2026-07-31 20:26:41] Téléchargé: 20250509_-_rapport_dactivites_-_1er_trimestre_2025_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:43] Téléchargé: 20250409_-_etats_financiers_-_exercice_2024_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:45] Téléchargé: 20241211_-_rapport_dactivites_-_3eme_trimestre_2024_-_nei-ceda_ci.pdf
+[2026-07-31 20:26:47] Téléchargé: 20241029_-_rapport_dactivites_-_1er_semestre_2024_-_nei-ceda_ci.pdf
+[2026-07-31 20:26:49] Téléchargé: 20241029_-_attestation_des_cacs_sur_le_rapport_dactivites_-_1er_semestre_2024_-_nei-ceda_ci.pdf
+[2026-07-31 20:26:49] Échec extraction: NEI-CEDA CI : Attestation des Commissaires Aux Comptes sur le rapport d'activités - 1er semestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:26:52] Téléchargé: 20241015_-_rapport_dactivites_-_1er_trimestre_2024_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:52] Échec extraction: NEI CEDA CI : Rapport d'activités - 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:26:54] Téléchargé: 20240422_-_etats_financiers_syscohada_-_exercice_2023_-_nei_ceda_ci.pdf
+[2026-07-31 20:26:57] Téléchargé: 20231031_-_rapport_dactivites_-_1er_semestre_2023_-_nei-ceda_ci.pdf
+[2026-07-31 20:26:59] Téléchargé: 20231031_-_rapport_dactivites_-_3eme_trimestre_2023_-_nei-ceda_ci.pdf
+[2026-07-31 20:27:02] Téléchargé: 20230512_-_etats_financiers_exercice_2022_-_nei-ceda_ci.pdf
+[2026-07-31 20:27:04] Téléchargé: 20230512_-_rapport_dactivite_-_1er_trimestre_2023_-_nei-ceda_ci_1.pdf
+[2026-07-31 20:27:06] Téléchargé: 20221102_-_rapport_dactivite_-_3eme_trimestre_2022_-_nei_ceda_ci.pdf
+[2026-07-31 20:27:06] Échec extraction: NEI-CEDA CI : Rapport d'activité du 3ème trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:27:08] Téléchargé: 20221031_-_attestation_des_commissaires_aux_comptes_et_rapport_dactivite_-_1er_semestre_2022_-_nei_ceda_ci.pdf
+[2026-07-31 20:27:08] Échec extraction: NEI CEDA CI : Attestation des Commissaires Aux Comptes et rapport d'activité du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:27:10] Téléchargé: 20220429_-_rapport_dactivite_-_1er_trimestre_2022_-_nei-ceda.pdf
+[2026-07-31 20:27:10] Échec extraction: NEI-CEDA : Rapport d'activité 1er trimestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:27:13] Téléchargé: 20220429_-_etats_financiers_exercice_2021_-_nei-ceda_ci.pdf
+[2026-07-31 20:27:16] Téléchargé: 20211109_-_attestation_des_commissaires_aux_comptes_-_1er_semestre_2021_-_nei-ceda_ci.pdf
+[2026-07-31 20:27:16] Échec extraction: NEI-CEDA CI : Attestation des commissaires aux comptes du 1er semestre 2021 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:27:16] --- NTLC (nestle-ci) ---
+[2026-07-31 20:27:16] Scraping des rapports pour 'nestle-ci': https://www.brvm.org/fr/rapports-societe-cotes/nestle-ci
+[2026-07-31 20:27:18] 20 rapport(s) trouvé(s) pour 'nestle-ci'
+[2026-07-31 20:27:21] Téléchargé: 20260430_-_etats_financiers_-_exercice_2025_-_nestle_ci.pdf
+[2026-07-31 20:27:23] Téléchargé: 20251030_-_rapport_dactivites_-_1er_semestre_2025_-_nestle_ci.pdf
+[2026-07-31 20:27:25] Téléchargé: 20251030_-_rapport_dactivites_-_3eme_trimestre_2025_-_nestle_ci.pdf
+[2026-07-31 20:27:28] Téléchargé: 20250505_-_etats_financiers_-_exercice_2024_-_nestle_ci_annule_et_remplace_le_precedent.pdf
+[2026-07-31 20:27:30] Téléchargé: 20250502_-_etats_financiers_-_exercice_2024_-_nestle_ci.pdf
+[2026-07-31 20:27:32] Téléchargé: 20250502_-_rapport_dactivites_-_1er_trimestre_2025_-_nestle_ci.pdf
+[2026-07-31 20:27:34] Téléchargé: 20241122_-_attestation_des_cacs_sur_le_rapport_dactivites_-_1er_semestre_2024_-_nestle_ci.pdf
+[2026-07-31 20:27:36] Téléchargé: 20241029_-_rapport_dactivites_-_3eme_trimestre_2024_-_nestle_ci.pdf
+[2026-07-31 20:27:38] Téléchargé: 20241028_-_rapport_dactivites_-_1er_semestre_2024_-_nestle_ci.pdf
+[2026-07-31 20:27:40] Téléchargé: 20240502_-_rapport_dactivites_-_1er_trimestre_2024_-_nestle_ci.pdf
+[2026-07-31 20:27:40] Échec extraction: NESTLE CI : Rapport d'activités - 1er trimestre 2024 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:27:42] Téléchargé: 20240425_-_etats_financiers_-_exercice_2023_-_nestle_ci.pdf
+[2026-07-31 20:27:42] Échec extraction: NESTLE CI : Etats financiers - Exercice 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:27:44] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_nestle_ci.pdf
+[2026-07-31 20:27:44] Échec extraction: NESTLE CI : Rapport d'activités - 3ème trimestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:27:46] Téléchargé: 20230928_-_rapport_dactivites_-_1er_semestre_2023_-_nestle_ci.pdf
+[2026-07-31 20:27:46] Échec extraction: NESTLE CÔTE D'IVOIRE : Rapport d'activités du 1er Semestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:27:48] Téléchargé: 20230425_-_rapport_dactivite_-_1er_trimestre_2023_-_nestle_ci.pdf
+[2026-07-31 20:27:48] Échec extraction: NESTLE CÔTE D'IVOIRE : Rapport d'activité du 1er trimestre 2023 (pdftotext a échoué (code 1): Syntax Error: Document stream is empty)
+[2026-07-31 20:27:50] Téléchargé: 20230424_-_etats_financiers_exercice_2022_-_nestle_ci.pdf
+[2026-07-31 20:27:52] Téléchargé: 20221121_-_attestation_des_commissaires_aux_comptes_-_1er_semestre_2022_-_nestle_ci.pdf
+[2026-07-31 20:27:52] Échec extraction: NESTLE CI : Attestation des Commissaires Aux Comptes du 1er semestre 2022 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:27:54] Téléchargé: 20221019_-_rapport_dactivite_-_3ieme_trimestre_2022_-_nestle_ci.pdf
+[2026-07-31 20:27:56] Téléchargé: 20220930_-_rapport_dactivite_du_1er_semestre_2022_-_nestle_ci.pdf
+[2026-07-31 20:27:56] --- ONTBF (onatel-bf) ---
+[2026-07-31 20:27:56] Scraping des rapports pour 'onatel-bf': https://www.brvm.org/fr/rapports-societe-cotes/onatel-bf
+[2026-07-31 20:27:58] 20 rapport(s) trouvé(s) pour 'onatel-bf'
+[2026-07-31 20:28:01] Téléchargé: 20260611_-_etats_financiers_approuves_-_exercice_2025_-_onatel_bf.pdf
+[2026-07-31 20:28:05] Téléchargé: 20260611_-_rapport_de_gestion_-_exercice_2025_-_onatel_bf.pdf
+[2026-07-31 20:28:07] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_onatel_bf.pdf
+[2026-07-31 20:28:07] Échec extraction: MOOV BF (ONATEL) : Rapport d'activités - 1er trimestre 2026 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:09] Téléchargé: 20260409_-_etats_financiers_-_exercice_2025_-_onatel_bf.pdf
+[2026-07-31 20:28:12] Téléchargé: 20251029_-_rapport_dactivites_-_3eme_trimestre_2025_-_onatel_bf.pdf
+[2026-07-31 20:28:12] Échec extraction: MOOV BURKINA FASO (EX ONATEL BURKINA FASO) : Rapport d'activités - 3ème trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:17] Téléchargé: 20250903_-_rapport_dactivites_-_1er_semestre_2025_-_onatel_bf.pdf
+[2026-07-31 20:28:21] Téléchargé: 20250718_-_etats_financiers_certifies_et_approuves_exercice_2024_-_onatel_bf.pdf
+[2026-07-31 20:28:26] Téléchargé: 20250718_-_rapport_annuel_de_gestion_-_exercice_2024_-_onatel_bf.pdf
+[2026-07-31 20:28:30] Téléchargé: 20250505_-_etats_financiers_-_exercice_2024_-_onatel_bf.pdf
+[2026-07-31 20:28:33] Téléchargé: 20250502_-_rapport_dactivites_-_1er_trimestre_2025_-_onatel_bf.pdf
+[2026-07-31 20:28:33] Échec extraction: ONATEL BF : Rapport d'activités - 1er trimestre 2025 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:36] Téléchargé: 20241104_-_rapport_dactivites_-_3eme_trimestre_2024_-_onatel_bf.pdf
+[2026-07-31 20:28:36] Échec extraction: MOOV AFRICA (ex ONATEL) BURKINA FASO : Rapport d'activités - 3ème trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:40] Téléchargé: 20240911_-_rapport_dactivites_du_1er_semestre_2024_-_exercice_2024_-_onatel_bf.pdf
+[2026-07-31 20:28:40] Échec extraction: MOOV AFRICA BURKINA FASO (Ex ONATEL BF) : Rapport d’activités du 1er semestre 2024 – Exercice 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:42] Téléchargé: 20240710_-_etats_financiers_approuves_-_exercice_2023_-_onatel_bf.pdf
+[2026-07-31 20:28:49] Téléchargé: 20240710_-_rapport_annuel_-_exercice_2023_-_onatel_bf.pdf
+[2026-07-31 20:28:52] Téléchargé: 20240426_-_rapport_dactivites_-_1er_trimestre_2024_-_onatel_bf.pdf
+[2026-07-31 20:28:52] Échec extraction: ONATEL BF : Rapport d'activités - 1er trimestre 2024 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:54] Téléchargé: 20240419_-_etats_financiers_provisoires_certifies_par_les_cac_-_exercice_2023_-_onatel_bf.pdf
+[2026-07-31 20:28:57] Téléchargé: 20240404_-_resultats_financiers_-_exercice_2023_-_onatel_bf.pdf
+[2026-07-31 20:28:57] Échec extraction: ONATEL BURKINA FASO : Résultats financiers - Exercice 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:28:59] Téléchargé: 20231026_-_rapport_dactivites_-_3eme_trimestre_2023_-_onatel_bf.pdf
+[2026-07-31 20:28:59] Échec extraction: ONATEL BF : Rapport d'activités du 3ème trimestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:29:03] Téléchargé: 20231026_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_onatel_bf.pdf
+[2026-07-31 20:29:03] Échec extraction: ONATEL BF : Rapport d'activités et Attestation des Commissaire Aux Compte sur le Rapport d'activités du 1er semestre 2023 (Aucun texte exploitable extrait (PDF probablement scanné/image, sans couche de texte))
+[2026-07-31 20:29:06] Téléchargé: 20230720_-_etats_financiers_certifies_et_approuves_exercice_2022_-_onatel_bf.pdf
+[2026-07-31 20:29:06] --- ORAC (orange-ci) ---
+[2026-07-31 20:29:06] Scraping des rapports pour 'orange-ci': https://www.brvm.org/fr/rapports-societe-cotes/orange-ci
+[2026-07-31 20:29:07] 20 rapport(s) trouvé(s) pour 'orange-ci'
+[2026-07-31 20:29:10] Téléchargé: 20260608_-_etats_financiers_approuves_-_exercice_2025_-_orange_ci.pdf
+[2026-07-31 20:29:17] Téléchargé: 20260520_-_rapport_annuel_integre_-_exercice_2025_-_orange_ci.pdf
+[2026-07-31 20:29:19] Téléchargé: 20260430_-_rapport_dactivites_-_1er_trimestre_2026_-_orange_ci.pdf
+[2026-07-31 20:29:21] Téléchargé: 20260217_-_etats_financiers_-_exercice_2025_-_orange_ci.pdf
+[2026-07-31 20:29:23] Téléchargé: 20251023_-_attestation_des_cacs_et_rapport_dactivites_-_1er_semestre_2025_-_orange_ci.pdf
+[2026-07-31 20:29:25] Téléchargé: 20251023_-_rapport_dactivites_-1er_semestre_2025_-_orange_ci.pdf
+[2026-07-31 20:29:32] Téléchargé: 20250721_-_rapport_rse_2024_-_orange_ci.pdf
+[2026-07-31 20:29:37] Téléchargé: 20250416_-_rapport_annuel_integre_-_exercice_2024_-_orange_ci.pdf
+[2026-07-31 20:29:40] Téléchargé: 20250411_-_rapport_dactivites_-_1er_trimestre_2025_-_orange_ci.pdf
+[2026-07-31 20:29:42] Téléchargé: 20250221_-_etats_financiers_-_exercice_2024_-_orange_ci.pdf
+[2026-07-31 20:29:44] Téléchargé: 20241028_-_attestation_des_cacs_sur_le_rapport_dactivites_-_1er_semestre_2024_-_orange_ci.pdf
+[2026-07-31 20:29:46] Téléchargé: 20241028_-_rapport_dactivites_-_3eme_trimestre_2024_-_orange_ci.pdf
+[2026-07-31 20:29:48] Téléchargé: 20241025_-_rapport_dactivites_-_1er_semestre_2024_-_orange_ci.pdf
+[2026-07-31 20:29:53] Téléchargé: 20240716_-_rapport_rse_-_exercice_2023_-_orange_ci.pdf
+[2026-07-31 20:29:55] Téléchargé: 20240430_-_rapport_dactivites_-_1er_trimestre_2024_-_orange_ci.pdf
+[2026-07-31 20:30:02] Téléchargé: 20240422_-_rapport_annuel_integre_-_exercice_2023_-_orange_ci.pdf
+[2026-07-31 20:30:04] Téléchargé: 20240221_-_resultats_financiers_consolides_2023_-_orange_ci.pdf
+[2026-07-31 20:30:07] Téléchargé: 20231030_-_rapport_dactivites_et_attestation_des_cac_-_1er_semestre_2023_-_orange_ci.pdf
+[2026-07-31 20:30:09] Téléchargé: 20231030_-_rapport_dactivites_-_3eme_trimestre_2023_-_orange_ci.pdf
+[2026-07-31 20:30:09] --- ORGT (oragroup) ---
+[2026-07-31 20:30:09] Scraping des rapports pour 'oragroup': https://www.brvm.org/fr/rapports-societe-cotes/oragroup
+[2026-07-31 20:30:13] 20 rapport(s) trouvé(s) pour 'oragroup'

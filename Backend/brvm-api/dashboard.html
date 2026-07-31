@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRVM Insights — Tableau de bord</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6; /* bleu - identite */
+    --good:           #0ca30c;
+    --critical:       #d03b3b;
+    --neutral-fill:   #eceae4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --good:           #0ca30c;
+      --critical:       #e66767;
+      --neutral-fill:   #262624;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page:           #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --good:           #0ca30c;
+    --critical:       #e66767;
+    --neutral-fill:   #262624;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body.viz-root {
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+
+  header.top { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  header.top h1 { font-size: 20px; margin: 0; }
+  header.top .sub { color: var(--text-secondary); font-size: 13px; }
+  .sync-bar { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); }
+  button.sync-btn {
+    background: var(--series-1); color: #fff; border: none; border-radius: 6px;
+    padding: 8px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+  }
+  button.sync-btn:disabled { opacity: 0.6; cursor: default; }
+
+  section { margin-bottom: 28px; }
+  h2.section-title { font-size: 14px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); margin: 0 0 10px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .tile {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; }
+  .tile .value { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile .delta { font-size: 13px; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  .delta.up { color: var(--good); }
+  .delta.down { color: var(--critical); }
+  .delta.flat { color: var(--text-muted); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  thead th { text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; padding: 8px 12px; border-bottom: 1px solid var(--gridline); }
+  tbody td { padding: 8px 12px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .two-col { grid-template-columns: 1fr; } }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.up { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .badge.down { color: var(--critical); background: color-mix(in srgb, var(--critical) 14%, transparent); }
+  .badge.flat { color: var(--text-muted); background: var(--neutral-fill); }
+
+  .sector-row { display: grid; grid-template-columns: 180px 1fr 70px; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+  .sector-track { position: relative; height: 16px; background: var(--neutral-fill); border-radius: 3px; }
+  .sector-bar { position: absolute; top: 0; height: 100%; border-radius: 3px; }
+  .sector-bar.up { background: var(--good); left: 50%; }
+  .sector-bar.down { background: var(--critical); right: 50%; }
+  .sector-mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--baseline); }
+
+  .controls-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  select, input[type=text] {
+    background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 13px;
+  }
+
+  .chart-box { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  svg text { fill: var(--text-muted); font-size: 10px; }
+  .price-line { fill: none; stroke: var(--series-1); stroke-width: 2; }
+  .price-area { fill: var(--series-1); opacity: 0.08; }
+  .vol-bar { fill: var(--series-1); opacity: 0.55; }
+  .axis-line { stroke: var(--gridline); stroke-width: 1; }
+
+  .empty { color: var(--text-muted); font-size: 13px; padding: 12px; }
+  .foot-note { color: var(--text-muted); font-size: 12px; margin-top: 30px; line-height: 1.6; }
+</style>
+</head>
+<body class="viz-root">
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <h1>BRVM Insights</h1>
+      <div class="sub">Tableau de bord marché — Bourse Régionale des Valeurs Mobilières</div>
+    </div>
+    <div class="sync-bar">
+      <span id="lastSync">—</span>
+      <button class="sync-btn" id="syncBtn" onclick="runSync()">Synchroniser maintenant</button>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="section-title">Indices</h2>
+    <div class="tiles" id="indicesTiles"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Vue d'ensemble du marché</h2>
+    <div class="tiles" id="overviewTiles"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Top hausses / baisses du jour</h2>
+    <div class="two-col">
+      <div>
+        <table id="gainersTable"><thead><tr><th>Symbole</th><th class="num">Cours</th><th class="num">Var.</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div>
+        <table id="losersTable"><thead><tr><th>Symbole</th><th class="num">Cours</th><th class="num">Var.</th></tr></thead><tbody></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Performance par secteur</h2>
+    <div class="chart-box" id="sectorChart"><div class="empty">Chargement…</div></div>
+  </section>
+
+  <section>
+    <h2 class="section-title">Signaux composites (aide à la décision)</h2>
+    <div class="empty" style="padding:0 0 10px;">Score -2 (vente forte) à +2 (achat fort), basé sur RSI, MACD, tendance et Bollinger. Ne constitue pas un conseil en investissement.</div>
+    <table id="signalsTable">
+      <thead><tr><th>Symbole</th><th>Nom</th><th class="num">Cours</th><th class="num">Var.</th><th>Signal</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2 class="section-title">Cours d'une action</h2>
+    <div class="controls-row">
+      <select id="companySelect"></select>
+      <select id="rangeSelect">
+        <option value="30">30 jours</option>
+        <option value="90" selected>90 jours</option>
+        <option value="365">1 an</option>
+      </select>
+    </div>
+    <div class="chart-box">
+      <div id="priceChart"><div class="empty">Sélectionnez une action…</div></div>
+      <div id="volumeChart"></div>
+    </div>
+  </section>
+
+  <div class="foot-note">
+    Données : brvm.org (scraping quotidien via api_brvm_sync.php). Les indicateurs techniques nécessitent plusieurs
+    jours de cotations consécutives pour se calculer (SMA10 ≥ 10 jours, RSI ≥ 15 jours, MACD ≥ 35 jours) —
+    tant que l'historique est court, les scores affichent "Indéterminé".
+  </div>
+
+</div>
+
+<script>
+const API = {
+  market: 'api_market.php',
+  quotes: 'api_quotes.php',
+  companies: 'api_companies.php',
+  signals: 'api_signals.php',
+  sync: 'api_brvm_sync.php'
+};
+
+async function callApi(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+function fmtNumber(n, decimals = 0) {
+  if (n === null || n === undefined) return '—';
+  return Number(n).toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function fmtPercent(n) {
+  if (n === null || n === undefined) return '—';
+  const v = Number(n);
+  const sign = v > 0 ? '+' : '';
+  return `${sign}${v.toFixed(2)}%`;
+}
+
+function deltaClass(n) {
+  if (n === null || n === undefined) return 'flat';
+  const v = Number(n);
+  if (v > 0) return 'up';
+  if (v < 0) return 'down';
+  return 'flat';
+}
+
+function arrow(cls) {
+  return cls === 'up' ? '▲' : cls === 'down' ? '▼' : '•';
+}
+
+// ---------- Indices ----------
+async function loadIndices() {
+  const res = await callApi(API.market, { action: 'indices', sub_action: 'values' });
+  const el = document.getElementById('indicesTiles');
+  if (!res.success || !res.data || res.data.length === 0) {
+    el.innerHTML = '<div class="empty">Aucun indice disponible. Lancez une synchronisation.</div>';
+    return;
+  }
+  el.innerHTML = res.data.map(idx => {
+    const cls = deltaClass(idx.variation_percent);
+    return `
+      <div class="tile">
+        <div class="label">${idx.name || idx.code}</div>
+        <div class="value">${idx.close_value !== null ? fmtNumber(idx.close_value, 2) : '—'}</div>
+        <div class="delta ${cls}">${arrow(cls)} ${fmtPercent(idx.variation_percent)}</div>
+      </div>`;
+  }).join('');
+}
+
+// ---------- Overview ----------
+async function loadOverview() {
+  const res = await callApi(API.market, { action: 'overview' });
+  const el = document.getElementById('overviewTiles');
+  if (!res.success || !res.data) {
+    el.innerHTML = '<div class="empty">Indisponible.</div>';
+    return;
+  }
+  const s = res.data.statistics || {};
+  const gainers = Number(s.gainers_count || 0), losers = Number(s.losers_count || 0);
+  const items = [
+    { label: 'Date', value: res.data.date || '—' },
+    { label: 'Hausses / Baisses', value: `${gainers} / ${losers}`, cls: gainers >= losers ? 'up' : 'down' },
+    { label: 'Variation moyenne', value: fmtPercent(s.avg_variation), cls: deltaClass(s.avg_variation) },
+    { label: 'Volume total', value: fmtNumber(s.total_volume) },
+    { label: 'Turnover (FCFA)', value: fmtNumber(s.total_turnover) }
+  ];
+  el.innerHTML = items.map(it => `
+    <div class="tile">
+      <div class="label">${it.label}</div>
+      <div class="value">${it.value}</div>
+      ${it.cls ? `<div class="delta ${it.cls}"></div>` : ''}
+    </div>`).join('');
+
+  renderTopTable('gainersTable', res.data.top_gainers || []);
+  renderTopTable('losersTable', res.data.top_losers || []);
+}
+
+function renderTopTable(tableId, rows) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">Aucune donnée</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const cls = deltaClass(r.variation_percent);
+    return `<tr>
+      <td>${r.symbol}</td>
+      <td class="num">${fmtNumber(r.close_price)}</td>
+      <td class="num"><span class="badge ${cls}">${arrow(cls)} ${fmtPercent(r.variation_percent)}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- Sector performance (diverging bar) ----------
+async function loadSectors() {
+  const res = await callApi(API.market, { action: 'sector_performance' });
+  const el = document.getElementById('sectorChart');
+  if (!res.success || !res.data || res.data.length === 0) {
+    el.innerHTML = '<div class="empty">Aucune donnée sectorielle.</div>';
+    return;
+  }
+  const maxAbs = Math.max(1, ...res.data.map(s => Math.abs(Number(s.avg_variation || 0))));
+  el.innerHTML = res.data.map(s => {
+    const v = Number(s.avg_variation || 0);
+    const cls = deltaClass(v);
+    const widthPct = Math.min(50, (Math.abs(v) / maxAbs) * 50);
+    return `
+      <div class="sector-row">
+        <div>${s.sector_name}</div>
+        <div class="sector-track">
+          <div class="sector-mid"></div>
+          <div class="sector-bar ${cls}" style="width:${widthPct}%"></div>
+        </div>
+        <div class="num">${fmtPercent(v)}</div>
+      </div>`;
+  }).join('');
+}
+
+// ---------- Signals ----------
+async function loadSignals() {
+  const res = await callApi(API.signals, { action: 'list' });
+  const tbody = document.querySelector('#signalsTable tbody');
+  if (!res.success || !res.data || res.data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Aucun signal disponible pour l\'instant.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = res.data.map(sig => {
+    const cls = sig.score === null ? 'flat' : (sig.score > 0 ? 'up' : sig.score < 0 ? 'down' : 'flat');
+    return `<tr>
+      <td>${sig.symbol}</td>
+      <td>${sig.name}</td>
+      <td class="num">${fmtNumber(sig.close_price)}</td>
+      <td class="num">${fmtPercent(sig.variation_percent)}</td>
+      <td><span class="badge ${cls}">${sig.label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ---------- Company OHLC ----------
+let allCompanies = [];
+
+async function loadCompanies() {
+  const res = await callApi(API.companies, { action: 'list', per_page: 200, active: 1 });
+  allCompanies = (res.data || []).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const select = document.getElementById('companySelect');
+  select.innerHTML = allCompanies.map(c => `<option value="${c.symbol}">${c.symbol} — ${c.name}</option>`).join('');
+  if (allCompanies.length) {
+    select.value = allCompanies[0].symbol;
+    loadOHLC(allCompanies[0].symbol);
+  }
+}
+
+async function loadOHLC(symbol) {
+  const days = Number(document.getElementById('rangeSelect').value);
+  const res = await callApi(API.quotes, { action: 'ohlc', symbol, days });
+  const priceEl = document.getElementById('priceChart');
+  const volEl = document.getElementById('volumeChart');
+
+  if (!res.success || !res.data || res.data.length < 2) {
+    priceEl.innerHTML = '<div class="empty">Historique insuffisant pour tracer un graphique.</div>';
+    volEl.innerHTML = '';
+    return;
+  }
+
+  drawPriceChart(priceEl, res.data);
+  drawVolumeChart(volEl, res.data);
+}
+
+function drawPriceChart(container, data) {
+  const w = container.clientWidth || 800, h = 200, pad = 30;
+  const closes = data.map(d => Number(d.close));
+  const min = Math.min(...closes), max = Math.max(...closes);
+  const range = (max - min) || 1;
+
+  const x = i => pad + (i / (data.length - 1)) * (w - pad * 2);
+  const y = v => h - pad - ((v - min) / range) * (h - pad * 2);
+
+  const linePoints = closes.map((c, i) => `${x(i)},${y(c)}`).join(' ');
+  const areaPoints = `${x(0)},${h - pad} ${linePoints} ${x(data.length - 1)},${h - pad}`;
+
+  const firstDate = data[0].date, lastDate = data[data.length - 1].date;
+
+  container.innerHTML = `
+    <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <line class="axis-line" x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}"></line>
+      <polygon class="price-area" points="${areaPoints}"></polygon>
+      <polyline class="price-line" points="${linePoints}"></polyline>
+      <text x="${pad}" y="${h - 8}">${firstDate}</text>
+      <text x="${w - pad}" y="${h - 8}" text-anchor="end">${lastDate}</text>
+      <text x="${pad}" y="14">${fmtNumber(max)}</text>
+      <text x="${pad}" y="${h - pad - 4}">${fmtNumber(min)}</text>
+    </svg>`;
+}
+
+function drawVolumeChart(container, data) {
+  const w = container.clientWidth || 800, h = 70, pad = 30;
+  const vols = data.map(d => Number(d.volume || 0));
+  const max = Math.max(...vols, 1);
+
+  const barWidth = (w - pad * 2) / data.length;
+  const bars = vols.map((v, i) => {
+    const barH = (v / max) * (h - pad);
+    const bx = pad + i * barWidth;
+    const by = h - pad - barH;
+    return `<rect class="vol-bar" x="${bx}" y="${by}" width="${Math.max(1, barWidth - 1)}" height="${barH}"></rect>`;
+  }).join('');
+
+  container.innerHTML = `
+    <svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">
+      <line class="axis-line" x1="${pad}" y1="${h - pad}" x2="${w - pad}" y2="${h - pad}"></line>
+      ${bars}
+      <text x="${pad}" y="12">Volume</text>
+    </svg>`;
+}
+
+document.getElementById('companySelect').addEventListener('change', e => loadOHLC(e.target.value));
+document.getElementById('rangeSelect').addEventListener('change', () => {
+  const symbol = document.getElementById('companySelect').value;
+  if (symbol) loadOHLC(symbol);
+});
+
+// ---------- Sync ----------
+async function runSync() {
+  const btn = document.getElementById('syncBtn');
+  btn.disabled = true;
+  btn.textContent = 'Synchronisation…';
+  try {
+    const res = await callApi(API.sync, { action: 'sync_now' });
+    document.getElementById('lastSync').textContent = res.success
+      ? `Dernière synchro : ${new Date().toLocaleString('fr-FR')} (OK)`
+      : `Dernière synchro : échec partiel`;
+    await loadAll();
+  } catch (e) {
+    document.getElementById('lastSync').textContent = 'Erreur de synchronisation';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Synchroniser maintenant';
+  }
+}
+
+async function loadSyncStatus() {
+  const res = await callApi(API.sync, { action: 'sync_status' });
+  const el = document.getElementById('lastSync');
+  if (res.success && res.last_sync) {
+    el.textContent = `Dernière synchro : ${res.last_sync.started_at} (${res.last_sync.sync_status})`;
+  } else {
+    el.textContent = 'Aucune synchronisation effectuée';
+  }
+}
+
+async function loadAll() {
+  await Promise.all([
+    loadIndices(),
+    loadOverview(),
+    loadSectors(),
+    loadSignals(),
+    loadSyncStatus()
+  ]);
+}
+
+loadAll();
+loadCompanies();
+</script>
+</body>
+</html>

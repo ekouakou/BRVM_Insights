@@ -1,0 +1,108 @@
+[2026-07-31 19:26:47] === Démarrage run_daily_sync.sh ===
+[2026-07-31 19:26:48][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 19:26:48][INFO] Lock créé
+[2026-07-31 19:26:48][INFO] Synchronisation des cotations...
+[2026-07-31 19:26:48] Début de la récupération des données BRVM...
+[2026-07-31 19:26:48] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-07-31 19:26:49] Succès avec curl !
+[2026-07-31 19:26:49] HTML récupéré, taille: 57649 caractères
+[2026-07-31 19:26:49] Élément #block-system-main trouvé : section
+[2026-07-31 19:26:49] Tableau trouvé dans #block-system-main
+[2026-07-31 19:26:49] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-07-31 19:26:49] Nombre d'en-têtes: 7
+[2026-07-31 19:26:49] Lignes de données extraites: 47
+[2026-07-31 19:26:49] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":2550,"Cours veille (FCFA)":3000,"Cours Ouverture (FCFA)":3000,"Cours Clôture (FCFA)":3000,"Variation (%)":0}
+[2026-07-31 19:26:49] Données sauvegardées: 47 enregistrements à 2026-07-31 19:26:49
+[2026-07-31 19:26:49] Récupération terminée avec succès !
+[2026-07-31 19:26:49][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-07-31 19:26:49][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-07-31 19:26:49][INFO] Synchronisation des indices...
+[2026-07-31 19:26:49] Début de la récupération des indices BRVM...
+[2026-07-31 19:26:49] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-07-31 19:26:51] Succès avec curl !
+[2026-07-31 19:26:51] HTML des indices récupéré, taille: 47802 caractères
+[2026-07-31 19:26:51] Nombre d'en-têtes: 5
+[2026-07-31 19:26:51] Lignes de données extraites: 4
+[2026-07-31 19:26:51] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":228.81,"Fermeture":230.08,"Variation (%)":0.56,"Variation 31 décembre (%)":1.97}
+[2026-07-31 19:26:51] Indices sauvegardés: 4 enregistrements à 2026-07-31 19:26:51
+[2026-07-31 19:26:51] Récupération des indices terminée avec succès !
+[2026-07-31 19:26:51][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-07-31 19:26:51][INFO] Temps d'exécution total: 3.34s
+[2026-07-31 19:26:51][INFO] Nettoyage des données antérieures à 2024-07-31
+[2026-07-31 19:26:51][INFO] Anciennes cotations supprimées
+[2026-07-31 19:26:51][INFO] Anciens logs supprimés
+[2026-07-31 19:26:51][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-07-31 19:26:51][INFO] Lock supprimé
+[2026-07-31 19:26:51] === Fin run_daily_sync.sh (code 0) ===
+[2026-07-31 19:28:11] === Démarrage run_daily_sync.sh ===
+[2026-07-31 19:28:14][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 19:28:14][INFO] Lock créé
+[2026-07-31 19:28:14][INFO] Synchronisation des cotations...
+[2026-07-31 19:28:14] Début de la récupération des données BRVM...
+[2026-07-31 19:28:14] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-07-31 19:28:16] Succès avec curl !
+[2026-07-31 19:28:16] HTML récupéré, taille: 57649 caractères
+[2026-07-31 19:28:16] Élément #block-system-main trouvé : section
+[2026-07-31 19:28:16] Tableau trouvé dans #block-system-main
+[2026-07-31 19:28:16] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-07-31 19:28:16] Nombre d'en-têtes: 7
+[2026-07-31 19:28:16] Lignes de données extraites: 47
+[2026-07-31 19:28:16] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":2550,"Cours veille (FCFA)":3000,"Cours Ouverture (FCFA)":3000,"Cours Clôture (FCFA)":3000,"Variation (%)":0}
+[2026-07-31 19:28:16] Données sauvegardées: 47 enregistrements à 2026-07-31 19:28:16
+[2026-07-31 19:28:16] Récupération terminée avec succès !
+[2026-07-31 19:28:16][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-07-31 19:28:16][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-07-31 19:28:16][INFO] Synchronisation des indices...
+[2026-07-31 19:28:16] Début de la récupération des indices BRVM...
+[2026-07-31 19:28:16] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-07-31 19:28:18] Succès avec curl !
+[2026-07-31 19:28:18] HTML des indices récupéré, taille: 47802 caractères
+[2026-07-31 19:28:18] Nombre d'en-têtes: 5
+[2026-07-31 19:28:18] Lignes de données extraites: 4
+[2026-07-31 19:28:18] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":228.81,"Fermeture":230.08,"Variation (%)":0.56,"Variation 31 décembre (%)":1.97}
+[2026-07-31 19:28:18] Indices sauvegardés: 4 enregistrements à 2026-07-31 19:28:18
+[2026-07-31 19:28:18] Récupération des indices terminée avec succès !
+[2026-07-31 19:28:18][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-07-31 19:28:18][INFO] Temps d'exécution total: 3.94s
+[2026-07-31 19:28:18][INFO] Nettoyage des données antérieures à 2024-07-31
+[2026-07-31 19:28:18][INFO] Anciennes cotations supprimées
+[2026-07-31 19:28:18][INFO] Anciens logs supprimés
+[2026-07-31 19:28:18][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-07-31 19:28:18][INFO] Lock supprimé
+[2026-07-31 19:28:18] === Fin run_daily_sync.sh (code 0) ===
+[2026-07-31 19:38:20] === Démarrage run_daily_sync.sh ===
+[2026-07-31 19:38:42][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 19:38:43][INFO] Lock créé
+[2026-07-31 19:38:43][INFO] Synchronisation des cotations...
+[2026-07-31 19:38:43] Début de la récupération des données BRVM...
+[2026-07-31 19:38:43] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-07-31 19:38:46] Succès avec curl !
+[2026-07-31 19:38:46] HTML récupéré, taille: 57649 caractères
+[2026-07-31 19:38:46] Élément #block-system-main trouvé : section
+[2026-07-31 19:38:46] Tableau trouvé dans #block-system-main
+[2026-07-31 19:38:46] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-07-31 19:38:46] Nombre d'en-têtes: 7
+[2026-07-31 19:38:46] Lignes de données extraites: 47
+[2026-07-31 19:38:46] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":2550,"Cours veille (FCFA)":3000,"Cours Ouverture (FCFA)":3000,"Cours Clôture (FCFA)":3000,"Variation (%)":0}
+[2026-07-31 19:38:46] Données sauvegardées: 47 enregistrements à 2026-07-31 19:38:46
+[2026-07-31 19:38:46] Récupération terminée avec succès !
+[2026-07-31 19:38:46][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-07-31 19:38:46][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-07-31 19:38:46][INFO] Synchronisation des indices...
+[2026-07-31 19:38:46] Début de la récupération des indices BRVM...
+[2026-07-31 19:38:46] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-07-31 19:38:47] Succès avec curl !
+[2026-07-31 19:38:47] HTML des indices récupéré, taille: 47802 caractères
+[2026-07-31 19:38:47] Nombre d'en-têtes: 5
+[2026-07-31 19:38:47] Lignes de données extraites: 4
+[2026-07-31 19:38:47] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":228.81,"Fermeture":230.08,"Variation (%)":0.56,"Variation 31 décembre (%)":1.97}
+[2026-07-31 19:38:48] Indices sauvegardés: 4 enregistrements à 2026-07-31 19:38:47
+[2026-07-31 19:38:48] Récupération des indices terminée avec succès !
+[2026-07-31 19:38:48][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-07-31 19:38:48][INFO] Temps d'exécution total: 6.46s
+[2026-07-31 19:38:48][INFO] Nettoyage des données antérieures à 2024-07-31
+[2026-07-31 19:38:48][INFO] Anciennes cotations supprimées
+[2026-07-31 19:38:48][INFO] Anciens logs supprimés
+[2026-07-31 19:38:48][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-07-31 19:38:48][INFO] Lock supprimé
+[2026-07-31 19:38:49] === Fin run_daily_sync.sh (code 0) ===

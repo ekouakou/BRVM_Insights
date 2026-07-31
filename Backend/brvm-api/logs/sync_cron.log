@@ -1,0 +1,39 @@
+[2026-07-31 19:26:48][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 19:26:48][INFO] Lock créé
+[2026-07-31 19:26:48][INFO] Synchronisation des cotations...
+[2026-07-31 19:26:49][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-07-31 19:26:49][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-07-31 19:26:49][INFO] Synchronisation des indices...
+[2026-07-31 19:26:51][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-07-31 19:26:51][INFO] Temps d'exécution total: 3.34s
+[2026-07-31 19:26:51][INFO] Nettoyage des données antérieures à 2024-07-31
+[2026-07-31 19:26:51][INFO] Anciennes cotations supprimées
+[2026-07-31 19:26:51][INFO] Anciens logs supprimés
+[2026-07-31 19:26:51][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-07-31 19:26:51][INFO] Lock supprimé
+[2026-07-31 19:28:14][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 19:28:14][INFO] Lock créé
+[2026-07-31 19:28:14][INFO] Synchronisation des cotations...
+[2026-07-31 19:28:16][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-07-31 19:28:16][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-07-31 19:28:16][INFO] Synchronisation des indices...
+[2026-07-31 19:28:18][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-07-31 19:28:18][INFO] Temps d'exécution total: 3.94s
+[2026-07-31 19:28:18][INFO] Nettoyage des données antérieures à 2024-07-31
+[2026-07-31 19:28:18][INFO] Anciennes cotations supprimées
+[2026-07-31 19:28:18][INFO] Anciens logs supprimés
+[2026-07-31 19:28:18][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-07-31 19:28:18][INFO] Lock supprimé
+[2026-07-31 19:38:42][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 19:38:43][INFO] Lock créé
+[2026-07-31 19:38:43][INFO] Synchronisation des cotations...
+[2026-07-31 19:38:46][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-07-31 19:38:46][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-07-31 19:38:46][INFO] Synchronisation des indices...
+[2026-07-31 19:38:48][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-07-31 19:38:48][INFO] Temps d'exécution total: 6.46s
+[2026-07-31 19:38:48][INFO] Nettoyage des données antérieures à 2024-07-31
+[2026-07-31 19:38:48][INFO] Anciennes cotations supprimées
+[2026-07-31 19:38:48][INFO] Anciens logs supprimés
+[2026-07-31 19:38:48][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-07-31 19:38:48][INFO] Lock supprimé
