@@ -1,0 +1,18 @@
+[
+    {
+        "platform": "ios",
+        "latest_version": "1.0.9",
+        "minimum_version": "1.0.9",
+        "force_update": false,
+        "store_url": "https://apps.apple.com/app/parent-responsable/id6763526336",
+        "changelog": "Corrections et améliorations"
+    },
+    {
+        "platform": "android",
+        "latest_version": "1.0.9",
+        "minimum_version": "1.0.9",
+        "force_update": false,
+        "store_url": "https://play.google.com/store/apps/details?id=com.groupegain.parents_responsable&hl=fr",
+        "changelog": "Corrections et améliorations"
+    }
+]
