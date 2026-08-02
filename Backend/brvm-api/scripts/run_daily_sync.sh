@@ -8,12 +8,25 @@
 # cron_sync_brvm.php refuse tout seul de tourner le week-end ou avant
 # l'ouverture du marché (voir isMarketOpen()) — ce script n'a pas besoin de
 # revérifier ces conditions, juste de s'assurer que MySQL est disponible.
+#
+# PHP_BIN et MYSQL_PORT dépendent de l'installation MAMP locale (version PHP
+# choisie, port MySQL) et diffèrent typiquement d'une machine de dev à
+# l'autre. Les valeurs ci-dessous sont des valeurs par défaut ; pour les
+# adapter sans les modifier ici (et éviter les conflits git entre machines),
+# crée un fichier "run_daily_sync.local.sh" à côté de ce script (voir
+# run_daily_sync.local.sh.example) — il est ignoré par git et prioritaire.
 
-PROJECT_DIR="/Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api"
-PHP_BIN="/Applications/MAMP/bin/php/php8.2.0/bin/php"
-LOG_FILE="$PROJECT_DIR/logs/launchd_sync.log"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PHP_BIN="/Applications/MAMP/bin/php/php8.3.30/bin/php"
 MYSQL_HOST="127.0.0.1"
-MYSQL_PORT="3306"
+MYSQL_PORT="8889"
+
+LOCAL_CONFIG="$(dirname "${BASH_SOURCE[0]}")/run_daily_sync.local.sh"
+if [ -f "$LOCAL_CONFIG" ]; then
+    source "$LOCAL_CONFIG"
+fi
+
+LOG_FILE="$PROJECT_DIR/logs/launchd_sync.log"
 
 mkdir -p "$PROJECT_DIR/logs"
 

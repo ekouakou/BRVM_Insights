@@ -95,20 +95,26 @@ CREATE TABLE stock_quotes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
--- TABLE: Historique intrajournalier (optionnel)
+-- TABLE: Historique intrajournalier
 -- ============================================
+-- Un enregistrement par entreprise à chaque synchronisation (toutes les 15
+-- minutes pendant les heures de marché, voir CRON_SETUP.md) : contrairement à
+-- stock_quotes (une ligne par jour, écrasée à chaque synchro), cette table
+-- conserve chaque relevé pour pouvoir observer la variation du cours au fil
+-- de la séance.
 CREATE TABLE intraday_quotes (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     company_id INT NOT NULL,
     quote_datetime DATETIME NOT NULL,
     price DECIMAL(15, 2) NOT NULL,
     volume BIGINT DEFAULT 0,
+    variation_percent DECIMAL(10, 4) COMMENT 'Variation en % depuis la clôture précédente',
     bid_price DECIMAL(15, 2) COMMENT 'Meilleure offre achat',
     ask_price DECIMAL(15, 2) COMMENT 'Meilleure offre vente',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
+
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
-    
+
     INDEX idx_company_datetime (company_id, quote_datetime),
     INDEX idx_datetime (quote_datetime)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -523,8 +529,209 @@ CREATE TABLE company_reports (
 CREATE TABLE company_report_contents (
     report_id BIGINT PRIMARY KEY,
     extracted_text LONGTEXT,
+    formatted_markdown LONGTEXT NULL COMMENT 'Texte brut restructuré en markdown (tableaux) par IA, voir class/ReportMarkdownFormatterService.php',
+    markdown_status VARCHAR(20) NULL COMMENT 'processing|success|failed',
+    markdown_error TEXT NULL,
+    markdown_provider VARCHAR(30) NULL,
+    markdown_model VARCHAR(50) NULL,
+    markdown_updated_at TIMESTAMP NULL,
     char_count INT,
     extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     FOREIGN KEY (report_id) REFERENCES company_reports(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Analyse IA (multi-fournisseurs : Anthropic par défaut, Gemini...) d'un
+-- rapport : résumé, chiffres clés, risques, et lecture par rapport au
+-- contexte marché récent (stock_quotes/technical_indicators).
+-- Une ligne par (rapport, fournisseur, modèle, date de contexte marché) :
+-- permet de ré-analyser plus tard sans perdre l'historique, tout en évitant
+-- les appels redondants le même jour (voir class/ReportAnalysisService.php).
+CREATE TABLE company_report_analyses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    report_id BIGINT NOT NULL,
+    company_id INT NOT NULL,
+    provider VARCHAR(30) NOT NULL DEFAULT 'gemini' COMMENT 'anthropic, gemini...',
+    model VARCHAR(50) NOT NULL,
+    market_context_date DATE NULL COMMENT 'trading_date des cours/indicateurs utilisés comme contexte',
+    summary TEXT COMMENT 'résumé exécutif court, pour affichage/listage rapide',
+    details JSON NULL COMMENT 'analyse complète structurée (financials, SWOT, risques, thèse, glossaire...)',
+    status VARCHAR(20) NOT NULL DEFAULT 'success' COMMENT 'success|failed',
+    error_message TEXT NULL,
+    input_char_count INT NULL,
+    raw_response LONGTEXT NULL COMMENT 'réponse brute du fournisseur IA, pour audit/debug',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (report_id) REFERENCES company_reports(id) ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+
+    UNIQUE KEY uk_report_provider_model_date (report_id, provider, model, market_context_date),
+    INDEX idx_company (company_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Analyse IA comparative de plusieurs rapports sur une période (une ou
+-- plusieurs entreprises) : tendance financière dans le temps et/ou
+-- comparaison entre entreprises. Réutilise les analyses individuelles déjà
+-- faites (company_report_analyses) comme matière première plutôt que de
+-- renvoyer le texte brut de chaque rapport à l'IA (voir
+-- class/ReportComparisonService.php).
+CREATE TABLE company_report_comparisons (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_hash CHAR(64) NOT NULL COMMENT 'sha256(company_ids triés + période + report_type)',
+    company_ids JSON NOT NULL COMMENT 'entreprises incluses dans la comparaison',
+    report_ids JSON NULL COMMENT 'rapports effectivement inclus, calculé à l’appel',
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    report_type VARCHAR(50) NULL,
+    provider VARCHAR(30) NOT NULL,
+    model VARCHAR(50) NOT NULL,
+    computed_date DATE NOT NULL COMMENT 'date du calcul — cache "une fois par jour"',
+    summary TEXT,
+    details JSON NULL COMMENT 'analyse comparative complète + chart_data',
+    status VARCHAR(20) NOT NULL DEFAULT 'success',
+    error_message TEXT NULL,
+    input_char_count INT NULL,
+    raw_response LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_comparison (request_hash, provider, model, computed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- Bulletins Officiels de la Cote (BOC) : PDF quotidien récapitulant la
+-- séance (tous titres, volumes, indices), scrapé depuis
+-- brvm.org/fr/bulletins-officiels-de-la-cote (mêmes conventions que
+-- company_reports/company_report_contents/company_report_analyses).
+-- ============================================
+CREATE TABLE market_bulletins (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    publish_date DATE NOT NULL COMMENT 'Déduite du préfixe boc_YYYYMMDD du nom de fichier',
+    title VARCHAR(255) NOT NULL,
+    file_url VARCHAR(500) NOT NULL COMMENT 'URL source sur brvm.org',
+    local_path VARCHAR(500) COMMENT 'Chemin local du PDF téléchargé',
+    file_size BIGINT COMMENT 'Taille du fichier en octets',
+    file_hash CHAR(64) COMMENT 'SHA-256 du contenu téléchargé (détection de doublons/changements)',
+    downloaded_at TIMESTAMP NULL,
+    text_extracted TINYINT(1) DEFAULT 0,
+    extraction_method VARCHAR(10) NULL COMMENT 'text (pdftotext) ou ocr (tesseract)',
+    extraction_error TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_publish_date (publish_date),
+    UNIQUE KEY uk_file_url (file_url(255))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE market_bulletin_contents (
+    bulletin_id BIGINT PRIMARY KEY,
+    extracted_text LONGTEXT,
+    formatted_markdown LONGTEXT NULL COMMENT 'Texte brut restructuré en markdown (tableaux) par IA, voir class/BulletinMarkdownFormatterService.php',
+    markdown_status VARCHAR(20) NULL COMMENT 'processing|success|failed',
+    markdown_error TEXT NULL,
+    markdown_provider VARCHAR(30) NULL,
+    markdown_model VARCHAR(50) NULL,
+    markdown_updated_at TIMESTAMP NULL,
+    char_count INT,
+    extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (bulletin_id) REFERENCES market_bulletins(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Analyse IA d'un bulletin : pas de dimension "market_context_date" comme
+-- pour company_report_analyses — le bulletin est déjà daté, il EST le
+-- contexte marché du jour (voir class/MarketBulletinAnalysisService.php).
+CREATE TABLE market_bulletin_analyses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    bulletin_id BIGINT NOT NULL,
+    provider VARCHAR(30) NOT NULL DEFAULT 'gemini',
+    model VARCHAR(50) NOT NULL,
+    summary TEXT COMMENT 'résumé de séance court, pour affichage/listage rapide',
+    details JSON NULL COMMENT 'analyse complète structurée (mouvements, secteurs, sentiment, glossaire...)',
+    status VARCHAR(20) NOT NULL DEFAULT 'success' COMMENT 'success|failed',
+    error_message TEXT NULL,
+    input_char_count INT NULL,
+    raw_response LONGTEXT NULL COMMENT 'réponse brute du fournisseur IA, pour audit/debug',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (bulletin_id) REFERENCES market_bulletins(id) ON DELETE CASCADE,
+
+    UNIQUE KEY uk_bulletin_provider_model (bulletin_id, provider, model)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Analyse IA comparative d'un ensemble de bulletins sélectionnés (tendance
+-- des indices, des volumes et de la respiration hausses/baisses sur la
+-- période) — réutilise les analyses individuelles déjà faites (voir
+-- class/BulletinComparisonService.php), même principe de cache "une fois
+-- par jour" que company_report_comparisons.
+CREATE TABLE market_bulletin_comparisons (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_hash CHAR(64) NOT NULL COMMENT 'sha256(bulletin_ids triés)',
+    bulletin_ids JSON NOT NULL,
+    provider VARCHAR(30) NOT NULL,
+    model VARCHAR(50) NOT NULL,
+    computed_date DATE NOT NULL COMMENT 'date du calcul — cache "une fois par jour"',
+    summary TEXT,
+    details JSON NULL COMMENT 'analyse comparative complète + chart_data',
+    status VARCHAR(20) NOT NULL DEFAULT 'success',
+    error_message TEXT NULL,
+    input_char_count INT NULL,
+    raw_response LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_comparison (request_hash, provider, model, computed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Analyse IA combinée d'un ensemble mixte de rapports de sociétés ET de
+-- bulletins de marché sélectionnés librement (pas limité à une seule
+-- entreprise ni à une période) — corrèle les fondamentaux d'entreprise
+-- (rapports) avec le contexte de marché (bulletins) sur la sélection
+-- choisie. Réutilise les analyses individuelles déjà faites par
+-- ReportAnalysisService et MarketBulletinAnalysisService (voir
+-- class/CombinedAnalysisService.php).
+CREATE TABLE combined_analyses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    request_hash CHAR(64) NOT NULL COMMENT 'sha256(report_ids triés + bulletin_ids triés)',
+    report_ids JSON NOT NULL,
+    bulletin_ids JSON NOT NULL,
+    provider VARCHAR(30) NOT NULL,
+    model VARCHAR(50) NOT NULL,
+    computed_date DATE NOT NULL COMMENT 'date du calcul — cache "une fois par jour"',
+    summary TEXT,
+    details JSON NULL COMMENT 'analyse combinée complète + chart_data',
+    status VARCHAR(20) NOT NULL DEFAULT 'success',
+    error_message TEXT NULL,
+    input_char_count INT NULL,
+    raw_response LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    UNIQUE KEY uk_comparison (request_hash, provider, model, computed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- Authentification du panneau d'administration (Frontend/admin-web)
+-- ============================================
+-- Aucun compte créé via un endpoint public — voir scripts/create_admin_user.php.
+CREATE TABLE admin_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tokens opaques (pas de JWT) vérifiés par class/AuthGuard.php via le header
+-- X-Auth-Token (pas "Authorization" — non fiable sous mod_fastcgi).
+CREATE TABLE admin_sessions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    token CHAR(64) NOT NULL UNIQUE,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (user_id) REFERENCES admin_users(id) ON DELETE CASCADE,
+    INDEX idx_expires (expires_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

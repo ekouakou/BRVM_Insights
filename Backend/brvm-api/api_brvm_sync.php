@@ -7,7 +7,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token');
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 require_once 'class/DbConnect.php';
 require_once 'class/DynamiqueCrud.php';
+require_once 'class/AuthGuard.php';
+AuthGuard::requireAuth();
 require_once 'class/BRVMScraperFixed.php';
 require_once 'class/BRVMSyncService.php';
 require_once 'class/TechnicalIndicatorsCalculator.php';
@@ -223,13 +225,15 @@ class BRVMSyncAPI {
 
         return [
             'success' => true,
-            'market_status' => [
-                'is_open' => $isOpen,
-                'current_time' => $currentTime,
-                'current_day' => $currentDay,
-                'market_open_time' => $config['market_open_time'],
-                'market_close_time' => $config['market_close_time'],
-                'next_sync' => $this->calculateNextSync($config, $now)
+            'data' => [
+                'market_status' => [
+                    'is_open' => $isOpen,
+                    'current_time' => $currentTime,
+                    'current_day' => $currentDay,
+                    'market_open_time' => $config['market_open_time'],
+                    'market_close_time' => $config['market_close_time'],
+                    'next_sync' => $this->calculateNextSync($config, $now)
+                ]
             ]
         ];
     }

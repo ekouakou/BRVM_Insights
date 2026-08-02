@@ -91,22 +91,52 @@ class BRVMReportsScraper {
     }
 
     /**
-     * Récupère la liste des rapports d'une entreprise (titre + URL du PDF)
+     * Récupère la liste des rapports d'une entreprise (titre + URL du PDF),
+     * en parcourant la pagination de la page (?page=0, ?page=1, ...) comme
+     * discoverCompanySlugs() — sinon seule la première page (~10 rapports)
+     * était récupérée, ratant l'historique des entreprises publiant depuis
+     * longtemps.
      */
-    public function scrapeCompanyReports($slug) {
-        $url = "{$this->baseUrl}/fr/rapports-societe-cotes/{$slug}";
-        $this->log("Scraping des rapports pour '$slug': $url");
+    public function scrapeCompanyReports($slug, $maxPages = 50) {
+        $seen = [];
+        $result = [];
 
-        $html = $this->fetcher->fetch($url);
-        if (!$html) {
-            $this->log("Échec de récupération de la page rapports pour '$slug'");
-            return false;
+        for ($page = 0; $page < $maxPages; $page++) {
+            $url = $page === 0
+                ? "{$this->baseUrl}/fr/rapports-societe-cotes/{$slug}"
+                : "{$this->baseUrl}/fr/rapports-societe-cotes/{$slug}?page={$page}";
+            $this->log("Scraping des rapports pour '$slug', page $page: $url");
+
+            $html = $this->fetcher->fetch($url);
+            if (!$html) {
+                $this->log("Échec de récupération de la page $page pour '$slug'" . ($page > 0 ? ', arrêt de la pagination' : ''));
+                if ($page === 0) {
+                    return false;
+                }
+                break;
+            }
+
+            $reports = $this->parseReportsTable($html);
+
+            $newCount = 0;
+            foreach ($reports as $report) {
+                if (!isset($seen[$report['file_url']])) {
+                    $seen[$report['file_url']] = true;
+                    $result[] = $report;
+                    $newCount++;
+                }
+            }
+
+            $this->log("Page $page pour '$slug': " . count($reports) . " rapport(s), dont $newCount nouveau(x)");
+
+            if ($newCount === 0) {
+                break; // fin de la pagination
+            }
         }
 
-        $reports = $this->parseReportsTable($html);
-        $this->log(count($reports) . " rapport(s) trouvé(s) pour '$slug'");
+        $this->log(count($result) . " rapport(s) trouvé(s) au total pour '$slug'");
 
-        return $reports;
+        return $result;
     }
 
     private function parseReportsTable($html) {

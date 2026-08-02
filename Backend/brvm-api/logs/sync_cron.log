@@ -37,3 +37,9 @@
 [2026-07-31 19:38:48][INFO] Anciens logs supprimés
 [2026-07-31 19:38:48][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-07-31 19:38:48][INFO] Lock supprimé
+[2026-07-31 22:20:35][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 22:20:35][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-07-31 22:20:35][INFO] Lock supprimé
+[2026-07-31 22:31:33][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 22:31:33][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-07-31 22:31:33][INFO] Lock supprimé

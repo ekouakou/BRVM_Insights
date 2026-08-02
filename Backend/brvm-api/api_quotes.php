@@ -7,7 +7,7 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Auth-Token');
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 require_once 'class/DbConnect.php';
 require_once 'class/DynamiqueCrud.php';
+require_once 'class/AuthGuard.php';
+AuthGuard::requireAuth();
 
 class QuotesAPI {
     private $crud;
@@ -46,7 +48,10 @@ class QuotesAPI {
                     
                 case 'ohlc':
                     return $this->getOHLCData($input);
-                    
+
+                case 'intraday':
+                    return $this->getIntradayHistory($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -435,6 +440,50 @@ class QuotesAPI {
             'data' => $ohlc ?: [],
             'count' => count($ohlc ?: []),
             'company_id' => $companyId
+        ];
+    }
+    /**
+     * Historique intrajournalier d'une entreprise pour une journée donnée
+     * (un point par synchronisation, ex: toutes les 15 minutes)
+     */
+    private function getIntradayHistory($input) {
+        $companyId = (int)($input['company_id'] ?? 0);
+        $symbol = $input['symbol'] ?? '';
+
+        if (!$companyId && !$symbol) {
+            throw new Exception("ID ou symbole de l'entreprise requis");
+        }
+
+        if (!$companyId && $symbol) {
+            $company = $this->crud->find('companies', ['symbol' => $symbol]);
+            if (empty($company)) {
+                throw new Exception("Entreprise non trouvée");
+            }
+            $companyId = $company[0]['id'];
+        }
+
+        $tradingDate = $input['trading_date'] ?? date('Y-m-d');
+
+        $sql = "
+            SELECT
+                quote_datetime,
+                price,
+                volume,
+                variation_percent
+            FROM intraday_quotes
+            WHERE company_id = ?
+            AND DATE(quote_datetime) = ?
+            ORDER BY quote_datetime ASC
+        ";
+
+        $snapshots = $this->crud->executeCustomQuery($sql, [$companyId, $tradingDate]);
+
+        return [
+            'success' => true,
+            'data' => $snapshots ?: [],
+            'count' => count($snapshots ?: []),
+            'company_id' => $companyId,
+            'trading_date' => $tradingDate
         ];
     }
 }

@@ -64,6 +64,8 @@ class BRVMSyncService {
                     }
                 }
 
+                $this->recordIntradaySnapshot($companyId, $quoteData);
+
                 $touchedCompanyIds[] = $companyId;
 
             } catch (Exception $e) {
@@ -75,6 +77,21 @@ class BRVMSyncService {
         $stats['touched_company_ids'] = array_values(array_unique($touchedCompanyIds));
 
         return $stats;
+    }
+
+    /**
+     * Ajoute un relevé dans l'historique intrajournalier (une ligne par
+     * synchronisation, jamais écrasée) pour pouvoir observer la variation du
+     * cours au fil de la séance.
+     */
+    private function recordIntradaySnapshot($companyId, $quoteData) {
+        $this->crud->persist('intraday_quotes', [
+            'company_id' => $companyId,
+            'quote_datetime' => date('Y-m-d H:i:s'),
+            'price' => $quoteData['close_price'],
+            'volume' => $quoteData['volume'],
+            'variation_percent' => $quoteData['variation_percent']
+        ]);
     }
 
     /**

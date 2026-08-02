@@ -1,0 +1,10 @@
+# Copie ce fichier en "run_daily_sync.local.sh" (sans .example) sur chaque
+# machine de dev et adapte les valeurs à ton installation MAMP locale.
+# Ce fichier local est ignoré par git (voir .gitignore) : chaque machine
+# garde ses propres valeurs sans jamais entrer en conflit avec l'autre.
+#
+# Pour retrouver PHP_BIN : ls /Applications/MAMP/bin/php/
+# Pour retrouver MYSQL_PORT : ps aux | grep mysqld | grep -o -- '--port=[0-9]*'
+
+PHP_BIN="/Applications/MAMP/bin/php/php8.3.30/bin/php"
+MYSQL_PORT="8889"

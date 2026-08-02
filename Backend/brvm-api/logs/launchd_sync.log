@@ -106,3 +106,26 @@
 [2026-07-31 19:38:48][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-07-31 19:38:48][INFO] Lock supprimé
 [2026-07-31 19:38:49] === Fin run_daily_sync.sh (code 0) ===
+[2026-07-31 22:12:32] === Démarrage run_daily_sync.sh ===
+[2026-07-31 22:12:32] MySQL injoignable sur 127.0.0.1:3306, démarrage de MAMP...
+[2026-07-31 22:13:33] ERREUR: MySQL toujours injoignable après 60s, abandon
+[2026-07-31 22:16:48] === Démarrage run_daily_sync.sh ===
+
+Fatal error: Uncaught PDOException: Erreur de connexion à la base de données: SQLSTATE[HY000] [1049] Unknown database 'brvm_trading_app' in /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/class/DbConnect.php:40
+Stack trace:
+#0 /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/class/DbConnect.php(22): DbConnect->connect()
+#1 /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/cron_sync_brvm.php(46): DbConnect->__construct()
+#2 /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/cron_sync_brvm.php(278): BRVMCronSync->__construct()
+#3 {main}
+  thrown in /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/class/DbConnect.php on line 40
+[2026-07-31 22:16:49] === Fin run_daily_sync.sh (code 255) ===
+[2026-07-31 22:20:35] === Démarrage run_daily_sync.sh ===
+[2026-07-31 22:20:35][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 22:20:35][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-07-31 22:20:35][INFO] Lock supprimé
+[2026-07-31 22:20:35] === Fin run_daily_sync.sh (code 1) ===
+[2026-07-31 22:31:33] === Démarrage run_daily_sync.sh ===
+[2026-07-31 22:31:33][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-07-31 22:31:33][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-07-31 22:31:33][INFO] Lock supprimé
+[2026-07-31 22:31:33] === Fin run_daily_sync.sh (code 1) ===

@@ -24,6 +24,26 @@
       "key": "report_id",
       "value": "1",
       "type": "string"
+    },
+    {
+      "key": "provider",
+      "value": "gemini",
+      "type": "string"
+    },
+    {
+      "key": "model",
+      "value": "gemini-flash-lite-latest",
+      "type": "string"
+    },
+    {
+      "key": "start_date",
+      "value": "2023-01-01",
+      "type": "string"
+    },
+    {
+      "key": "end_date",
+      "value": "2026-12-31",
+      "type": "string"
     }
   ],
   "item": [
@@ -1941,6 +1961,250 @@
               ],
               "path": [
                 "api_reports.php"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. Analyse IA des rapports (Gemini)",
+      "item": [
+        {
+          "name": "Analyser un rapport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"analyze\",\n  \"report_id\": {{report_id}},\n  \"provider\": \"{{provider}}\",\n  \"model\": \"{{model}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_analysis.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_analysis.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ré-analyser (forcer un nouvel appel Gemini)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"analyze\",\n  \"report_id\": {{report_id}},\n  \"provider\": \"{{provider}}\",\n  \"model\": \"{{model}}\",\n  \"force_refresh\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_analysis.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_analysis.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Récupérer l'analyse en cache (sans appeler Gemini)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"get\",\n  \"report_id\": {{report_id}},\n  \"provider\": \"{{provider}}\",\n  \"model\": \"{{model}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_analysis.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_analysis.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Historique des analyses d'un rapport",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"history\",\n  \"report_id\": {{report_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_analysis.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_analysis.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Historique des analyses d'une entreprise",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"history\",\n  \"company_id\": {{company_id}}\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_analysis.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_analysis.php"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "9. Comparaison de rapports (période)",
+      "item": [
+        {
+          "name": "Comparer les rapports d'une entreprise sur une période",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"compare\",\n  \"company_ids\": [{{company_id}}],\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\",\n  \"provider\": \"{{provider}}\",\n  \"model\": \"{{model}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_comparison.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_comparison.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Comparer plusieurs entreprises sur une période (par symboles)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"compare\",\n  \"symbols\": [\"BICC\", \"SGBC\"],\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\",\n  \"report_type\": \"annuel\",\n  \"provider\": \"{{provider}}\",\n  \"model\": \"{{model}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_comparison.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_comparison.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Re-comparer (forcer un nouvel appel IA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"compare\",\n  \"company_ids\": [{{company_id}}],\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\",\n  \"provider\": \"{{provider}}\",\n  \"model\": \"{{model}}\",\n  \"force_refresh\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_comparison.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_comparison.php"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Récupérer la comparaison en cache (sans appeler l'IA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"get\",\n  \"company_ids\": [{{company_id}}],\n  \"start_date\": \"{{start_date}}\",\n  \"end_date\": \"{{end_date}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api_report_comparison.php",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api_report_comparison.php"
               ]
             }
           },

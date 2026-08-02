@@ -5,11 +5,16 @@
  * 
  * Configuration crontab recommandée:
  *
- * Pendant les heures de marché (8:30 - 16:00), toutes les 5 minutes du lundi au vendredi:
+ * Pendant les heures de marché (8:30 - 16:00), toutes les 15 minutes du lundi au vendredi:
+ * (astérisque)/15 8-16 (astérisque) (astérisque) 1-5 /usr/bin/php /path/to/cron_sync_brvm.php >> /path/to/logs/sync.log 2>&1
+ *
+ * Alternative, toutes les 5 minutes:
  * (astérisque)/5 8-16 (astérisque) (astérisque) 1-5 /usr/bin/php /path/to/cron_sync_brvm.php >> /path/to/logs/sync.log 2>&1
  *
- * Alternative, toutes les 10 minutes:
- * (astérisque)/10 8-16 (astérisque) (astérisque) 1-5 /usr/bin/php /path/to/cron_sync_brvm.php >> /path/to/logs/sync.log 2>&1
+ * Sur macOS, ce projet utilise launchd plutôt qu'un vrai crontab (voir
+ * CRON_SETUP.md) — cron_sync_brvm.php gère lui-même le filtrage horaire
+ * via isMarketOpen(), donc il peut être déclenché sans risque plus souvent
+ * que nécessaire (le déclencheur n'a pas besoin de connaître les heures de marché).
  */
 
 // Configuration
@@ -60,15 +65,17 @@ class BRVMCronSync {
     /**
      * Vérifie si une synchronisation peut être lancée maintenant.
      *
-     * NB: volontairement plus permissif qu'un simple "marché ouvert" (08:30-16:00).
-     * Ce script peut être déclenché une seule fois par jour, à une heure variable
-     * (ex: à l'ouverture de session sur une machine allumée seulement le soir) :
-     * on autorise donc toute heure à partir de l'ouverture du marché jusqu'à la
-     * fin de la journée, pour ne pas rater la synchro si la machine n'est pas
-     * disponible pile pendant les heures de bourse.
+     * Ce script est déclenché toutes les 15 minutes (voir CRON_SETUP.md) : les
+     * cours sur brvm.org bougent en cours de séance, donc on ne se limite pas
+     * à une synchro par jour. On autorise la fenêtre [ouverture du marché ;
+     * clôture + 1h] — la marge d'1h après la clôture laisse le temps à BRVM de
+     * publier les chiffres définitifs de la journée et sert aussi de
+     * rattrapage si la machine n'était pas allumée pile aux heures de bourse.
+     * En dehors de cette fenêtre, le déclenchement toutes les 15 min ne fait
+     * rien (retour rapide, pas de requête vers brvm.org).
      *
-     * On garde en revanche le blocage les jours non ouvrés (week-end) : sans ça,
-     * une synchro lancée un samedi enregistrerait les derniers chiffres connus
+     * On garde le blocage les jours non ouvrés (week-end) : sans ça, une
+     * synchro lancée un samedi enregistrerait les derniers chiffres connus
      * (ceux de vendredi) sous la date du samedi, ce qui corromprait l'historique.
      */
     private function isMarketOpen() {
@@ -81,8 +88,10 @@ class BRVMCronSync {
         $tradingDays = explode(',', $this->config['trading_days'] ?? 'monday,tuesday,wednesday,thursday,friday');
 
         $marketOpen = $this->config['market_open_time'] ?? '08:30';
+        $marketClose = $this->config['market_close_time'] ?? '16:00';
+        $closeCutoff = (new DateTime($marketClose, $timezone))->modify('+60 minutes')->format('H:i');
 
-        $isOpenTime = ($currentTime >= $marketOpen);
+        $isOpenTime = ($currentTime >= $marketOpen && $currentTime <= $closeCutoff);
         $isTradingDay = in_array($currentDay, $tradingDays);
 
         return $isOpenTime && $isTradingDay;

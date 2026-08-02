@@ -92,8 +92,10 @@ Rien n'est inventé ni rentré à la main : tout vient du site **brvm.org**, via
 un "scraper" (un programme qui lit une page web et en extrait les
 informations, comme si un robot recopiait un tableau à la main).
 
-- **Cours des actions** : lu sur `brvm.org/fr/cours-actions/0` (une fois par
-  synchronisation).
+- **Cours des actions** : lu sur `brvm.org/fr/cours-actions/0` (une requête
+  par synchronisation, qui ramène la liste complète des cotations). Comme les
+  cours évoluent en cours de séance, la synchro se répète toutes les 15
+  minutes pendant les heures de marché plutôt qu'une seule fois par jour.
 - **Indices** (BRVM-30, BRVM-COMPOSITE, BRVM-PRESTIGE, BRVM-PRINCIPAL) : lus
   sur `brvm.org/fr/indices`.
 - **Rapports des sociétés** (PDF) : lus sur la page dédiée de chaque
@@ -101,12 +103,76 @@ informations, comme si un robot recopiait un tableau à la main).
 
 Cette récupération se déclenche de deux façons :
 
-1. **Automatiquement**, une fois par jour, via un job planifié sur le Mac
-   (voir [`CRON_SETUP.md`](CRON_SETUP.md) pour tous les détails). C'est ce
-   qui garde la base à jour sans que tu aies à faire quoi que ce soit.
+1. **Automatiquement**, toutes les 15 minutes pendant les heures de marché
+   (08:30-16:00, lundi-vendredi), via un job planifié sur le Mac (voir
+   [`CRON_SETUP.md`](CRON_SETUP.md) pour tous les détails). C'est ce qui garde
+   la base à jour sans que tu aies à faire quoi que ce soit.
 2. **Manuellement**, en appelant l'API `api_brvm_sync.php` (action
    `sync_now`) ou en cliquant sur le bouton "Synchroniser maintenant" du
    tableau de bord.
+
+Chaque synchronisation met à jour deux choses différentes :
+- `stock_quotes` : une seule ligne par entreprise et par jour (écrasée à
+  chaque passage) — sert à l'historique jour par jour et aux indicateurs
+  techniques.
+- `intraday_quotes` : une nouvelle ligne à chaque synchronisation (jamais
+  écrasée) — permet d'observer la variation du cours au fil de la séance.
+  Consultable via `api_quotes.php` (action `intraday`, avec `company_id` et
+  éventuellement `trading_date`).
+
+## 3bis. Analyse IA des rapports (multi-fournisseurs)
+
+Une fois qu'un rapport a du texte extrait (`company_reports.text_extracted = 1`,
+via `scripts/backfill_reports.php`), on peut demander à une IA d'en faire une
+analyse approfondie façon note de recherche actions : résumé, chiffres clés
+et ratios calculés, SWOT, risques catégorisés, thèse bull/bear, une mise en
+perspective par rapport au cours et aux indicateurs techniques récents, et un
+**`valuation_assessment`** (PER, BPA, rendement du dividende, verdict
+"sous-coté" / "surcoté" / "correctement valorisé" — calculé seulement si le
+nombre d'actions est mentionné dans le rapport, sinon "indéterminable").
+
+Le service n'est pas lié à un seul fournisseur — **Gemini (Google) par
+défaut**, ou **Anthropic (Claude)** via `"provider": "anthropic"`. Ajouter un
+nouveau fournisseur (OpenAI, Grok, Kimi...) ne demande qu'une nouvelle classe
+implémentant `AiClientInterface` (voir `class/AnthropicClient.php` /
+`class/GeminiClient.php`), enregistrée dans
+`ReportAnalysisService::PROVIDERS`.
+
+- Nécessite une clé dans `.env` (copier `.env.example`) : `ANTHROPIC_API_KEY`
+  ([console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys))
+  et/ou `GEMINI_API_KEY`
+  ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)).
+- `api_report_analysis.php` (action `analyze`, avec `report_id`, `provider?`,
+  `model?`) déclenche l'analyse. Le résultat est mis en cache dans
+  `company_report_analyses` (une ligne par rapport + fournisseur + modèle +
+  jour) : le rappeler le même jour ne refacture pas l'IA (sauf
+  `force_refresh: true`). Actions `get` (lecture du cache, sans jamais
+  appeler l'IA) et `history` (évolution des analyses dans le temps, tous
+  fournisseurs confondus) sont aussi disponibles.
+- L'analyse est informative, pas un conseil en investissement (rappelé dans
+  chaque réponse via le champ `disclaimer`).
+- Chaque analyse individuelle inclut aussi `chart_data.price_history` (180
+  derniers jours de cours, même format que `api_quotes.php` action `ohlc`) —
+  de quoi tracer un graphe de contexte sans requête supplémentaire.
+
+## 3ter. Comparaison de rapports sur une période
+
+Pour aller au-delà d'un seul rapport : `api_report_comparison.php` (action
+`compare`) compare les rapports d'**une ou plusieurs entreprises** publiés
+sur une période donnée (`start_date`/`end_date`, `report_type?` optionnel,
+`company_ids` ou `symbols`). L'IA reçoit les analyses individuelles déjà
+extraites de chaque rapport (pas le texte brut) et produit une lecture
+approfondie : tendance financière dans le temps par entreprise
+(`trend_analysis`), comparaison entre entreprises si plusieurs
+(`cross_company_ranking`), lien avec la performance boursière
+(`price_correlation_note`), évolution des risques (`risks_evolution`), et des
+points d'appui à la décision (`decision_support_notes`, toujours informatifs,
+jamais un conseil d'achat/vente).
+
+La réponse inclut `chart_data` (`price_series` par entreprise sur la période,
+`financials_series` : CA/résultat net/marge par rapport successif) — prêt à
+tracer côté frontend. Comme pour l'analyse individuelle, le résultat est mis
+en cache par jour (action `get` pour relire sans appeler l'IA).
 
 ---
 
