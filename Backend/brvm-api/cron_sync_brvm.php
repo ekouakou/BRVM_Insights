@@ -3,10 +3,11 @@
  * Script CRON pour synchronisation automatique BRVM
  * Fichier: cron_sync_brvm.php
  * 
- * Configuration crontab recommandée:
+ * Configuration crontab recommandée (voir aussi docker/crontab pour le
+ * déploiement conteneurisé, qui utilise le même intervalle):
  *
- * Pendant les heures de marché (8:30 - 16:00), toutes les 15 minutes du lundi au vendredi:
- * (astérisque)/15 8-16 (astérisque) (astérisque) 1-5 /usr/bin/php /path/to/cron_sync_brvm.php >> /path/to/logs/sync.log 2>&1
+ * Pendant les heures de marché (8:30 - 16:00), toutes les 10 minutes du lundi au vendredi:
+ * (astérisque)/10 8-16 (astérisque) (astérisque) 1-5 /usr/bin/php /path/to/cron_sync_brvm.php >> /path/to/logs/sync.log 2>&1
  *
  * Alternative, toutes les 5 minutes:
  * (astérisque)/5 8-16 (astérisque) (astérisque) 1-5 /usr/bin/php /path/to/cron_sync_brvm.php >> /path/to/logs/sync.log 2>&1

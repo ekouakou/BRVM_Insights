@@ -2,10 +2,10 @@
 # techniques) — équivalent conteneurisé de scripts/run_daily_sync.sh /
 # launchd (voir CRON_SETUP.md). cron_sync_brvm.php refuse tout seul de
 # tourner le week-end ou hors des heures de marché (isMarketOpen()), donc ce
-# déclencheur peut se réveiller sans risque toutes les 15 minutes, 24h/24.
+# déclencheur peut se réveiller sans risque toutes les 10 minutes, 24h/24.
 #
 # PATH explicite : cron démarre avec un PATH minimal qui n'inclut pas
 # forcément /usr/local/bin (où vit le binaire php de l'image officielle).
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-*/15 * * * * www-data cd /var/www/html && php cron_sync_brvm.php >> logs/cron_intraday.log 2>&1
+*/10 * * * * www-data cd /var/www/html && php cron_sync_brvm.php >> logs/cron_intraday.log 2>&1

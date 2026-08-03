@@ -1,8 +1,14 @@
 <?php
 /**
- * Tableau exhaustif des variations du jour (hausses / baisses), pensé pour
- * être ouvert depuis le lien d'une notification push OneSignal — la
- * notification n'affiche qu'un aperçu, cette page montre tout.
+ * Tableau exhaustif des variations du jour (hausses / baisses / inchangées),
+ * pensé pour être ouvert depuis le lien d'une notification push OneSignal —
+ * la notification n'affiche qu'un aperçu, cette page montre tout.
+ *
+ * Supporte aussi une vue "intrajournalière" : avec le cron réglé sur un
+ * intervalle court (voir docker/crontab), class/BRVMSyncService.php
+ * enregistre un relevé dans intraday_quotes à chaque synchro. On peut donc
+ * choisir une heure précise de la journée (paramètre ?time=) pour voir l'état
+ * du marché à ce moment-là, pas seulement la clôture.
  *
  * Rendu HTML côté serveur (pas d'appel JS à une API) : reste accessible même
  * derrière l'authentification ajoutée sur les endpoints api_*.php, et
@@ -25,14 +31,56 @@ if (!$date) {
     $date = $result[0]['d'] ?? date('Y-m-d');
 }
 
-$rows = $crud->executeCustomQuery(
-    "SELECT c.symbol, c.name, sq.close_price, sq.variation_percent, sq.volume
-     FROM stock_quotes sq
-     INNER JOIN companies c ON c.id = sq.company_id
-     WHERE sq.trading_date = ? AND c.active = 1
-     ORDER BY sq.variation_percent DESC",
+// Relevés intrajournaliers disponibles pour cette date (pour la navigation par heure)
+$availableTimes = $crud->executeCustomQuery(
+    "SELECT DISTINCT quote_datetime FROM intraday_quotes WHERE DATE(quote_datetime) = ? ORDER BY quote_datetime ASC",
     [$date]
 ) ?: [];
+
+$requestedTime = $_GET['time'] ?? null;
+$time = null;
+if ($requestedTime) {
+    foreach ($availableTimes as $t) {
+        $hhmm = date('H:i', strtotime($t['quote_datetime']));
+        if ($hhmm === $requestedTime || $t['quote_datetime'] === $requestedTime) {
+            $time = $t['quote_datetime'];
+            break;
+        }
+    }
+    // Si l'heure demandée ne correspond à aucun relevé connu, on retombe
+    // silencieusement sur la vue de clôture plutôt que d'afficher une erreur.
+}
+
+if ($time) {
+    $rows = $crud->executeCustomQuery(
+        "SELECT
+            c.symbol, c.name, iq.volume,
+            sq.previous_close AS previous_close,
+            iq.price AS current_price,
+            CASE
+                WHEN sq.previous_close IS NULL OR sq.previous_close = 0 THEN 0
+                ELSE ROUND((iq.price - sq.previous_close) / sq.previous_close * 100, 2)
+            END AS variation_percent
+         FROM intraday_quotes iq
+         INNER JOIN companies c ON c.id = iq.company_id
+         LEFT JOIN stock_quotes sq ON sq.company_id = iq.company_id AND sq.trading_date = ?
+         WHERE iq.quote_datetime = ? AND c.active = 1
+         ORDER BY variation_percent DESC",
+        [$date, $time]
+    ) ?: [];
+} else {
+    $rows = $crud->executeCustomQuery(
+        "SELECT
+            c.symbol, c.name, sq.volume, sq.variation_percent,
+            sq.previous_close AS previous_close,
+            sq.close_price AS current_price
+         FROM stock_quotes sq
+         INNER JOIN companies c ON c.id = sq.company_id
+         WHERE sq.trading_date = ? AND c.active = 1
+         ORDER BY sq.variation_percent DESC",
+        [$date]
+    ) ?: [];
+}
 
 $gainers = array_values(array_filter($rows, fn($r) => (float) $r['variation_percent'] > 0));
 $unchanged = array_values(array_filter($rows, fn($r) => (float) $r['variation_percent'] == 0));
@@ -50,7 +98,37 @@ function fmtPct($v) {
     return $sign . number_format($v, 2, ',', ' ') . '%';
 }
 function fmtNum($v) {
+    if ($v === null) return '—';
     return number_format((float) $v, 0, ',', ' ');
+}
+function renderTable($rows, $variantClass) {
+    if (empty($rows)) {
+        echo '<div class="empty">Aucune société dans cette catégorie.</div>';
+        return;
+    }
+    ?>
+    <table>
+      <thead>
+        <tr>
+          <th>Symbole</th><th>Nom</th>
+          <th class="num">Cours précédent</th><th class="num">Cours actuel</th>
+          <th class="num">Volume</th><th class="num">Variation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($rows as $r): ?>
+        <tr>
+          <td><?= htmlspecialchars($r['symbol']) ?></td>
+          <td><?= htmlspecialchars($r['name']) ?></td>
+          <td class="num"><?= fmtNum($r['previous_close']) ?></td>
+          <td class="num"><?= fmtNum($r['current_price']) ?></td>
+          <td class="num"><?= fmtNum($r['volume']) ?></td>
+          <td class="num pct <?= $variantClass ?>"><?= fmtPct($r['variation_percent']) ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <?php
 }
 ?>
 <!DOCTYPE html>
@@ -58,7 +136,7 @@ function fmtNum($v) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BRVM Insights — Variations du <?= htmlspecialchars($date) ?></title>
+<title>BRVM Insights — Variations du <?= htmlspecialchars($date) ?><?= $time ? ' à ' . htmlspecialchars(date('H:i', strtotime($time))) : '' ?></title>
 <style>
   .viz-root {
     color-scheme: light;
@@ -90,16 +168,17 @@ function fmtNum($v) {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     padding: 20px;
   }
-  .wrap { max-width: 900px; margin: 0 auto; }
+  .wrap { max-width: 980px; margin: 0 auto; }
   header { margin-bottom: 18px; }
   h1 { font-size: 19px; margin: 0 0 4px; }
   .sub { color: var(--text-secondary); font-size: 13px; }
-  .date-nav { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-  .date-nav a {
+  .nav-label { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); margin: 12px 0 4px; }
+  .date-nav, .time-nav { display: flex; gap: 6px; flex-wrap: wrap; }
+  .date-nav a, .time-nav a {
     font-size: 12px; padding: 4px 9px; border-radius: 999px; text-decoration: none;
     background: var(--neutral-fill); color: var(--text-secondary); border: 1px solid var(--border);
   }
-  .date-nav a.active { background: var(--text-primary); color: var(--surface-1); }
+  .date-nav a.active, .time-nav a.active { background: var(--text-primary); color: var(--surface-1); }
 
   .summary { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
   .summary .tile {
@@ -115,14 +194,16 @@ function fmtNum($v) {
     font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
     color: var(--text-secondary); margin: 22px 0 8px;
   }
-  table { width: 100%; border-collapse: collapse; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
-  thead th { text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; padding: 8px 12px; border-bottom: 1px solid var(--gridline); }
+  .table-scroll { overflow-x: auto; border-radius: 10px; }
+  table { width: 100%; min-width: 560px; border-collapse: collapse; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 13px; }
+  thead th { text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 12px; padding: 8px 12px; border-bottom: 1px solid var(--gridline); white-space: nowrap; }
   tbody td { padding: 7px 12px; border-bottom: 1px solid var(--gridline); font-variant-numeric: tabular-nums; }
   tbody tr:last-child td { border-bottom: none; }
   td.num, th.num { text-align: right; }
   td.pct.up { color: var(--good); font-weight: 600; }
   td.pct.down { color: var(--critical); font-weight: 600; }
-  .empty { color: var(--text-muted); font-size: 13px; padding: 14px; text-align: center; }
+  td.pct.flat { color: var(--text-muted); font-weight: 600; }
+  .empty { color: var(--text-muted); font-size: 13px; padding: 14px; text-align: center; background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; }
   footer { margin-top: 26px; font-size: 12px; color: var(--text-muted); text-align: center; }
   footer a { color: inherit; }
 </style>
@@ -131,11 +212,26 @@ function fmtNum($v) {
 <div class="wrap">
   <header>
     <h1>Variations du marché BRVM</h1>
-    <div class="sub"><?= htmlspecialchars(date('d/m/Y', strtotime($date))) ?> — <?= count($rows) ?> société(s) cotée(s)</div>
+    <div class="sub">
+      <?= htmlspecialchars(date('d/m/Y', strtotime($date))) ?><?= $time ? ' — relevé de ' . htmlspecialchars(date('H:i', strtotime($time))) : ' — clôture' ?>
+      — <?= count($rows) ?> société(s)
+    </div>
+
     <?php if (!empty($availableDates)): ?>
+    <div class="nav-label">Jour</div>
     <div class="date-nav">
       <?php foreach ($availableDates as $d): $d = $d['trading_date']; ?>
         <a href="?date=<?= urlencode($d) ?>" class="<?= $d === $date ? 'active' : '' ?>"><?= htmlspecialchars(date('d/m', strtotime($d))) ?></a>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($availableTimes)): ?>
+    <div class="nav-label">Heure (relevés intrajournaliers)</div>
+    <div class="time-nav">
+      <a href="?date=<?= urlencode($date) ?>" class="<?= !$time ? 'active' : '' ?>">Clôture</a>
+      <?php foreach ($availableTimes as $t): $hhmm = date('H:i', strtotime($t['quote_datetime'])); ?>
+        <a href="?date=<?= urlencode($date) ?>&time=<?= urlencode($hhmm) ?>" class="<?= ($time && date('H:i', strtotime($time)) === $hhmm) ? 'active' : '' ?>"><?= htmlspecialchars($hhmm) ?></a>
       <?php endforeach; ?>
     </div>
     <?php endif; ?>
@@ -148,49 +244,13 @@ function fmtNum($v) {
   </div>
 
   <div class="section-title">📈 Hausses (<?= count($gainers) ?>)</div>
-  <?php if (empty($gainers)): ?>
-    <div class="empty">Aucune hausse ce jour-là.</div>
-  <?php else: ?>
-    <table>
-      <thead><tr><th>Symbole</th><th>Nom</th><th class="num">Cours</th><th class="num">Volume</th><th class="num">Variation</th></tr></thead>
-      <tbody>
-        <?php foreach ($gainers as $r): ?>
-        <tr>
-          <td><?= htmlspecialchars($r['symbol']) ?></td>
-          <td><?= htmlspecialchars($r['name']) ?></td>
-          <td class="num"><?= fmtNum($r['close_price']) ?></td>
-          <td class="num"><?= fmtNum($r['volume']) ?></td>
-          <td class="num pct up"><?= fmtPct($r['variation_percent']) ?></td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  <?php endif; ?>
+  <div class="table-scroll"><?php renderTable($gainers, 'up'); ?></div>
 
   <div class="section-title">📉 Baisses (<?= count($losers) ?>)</div>
-  <?php if (empty($losers)): ?>
-    <div class="empty">Aucune baisse ce jour-là.</div>
-  <?php else: ?>
-    <table>
-      <thead><tr><th>Symbole</th><th>Nom</th><th class="num">Cours</th><th class="num">Volume</th><th class="num">Variation</th></tr></thead>
-      <tbody>
-        <?php foreach ($losers as $r): ?>
-        <tr>
-          <td><?= htmlspecialchars($r['symbol']) ?></td>
-          <td><?= htmlspecialchars($r['name']) ?></td>
-          <td class="num"><?= fmtNum($r['close_price']) ?></td>
-          <td class="num"><?= fmtNum($r['volume']) ?></td>
-          <td class="num pct down"><?= fmtPct($r['variation_percent']) ?></td>
-        </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  <?php endif; ?>
+  <div class="table-scroll"><?php renderTable($losers, 'down'); ?></div>
 
-  <?php if (!empty($unchanged)): ?>
-  <div class="section-title">Inchangées (<?= count($unchanged) ?>)</div>
-  <div class="empty" style="text-align:left;"><?= htmlspecialchars(implode(', ', array_column($unchanged, 'symbol'))) ?></div>
-  <?php endif; ?>
+  <div class="section-title">➖ Inchangées (<?= count($unchanged) ?>)</div>
+  <div class="table-scroll"><?php renderTable($unchanged, 'flat'); ?></div>
 
   <footer>
     BRVM Insights — <a href="dashboard.html">Voir le tableau de bord complet</a>

@@ -280,7 +280,7 @@ INSERT INTO system_config (config_key, config_value, description) VALUES
 ('market_open_time', '08:30', 'Heure d\'ouverture du marché (format HH:MM)'),
 ('market_close_time', '16:00', 'Heure de fermeture du marché'),
 ('trading_days', 'monday,tuesday,wednesday,thursday,friday', 'Jours de trading'),
-('sync_interval_minutes', '5', 'Intervalle de synchronisation pendant les heures de marché (minutes)'),
+('sync_interval_minutes', '10', 'Intervalle de synchronisation pendant les heures de marché (minutes)'),
 ('timezone', 'Africa/Abidjan', 'Fuseau horaire du marché'),
 ('api_rate_limit', '100', 'Nombre de requêtes API par minute'),
 ('data_retention_days', '730', 'Nombre de jours de conservation des données (2 ans)');
