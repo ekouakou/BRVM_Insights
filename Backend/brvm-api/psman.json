@@ -7,7 +7,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "https://br-immobilier.ci/brvmapi",
+      "value": "http://localhost/BRVM_Insights/Backend/brvm-api",
       "type": "string"
     },
     {

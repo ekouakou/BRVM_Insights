@@ -259,3 +259,66 @@
 [2026-07-31 22:47:06] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":228.81,"Fermeture":230.08,"Variation (%)":0.56,"Variation 31 décembre (%)":1.97}
 [2026-07-31 22:47:06] Indices sauvegardés: 4 enregistrements à 2026-07-31 22:47:06
 [2026-07-31 22:47:06] Récupération des indices terminée avec succès !
+[2026-08-03 10:42:31] Début de la récupération des données BRVM...
+[2026-08-03 10:42:31] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-08-03 10:42:35] Succès avec curl !
+[2026-08-03 10:42:35] HTML récupéré, taille: 57736 caractères
+[2026-08-03 10:42:35] Élément #block-system-main trouvé : section
+[2026-08-03 10:42:35] Tableau trouvé dans #block-system-main
+[2026-08-03 10:42:35] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-08-03 10:42:35] Nombre d'en-têtes: 7
+[2026-08-03 10:42:35] Lignes de données extraites: 47
+[2026-08-03 10:42:35] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":1134,"Cours veille (FCFA)":3000,"Cours Ouverture (FCFA)":3000,"Cours Clôture (FCFA)":3000,"Variation (%)":0}
+[2026-08-03 10:42:35] Données sauvegardées: 47 enregistrements à 2026-08-03 10:42:35
+[2026-08-03 10:42:35] Récupération terminée avec succès !
+[2026-08-03 10:42:35] Début de la récupération des indices BRVM...
+[2026-08-03 10:42:35] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-08-03 10:42:37] Succès avec curl !
+[2026-08-03 10:42:37] HTML des indices récupéré, taille: 47939 caractères
+[2026-08-03 10:42:37] Nombre d'en-têtes: 5
+[2026-08-03 10:42:37] Lignes de données extraites: 4
+[2026-08-03 10:42:37] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":230.08,"Fermeture":231.22,"Variation (%)":0.5,"Variation 31 décembre (%)":1.97}
+[2026-08-03 10:42:37] Indices sauvegardés: 4 enregistrements à 2026-08-03 10:42:37
+[2026-08-03 10:42:37] Récupération des indices terminée avec succès !
+[2026-08-03 10:43:04] Début de la récupération des données BRVM...
+[2026-08-03 10:43:04] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-08-03 10:43:07] Succès avec curl !
+[2026-08-03 10:43:07] HTML récupéré, taille: 57736 caractères
+[2026-08-03 10:43:07] Élément #block-system-main trouvé : section
+[2026-08-03 10:43:07] Tableau trouvé dans #block-system-main
+[2026-08-03 10:43:07] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-08-03 10:43:07] Nombre d'en-têtes: 7
+[2026-08-03 10:43:07] Lignes de données extraites: 47
+[2026-08-03 10:43:07] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":1134,"Cours veille (FCFA)":3000,"Cours Ouverture (FCFA)":3000,"Cours Clôture (FCFA)":3000,"Variation (%)":0}
+[2026-08-03 10:43:07] Données sauvegardées: 47 enregistrements à 2026-08-03 10:43:07
+[2026-08-03 10:43:07] Récupération terminée avec succès !
+[2026-08-03 10:43:07] Début de la récupération des indices BRVM...
+[2026-08-03 10:43:07] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-08-03 10:43:09] Succès avec curl !
+[2026-08-03 10:43:09] HTML des indices récupéré, taille: 47939 caractères
+[2026-08-03 10:43:09] Nombre d'en-têtes: 5
+[2026-08-03 10:43:09] Lignes de données extraites: 4
+[2026-08-03 10:43:09] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":230.08,"Fermeture":231.22,"Variation (%)":0.5,"Variation 31 décembre (%)":1.97}
+[2026-08-03 10:43:09] Indices sauvegardés: 4 enregistrements à 2026-08-03 10:43:09
+[2026-08-03 10:43:09] Récupération des indices terminée avec succès !
+[2026-08-03 10:57:32] Début de la récupération des données BRVM...
+[2026-08-03 10:57:32] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-08-03 10:57:37] Succès avec curl !
+[2026-08-03 10:57:37] HTML récupéré, taille: 57737 caractères
+[2026-08-03 10:57:37] Élément #block-system-main trouvé : section
+[2026-08-03 10:57:37] Tableau trouvé dans #block-system-main
+[2026-08-03 10:57:37] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-08-03 10:57:37] Nombre d'en-têtes: 7
+[2026-08-03 10:57:37] Lignes de données extraites: 47
+[2026-08-03 10:57:37] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":1903,"Cours veille (FCFA)":3000,"Cours Ouverture (FCFA)":3000,"Cours Clôture (FCFA)":3020,"Variation (%)":0.67}
+[2026-08-03 10:57:37] Données sauvegardées: 47 enregistrements à 2026-08-03 10:57:37
+[2026-08-03 10:57:37] Récupération terminée avec succès !
+[2026-08-03 10:57:37] Début de la récupération des indices BRVM...
+[2026-08-03 10:57:37] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-08-03 10:57:40] Succès avec curl !
+[2026-08-03 10:57:40] HTML des indices récupéré, taille: 47941 caractères
+[2026-08-03 10:57:40] Nombre d'en-têtes: 5
+[2026-08-03 10:57:40] Lignes de données extraites: 4
+[2026-08-03 10:57:40] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":230.08,"Fermeture":231.44,"Variation (%)":0.59,"Variation 31 décembre (%)":1.97}
+[2026-08-03 10:57:40] Indices sauvegardés: 4 enregistrements à 2026-08-03 10:57:40
+[2026-08-03 10:57:40] Récupération des indices terminée avec succès !

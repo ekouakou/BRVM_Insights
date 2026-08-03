@@ -34,12 +34,14 @@ require_once __DIR__ . '/class/DynamiqueCrud.php';
 require_once __DIR__ . '/class/BRVMScraperFixed.php';
 require_once __DIR__ . '/class/BRVMSyncService.php';
 require_once __DIR__ . '/class/TechnicalIndicatorsCalculator.php';
+require_once __DIR__ . '/class/OneSignalNotifier.php';
 
 class BRVMCronSync {
     private $crud;
     private $scraper;
     private $syncService;
     private $indicatorsCalculator;
+    private $notifier;
     private $config;
 
     public function __construct() {
@@ -47,6 +49,7 @@ class BRVMCronSync {
         $this->scraper = new BRVMScraperFixed();
         $this->syncService = new BRVMSyncService($this->crud, $this->scraper);
         $this->indicatorsCalculator = new TechnicalIndicatorsCalculator($this->crud);
+        $this->notifier = new OneSignalNotifier($this->crud);
         $this->loadConfig();
     }
 
@@ -166,6 +169,24 @@ class BRVMCronSync {
     }
 
     /**
+     * Envoie la notification push OneSignal de fin de synchronisation.
+     * Best-effort : une erreur ici est loguée mais n'affecte jamais le
+     * résultat global de la synchronisation.
+     */
+    private function notifySync($quoteStats, $indexStats) {
+        try {
+            $result = $this->notifier->notifySyncCompleted($quoteStats, $indexStats);
+            if ($result['success']) {
+                $this->log("Notification push envoyée");
+            } else {
+                $this->log("Notification push non envoyée: " . $result['error'], "WARNING");
+            }
+        } catch (Exception $e) {
+            $this->log("Erreur notification push: " . $e->getMessage(), "WARNING");
+        }
+    }
+
+    /**
      * Exécute la synchronisation
      */
     public function run() {
@@ -223,6 +244,9 @@ class BRVMCronSync {
 
             $executionTime = round(microtime(true) - SCRIPT_START_TIME, 2);
             $this->log("Temps d'exécution total: {$executionTime}s");
+
+            // Notification push (best-effort : ne doit jamais faire échouer la synchro)
+            $this->notifySync($quoteStats ?? null, $indexStats ?? null);
 
             // Nettoyer les anciennes données si configuré
             $this->cleanOldData();

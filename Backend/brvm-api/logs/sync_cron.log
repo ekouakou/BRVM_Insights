@@ -43,3 +43,31 @@
 [2026-07-31 22:31:33][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
 [2026-07-31 22:31:33][INFO] Marché fermé, pas de synchronisation nécessaire
 [2026-07-31 22:31:33][INFO] Lock supprimé
+[2026-08-03 10:42:31][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-03 10:42:31][INFO] Lock créé
+[2026-08-03 10:42:31][INFO] Synchronisation des cotations...
+[2026-08-03 10:42:35][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-08-03 10:42:35][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-03 10:42:35][INFO] Synchronisation des indices...
+[2026-08-03 10:42:37][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-08-03 10:42:37][INFO] Temps d'exécution total: 6.23s
+[2026-08-03 10:42:38][INFO] Notification push envoyée
+[2026-08-03 10:42:38][INFO] Nettoyage des données antérieures à 2024-08-03
+[2026-08-03 10:42:38][INFO] Anciennes cotations supprimées
+[2026-08-03 10:42:38][INFO] Anciens logs supprimés
+[2026-08-03 10:42:38][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-03 10:42:38][INFO] Lock supprimé
+[2026-08-03 10:57:32][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-03 10:57:32][INFO] Lock créé
+[2026-08-03 10:57:32][INFO] Synchronisation des cotations...
+[2026-08-03 10:57:37][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-08-03 10:57:37][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-03 10:57:37][INFO] Synchronisation des indices...
+[2026-08-03 10:57:40][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-08-03 10:57:40][INFO] Temps d'exécution total: 8.1s
+[2026-08-03 10:57:41][INFO] Notification push envoyée
+[2026-08-03 10:57:41][INFO] Nettoyage des données antérieures à 2024-08-03
+[2026-08-03 10:57:41][INFO] Anciennes cotations supprimées
+[2026-08-03 10:57:41][INFO] Anciens logs supprimés
+[2026-08-03 10:57:41][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-03 10:57:41][INFO] Lock supprimé

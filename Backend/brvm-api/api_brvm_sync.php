@@ -20,18 +20,21 @@ AuthGuard::requireAuth();
 require_once 'class/BRVMScraperFixed.php';
 require_once 'class/BRVMSyncService.php';
 require_once 'class/TechnicalIndicatorsCalculator.php';
+require_once 'class/OneSignalNotifier.php';
 
 class BRVMSyncAPI {
     private $crud;
     private $scraper;
     private $syncService;
     private $indicatorsCalculator;
+    private $notifier;
 
     public function __construct() {
         $this->crud = new DynamiqueCrud();
         $this->scraper = new BRVMScraperFixed();
         $this->syncService = new BRVMSyncService($this->crud, $this->scraper);
         $this->indicatorsCalculator = new TechnicalIndicatorsCalculator($this->crud);
+        $this->notifier = new OneSignalNotifier($this->crud);
     }
 
     /**
@@ -141,6 +144,17 @@ class BRVMSyncAPI {
                 'started_at' => date('Y-m-d H:i:s'),
                 'completed_at' => date('Y-m-d H:i:s')
             ]);
+        }
+
+        // Notification push (best-effort : ne doit jamais faire échouer la synchro)
+        try {
+            $notification = $this->notifier->notifySyncCompleted(
+                is_array($result['quotes']) && !isset($result['quotes']['error']) ? $result['quotes'] : null,
+                is_array($result['indices']) && !isset($result['indices']['error']) ? $result['indices'] : null
+            );
+            $result['notification'] = ['sent' => $notification['success'], 'error' => $notification['error']];
+        } catch (Exception $e) {
+            $result['notification'] = ['sent' => false, 'error' => $e->getMessage()];
         }
 
         $result['success'] = !$hadError;

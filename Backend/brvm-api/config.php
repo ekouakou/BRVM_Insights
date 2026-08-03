@@ -181,6 +181,19 @@ define('NOTIFICATION_CONFIG', [
     'alert_on_data_anomaly' => true
 ]);
 
+// Notifications push OneSignal — une notification par synchronisation (voir
+// class/OneSignalNotifier.php, appelé depuis cron_sync_brvm.php et
+// api_brvm_sync.php). Clés renseignées via .env (jamais committées).
+define('ONESIGNAL_CONFIG', [
+    'enabled' => true,
+    'app_id' => getenv('ONESIGNAL_APP_ID') ?: '',
+    'api_key' => getenv('ONESIGNAL_API_KEY') ?: '',
+]);
+
+// URL publique de ce backend (voir .env.example) — utilisée pour construire
+// des liens absolus (ex: lien "voir le tableau complet" dans une notification).
+define('APP_BASE_URL', rtrim(getenv('APP_BASE_URL') ?: 'http://localhost', '/'));
+
 // Fonctions utilitaires
 function getConfig($key) {
     $configs = [
@@ -193,6 +206,7 @@ function getConfig($key) {
         'security' => SECURITY_CONFIG,
         'email' => EMAIL_CONFIG,
         'notification' => NOTIFICATION_CONFIG,
+        'onesignal' => ONESIGNAL_CONFIG,
         'paths' => PATHS
     ];
     
