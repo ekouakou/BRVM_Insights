@@ -10,14 +10,20 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  ReferenceLine,
 } from 'recharts'
 import { callApi } from '../lib/apiClient'
-import type { Company, OhlcPoint } from '../lib/types'
-import { Card, ErrorState, LoadingState, Select } from '../components/ui'
+import type { Company, IntradayPoint, OhlcPoint } from '../lib/types'
+import { Card, ErrorState, Input, LoadingState, Select } from '../components/ui'
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 export function Quotes() {
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [days, setDays] = useState(180)
+  const [intradayDate, setIntradayDate] = useState(todayIso())
 
   const companiesQuery = useQuery({
     queryKey: ['companies-list'],
@@ -30,7 +36,20 @@ export function Quotes() {
     enabled: !!companyId,
   })
 
+  const intradayQuery = useQuery({
+    queryKey: ['intraday', companyId, intradayDate],
+    queryFn: () =>
+      callApi<IntradayPoint[]>('api_quotes.php', 'intraday', { company_id: companyId, trading_date: intradayDate }),
+    enabled: !!companyId,
+  })
+
   const companies = companiesQuery.data ?? []
+  const intradayData = (intradayQuery.data ?? []).map((p) => ({
+    ...p,
+    time: p.quote_datetime.slice(11, 16), // "HH:MM" pour l'axe X
+    price: Number(p.price),
+    variation_percent: p.variation_percent !== null ? Number(p.variation_percent) : null,
+  }))
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,6 +88,51 @@ export function Quotes() {
       </Card>
 
       {!companyId && <p className="text-sm text-gray-500 dark:text-gray-400">Sélectionne une entreprise pour afficher son graphe.</p>}
+
+      {companyId && (
+        <Card title="Variation intrajournalière">
+          <div className="mb-3 flex flex-wrap items-end gap-4">
+            <label className="w-44">
+              <span className="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Journée de cotation</span>
+              <Input type="date" value={intradayDate} onChange={(e) => setIntradayDate(e.target.value)} />
+            </label>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Un point par synchronisation (toutes les ~5 min pendant les heures de marché) — jamais écrasé, contrairement
+              au cours de clôture du jour ci-dessous.
+            </p>
+          </div>
+
+          {intradayQuery.isLoading && <LoadingState />}
+          {intradayQuery.error && <ErrorState message={(intradayQuery.error as Error).message} />}
+          {intradayQuery.data && intradayData.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun relevé pour cette date (hors heures de marché, ou synchro pas encore passée).
+            </p>
+          )}
+          {intradayData.length > 0 && (
+            <ResponsiveContainer width="100%" height={240}>
+              <LineChart data={intradayData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                <XAxis dataKey="time" tick={{ fontSize: 11 }} minTickGap={30} />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tick={{ fontSize: 11 }}
+                  width={60}
+                  tickFormatter={(v) => `${v}%`}
+                />
+                <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                <Tooltip
+                  formatter={(value: number, name) =>
+                    name === 'variation_percent' ? [`${value.toFixed(2)}%`, 'Variation'] : [value, name]
+                  }
+                  labelFormatter={(label) => `Heure : ${label}`}
+                />
+                <Line type="monotone" dataKey="variation_percent" stroke="#4f46e5" dot strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </Card>
+      )}
 
       {companyId && ohlcQuery.isLoading && <LoadingState />}
       {companyId && ohlcQuery.error && <ErrorState message={(ohlcQuery.error as Error).message} />}

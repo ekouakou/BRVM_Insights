@@ -1,3 +1,10 @@
+export interface IntradayPoint {
+  quote_datetime: string
+  price: string | number
+  volume: string | number
+  variation_percent: string | number | null
+}
+
 export interface CompanyQuoteRow {
   symbol: string
   name: string
