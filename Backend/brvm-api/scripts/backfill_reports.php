@@ -59,104 +59,13 @@ require_once __DIR__ . '/../class/DynamiqueCrud.php';
 require_once __DIR__ . '/../class/HttpFetcher.php';
 require_once __DIR__ . '/../class/BRVMReportsScraper.php';
 require_once __DIR__ . '/../class/PdfTextExtractor.php';
+require_once __DIR__ . '/../class/CompanySlugMatcher.php';
 
 const REQUEST_DELAY_SECONDS = 1; // pause entre chaque requête HTTP vers brvm.org
 const STORAGE_DIR = __DIR__ . '/../storage/reports';
 
-// Mots vides retirés avant comparaison (pays, forme juridique) — évitent que deux
-// entreprises de pays différents ("BANK OF AFRICA BENIN" vs "... MALI") se
-// confondent sur leur seule partie commune.
-const STOPWORDS = ['CI', 'COTE', 'D', 'IVOIRE', 'DIVOIRE', 'BENIN', 'BURKINA', 'FASO', 'SENEGAL', 'MALI', 'NIGER', 'TOGO', 'SA'];
-
-// Code pays (countries.code) -> suffixe utilisé dans les slugs brvm.org
-const COUNTRY_SLUG_SUFFIX = ['CI' => 'ci', 'SN' => 'sn', 'BF' => 'bf', 'BJ' => 'bn', 'TG' => 'tg', 'NE' => 'ng', 'ML' => 'ml', 'GW' => 'gw'];
-
 function cliLog($message) {
     echo '[' . date('Y-m-d H:i:s') . "] $message" . PHP_EOL;
-}
-
-function normalizeForMatch($str) {
-    $str = strtoupper($str);
-    $str = iconv('UTF-8', 'ASCII//TRANSLIT', $str);
-    $str = preg_replace('/[^A-Z0-9]+/', ' ', $str);
-    $tokens = preg_split('/\s+/', trim($str));
-    $tokens = array_filter($tokens, fn($t) => $t !== '' && !in_array($t, STOPWORDS));
-    return implode(' ', $tokens);
-}
-
-/**
- * Calcule un rattachement automatique sûr (slug non ambigu, score >= 90%,
- * pas de collision avec une autre entreprise). Les cas incertains ne sont
- * PAS assignés — mieux vaut un rapport manquant qu'un rapport mal attribué.
- *
- * @return array{assignments: array<string,string>, review: array<string,array>}
- */
-function computeSlugAssignments(array $companies, array $slugs) {
-    $assignments = [];
-    $review = [];
-
-    foreach ($companies as $c) {
-        if (!empty($c['brvm_report_slug'])) {
-            continue; // déjà rattachée (auto précédemment ou manuellement)
-        }
-
-        $target = normalizeForMatch($c['full_name'] ?: $c['name']);
-        $exactTier = [];
-        $bestSlug = null;
-        $bestScore = 0;
-
-        foreach ($slugs as $s) {
-            $candidate = normalizeForMatch($s['name']);
-            if ($candidate === '') continue;
-
-            similar_text($target, $candidate, $pct);
-            if ($pct >= 90) {
-                $exactTier[] = array_merge($s, ['score' => $pct]);
-            }
-            if ($pct > $bestScore) {
-                $bestScore = $pct;
-                $bestSlug = $s['slug'];
-            }
-        }
-
-        $chosen = null;
-        if (count($exactTier) === 1) {
-            $chosen = $exactTier[0]['slug'];
-        } elseif (count($exactTier) > 1) {
-            $suffix = COUNTRY_SLUG_SUFFIX[$c['country_code']] ?? null;
-            $candidates = array_values(array_filter(
-                $exactTier,
-                fn($e) => $suffix && str_ends_with($e['slug'], "-{$suffix}")
-            ));
-            if (count($candidates) === 1) {
-                $chosen = $candidates[0]['slug'];
-            }
-        }
-
-        if ($chosen) {
-            $assignments[$c['symbol']] = $chosen;
-        } else {
-            $review[$c['symbol']] = ['suggestion' => $bestSlug, 'score' => $bestScore];
-        }
-    }
-
-    // Sécurité supplémentaire : si deux entreprises se voient assigner le même
-    // slug (ex: homonymes après normalisation), on annule les deux plutôt que
-    // de deviner laquelle est la bonne.
-    $bySlug = [];
-    foreach ($assignments as $symbol => $slug) {
-        $bySlug[$slug][] = $symbol;
-    }
-    foreach ($bySlug as $slug => $symbols) {
-        if (count($symbols) > 1) {
-            foreach ($symbols as $symbol) {
-                $review[$symbol] = ['suggestion' => $slug, 'score' => 100];
-                unset($assignments[$symbol]);
-            }
-        }
-    }
-
-    return ['assignments' => $assignments, 'review' => $review];
 }
 
 function inferReportType($title) {
@@ -329,7 +238,7 @@ $companies = $crud->executeCustomQuery(
      WHERE c.active = 1 ORDER BY c.symbol"
 );
 
-$result = computeSlugAssignments($companies, $slugs);
+$result = CompanySlugMatcher::computeSlugAssignments($companies, $slugs);
 
 foreach ($result['assignments'] as $symbol => $slug) {
     $company = current(array_filter($companies, fn($c) => $c['symbol'] === $symbol));

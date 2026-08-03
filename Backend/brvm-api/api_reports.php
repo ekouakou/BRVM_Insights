@@ -23,6 +23,7 @@ require_once 'class/AuthGuard.php';
 require_once 'class/HttpFetcher.php';
 require_once 'class/BRVMReportsScraper.php';
 require_once 'class/PdfTextExtractor.php';
+require_once 'class/CompanySlugMatcher.php';
 AuthGuard::requireAuth();
 
 define('REPORTS_STORAGE_DIR', __DIR__ . '/storage/reports');
@@ -71,6 +72,9 @@ class ReportsAPI {
 
                 case 'discover_new':
                     return $this->discoverNewReports($input);
+
+                case 'match_companies':
+                    return $this->matchCompanies($input);
 
                 case 'download':
                     $this->downloadReport($input); // termine par exit(), ne renvoie jamais de JSON
@@ -657,6 +661,52 @@ class ReportsAPI {
         http_response_code(404);
         echo "Fichier introuvable (ni copie locale, ni URL source)";
         exit;
+    }
+
+    /**
+     * Rattache automatiquement les entreprises encore sans brvm_report_slug
+     * à leur page de rapports sur brvm.org, en scrapant l'annuaire
+     * /fr/rapports-societes-cotees (voir CompanySlugMatcher, extrait de
+     * scripts/backfill_reports.php). Équivalent web de
+     * `php scripts/backfill_reports.php --match-only` — utile sur un
+     * hébergement sans accès CLI (voir bouton dédié dans le panneau
+     * d'admin, page Rapports). Ne rattache que les correspondances sûres
+     * (score >= 90%, non ambiguës) ; les cas incertains sont renvoyés dans
+     * "review" pour un rattachement manuel (brvm_report_slug en base).
+     */
+    private function matchCompanies($input) {
+        $scraper = new BRVMReportsScraper();
+        $slugs = $scraper->discoverCompanySlugs();
+
+        $companies = $this->crud->executeCustomQuery(
+            "SELECT c.*, co.code AS country_code FROM companies c
+             LEFT JOIN countries co ON co.id = c.country_id
+             WHERE c.active = 1 ORDER BY c.symbol"
+        ) ?: [];
+
+        $result = CompanySlugMatcher::computeSlugAssignments($companies, $slugs);
+
+        $assigned = [];
+        foreach ($result['assignments'] as $symbol => $slug) {
+            $company = current(array_filter($companies, fn($c) => $c['symbol'] === $symbol));
+            if (!$company) continue;
+            $this->crud->merge('companies', ['brvm_report_slug' => $slug], ['id' => $company['id']]);
+            $assigned[] = ['symbol' => $symbol, 'slug' => $slug];
+        }
+
+        $review = [];
+        foreach ($result['review'] as $symbol => $info) {
+            $review[] = ['symbol' => $symbol, 'suggestion' => $info['suggestion'], 'score' => round($info['score'], 1)];
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'total_slugs_found' => count($slugs),
+                'assigned' => $assigned,
+                'review' => $review,
+            ],
+        ];
     }
 
     /**

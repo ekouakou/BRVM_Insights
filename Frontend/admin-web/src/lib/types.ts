@@ -105,6 +105,12 @@ export interface DiscoverResult {
   new_reports: { id: number; title: string }[]
 }
 
+export interface CompanyMatchResult {
+  total_slugs_found: number
+  assigned: { symbol: string; slug: string }[]
+  review: { symbol: string; suggestion: string | null; score: number }[]
+}
+
 export interface ReportProcessResult {
   id: number
   company_id: number

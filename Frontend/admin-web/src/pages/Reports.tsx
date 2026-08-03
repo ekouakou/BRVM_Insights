@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { callApi, reportDownloadUrl, uploadFile } from '../lib/apiClient'
-import type { BackfillCompanyProgress, DiscoverResult, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
+import type { BackfillCompanyProgress, CompanyMatchResult, DiscoverResult, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
 import { AnalysisBadge, Button, Card, ErrorState, LoadingState, MarkdownBadge, Modal, StatTile, Table } from '../components/ui'
 import { BoltIcon, CloseIcon, EyeIcon, IconButton, InfoIcon, RetryIcon, UploadIcon } from '../components/icons'
 
@@ -29,6 +29,16 @@ export function Reports() {
   const [bulkFormatting, setBulkFormatting] = useState(false)
   const [bulkFormatProgress, setBulkFormatProgress] = useState<{ done: number; total: number; failed: number } | null>(null)
   const [showRawText, setShowRawText] = useState(false)
+  const [bulkAllRunning, setBulkAllRunning] = useState(false)
+  const [bulkAllStatus, setBulkAllStatus] = useState<string | null>(null)
+  const [bulkAllSummary, setBulkAllSummary] = useState<{
+    matched: number
+    review: CompanyMatchResult['review']
+    companies: number
+    newReports: number
+    processed: number
+    failed: number
+  } | null>(null)
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({})
   const markdownFileInput = useRef<HTMLInputElement | null>(null)
   const queryClient = useQueryClient()
@@ -247,6 +257,75 @@ export function Reports() {
     setBulkFormatting(false)
   }
 
+  // Rattache d'abord les entreprises sans brvm_report_slug à l'annuaire
+  // brvm.org (voir CompanySlugMatcher/api_reports.php::matchCompanies), puis
+  // enchaîne — pour CHAQUE entreprise ainsi rattachée (+ celles déjà
+  // rattachées) — la découverte (toutes les pages) et le téléchargement des
+  // rapports en attente. Purement séquentiel côté frontend (une requête à la
+  // fois) : équivalent web de `php scripts/backfill_reports.php`, sur un
+  // hébergement sans accès CLI. Peut prendre longtemps pour beaucoup
+  // d'entreprises — garder l'onglet ouvert jusqu'à la fin.
+  async function runMatchAndDownloadAll() {
+    setBulkAllRunning(true)
+    setBulkAllSummary(null)
+    try {
+      setBulkAllStatus('Rattachement des entreprises (annuaire brvm.org)…')
+      const matchResult = await callApi<CompanyMatchResult>('api_reports.php', 'match_companies')
+
+      setBulkAllStatus('Récupération de la liste des entreprises…')
+      const companies = await callApi<{ company_id: number; symbol: string; brvm_report_slug: string | null }[]>(
+        'api_reports.php',
+        'list_companies'
+      )
+      const withSlug = companies.filter((c) => c.brvm_report_slug)
+
+      let newReportsTotal = 0
+      let processedTotal = 0
+      let failedTotal = 0
+
+      for (let i = 0; i < withSlug.length; i++) {
+        const c = withSlug[i]
+        setBulkAllStatus(`Entreprise ${i + 1}/${withSlug.length} — ${c.symbol} : recherche des rapports…`)
+
+        let discovered: DiscoverResult
+        try {
+          discovered = await callApi<DiscoverResult>('api_reports.php', 'discover_new', { symbol: c.symbol })
+          newReportsTotal += discovered.new_count
+        } catch {
+          continue // entreprise suivante si la découverte échoue (ex: page indisponible)
+        }
+
+        const freshReports = await callApi<ReportSummary[]>('api_reports.php', 'list', { symbol: c.symbol })
+        const pending = freshReports.filter((r) => !r.text_extracted)
+
+        for (let j = 0; j < pending.length; j++) {
+          setBulkAllStatus(`Entreprise ${i + 1}/${withSlug.length} — ${c.symbol} : téléchargement ${j + 1}/${pending.length}`)
+          try {
+            const result = await callApi<ReportProcessResult>('api_reports.php', 'process', { id: pending[j].id })
+            if (result.status === 'success') processedTotal++
+            else failedTotal++
+          } catch {
+            failedTotal++
+          }
+        }
+      }
+
+      setBulkAllSummary({
+        matched: matchResult.assigned.length,
+        review: matchResult.review,
+        companies: withSlug.length,
+        newReports: newReportsTotal,
+        processed: processedTotal,
+        failed: failedTotal,
+      })
+      queryClient.invalidateQueries({ queryKey: ['backfill-progress'] })
+      queryClient.invalidateQueries({ queryKey: ['reports-list', selectedSymbol] })
+    } finally {
+      setBulkAllRunning(false)
+      setBulkAllStatus(null)
+    }
+  }
+
   if (progressQuery.isLoading) return <LoadingState label="Chargement des rapports…" />
   if (progressQuery.error) return <ErrorState message={(progressQuery.error as Error).message} />
   if (!progressQuery.data) return null
@@ -256,12 +335,46 @@ export function Reports() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-xl font-semibold">Rapports</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Avancement de la collecte (voir aussi <code>scripts/backfill_reports.php --stats</code>)
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Rapports</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Avancement de la collecte (voir aussi <code>scripts/backfill_reports.php --stats</code>)
+          </p>
+        </div>
+        <Button onClick={runMatchAndDownloadAll} disabled={bulkAllRunning}>
+          <span className="flex items-center gap-2">
+            <RetryIcon spinning={bulkAllRunning} />
+            {bulkAllRunning ? (bulkAllStatus ?? 'En cours…') : 'Rattacher les entreprises et charger tous les rapports'}
+          </span>
+        </Button>
       </div>
+
+      {bulkAllSummary && (
+        <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm dark:border-indigo-900 dark:bg-indigo-950/40">
+          <p className="text-indigo-900 dark:text-indigo-200">
+            {bulkAllSummary.matched} entreprise(s) nouvellement rattachée(s) à l'annuaire brvm.org ·{' '}
+            {bulkAllSummary.companies} entreprise(s) traitée(s) au total · {bulkAllSummary.newReports} nouveau(x) rapport(s)
+            trouvé(s) · {bulkAllSummary.processed} téléchargé(s)/extrait(s) avec succès
+            {bulkAllSummary.failed ? `, ${bulkAllSummary.failed} échec(s)` : ''}.
+          </p>
+          {bulkAllSummary.review.length > 0 && (
+            <div className="mt-2">
+              <p className="text-xs font-medium text-indigo-900 dark:text-indigo-200">
+                {bulkAllSummary.review.length} entreprise(s) à rattacher manuellement (correspondance incertaine) — voir
+                <code className="mx-1">companies.brvm_report_slug</code>en base :
+              </p>
+              <ul className="mt-1 list-disc pl-4 text-xs text-indigo-800 dark:text-indigo-300">
+                {bulkAllSummary.review.map((r) => (
+                  <li key={r.symbol}>
+                    {r.symbol} — suggestion : {r.suggestion ?? '—'} ({r.score}%)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <StatTile label="Rapports découverts" value={totals.total} />
