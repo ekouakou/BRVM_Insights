@@ -119,7 +119,7 @@ define('MARKET_CONFIG', [
     // BRVMSyncAPI::getSystemConfig()) — gardé ici pour cohérence/référence
     // uniquement. La vraie source de vérité pour "prochaine synchro" affiché
     // dans le panneau d'admin est system_config.sync_interval_minutes.
-    'sync_interval_minutes' => 20,
+    'sync_interval_minutes' => 15,
     'data_retention_days' => 730 // 2 ans
 ]);
 
