@@ -1,0 +1,4 @@
+# Secrets docker-compose (voir .env.example) — jamais commités.
+.env
+
+.DS_Store

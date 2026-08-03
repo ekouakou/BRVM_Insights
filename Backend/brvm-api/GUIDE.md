@@ -618,3 +618,8 @@ Que le texte n'a pas pu être extrait — le plus souvent parce que le PDF est
 un scan de mauvaise qualité et que même l'OCR n'y a rien trouvé
 d'exploitable. Le fichier PDF original reste téléchargé dans
 `storage/reports/` si tu veux le consulter directement.
+
+
+
+https://raw.githubusercontent.com/ekouakou/BRVM_Insights/main/parent-responsable/version.json
+

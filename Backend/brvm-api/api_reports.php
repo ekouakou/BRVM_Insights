@@ -534,14 +534,33 @@ class ReportsAPI {
             throw new Exception("Fichier markdown vide ou illisible");
         }
 
-        $this->crud->merge('company_report_contents', [
+        $contentData = [
             'formatted_markdown' => $markdown,
             'markdown_status' => 'success',
             'markdown_error' => null,
             'markdown_provider' => 'manuel',
             'markdown_model' => null,
             'markdown_updated_at' => date('Y-m-d H:i:s'),
-        ], ['report_id' => $reportId]);
+        ];
+
+        // merge() est un UPDATE pur (voir DynamiqueCrud::merge) : si l'extraction
+        // avait échoué, aucune ligne company_report_contents n'existe encore pour
+        // ce rapport — sans ce garde-fou, l'import silencieux ne faisait rien
+        // (0 ligne affectée) tout en répondant "success".
+        $existingContent = $this->crud->find('company_report_contents', ['report_id' => $reportId]);
+        if (!empty($existingContent)) {
+            $this->crud->merge('company_report_contents', $contentData, ['report_id' => $reportId]);
+        } else {
+            $this->crud->persist('company_report_contents', array_merge(['report_id' => $reportId], $contentData));
+        }
+
+        // Un markdown importé manuellement EST du texte exploitable : sans ça,
+        // text_extracted resterait à 0 et masquerait les boutons "Analyser"/
+        // "Comparer" côté admin malgré un contenu utilisable.
+        $this->crud->merge('company_reports', [
+            'text_extracted' => 1,
+            'extraction_error' => null,
+        ], ['id' => $reportId]);
 
         return ['success' => true, 'data' => ['id' => $reportId, 'status' => 'success']];
     }

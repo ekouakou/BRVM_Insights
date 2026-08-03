@@ -421,14 +421,33 @@ class BulletinsAPI {
             throw new Exception("Fichier markdown vide ou illisible");
         }
 
-        $this->crud->merge('market_bulletin_contents', [
+        $contentData = [
             'formatted_markdown' => $markdown,
             'markdown_status' => 'success',
             'markdown_error' => null,
             'markdown_provider' => 'manuel',
             'markdown_model' => null,
             'markdown_updated_at' => date('Y-m-d H:i:s'),
-        ], ['bulletin_id' => $bulletinId]);
+        ];
+
+        // merge() est un UPDATE pur (voir DynamiqueCrud::merge) : si l'extraction
+        // avait échoué, aucune ligne market_bulletin_contents n'existe encore
+        // pour ce bulletin — sans ce garde-fou, l'import silencieux ne faisait
+        // rien (0 ligne affectée) tout en répondant "success".
+        $existingContent = $this->crud->find('market_bulletin_contents', ['bulletin_id' => $bulletinId]);
+        if (!empty($existingContent)) {
+            $this->crud->merge('market_bulletin_contents', $contentData, ['bulletin_id' => $bulletinId]);
+        } else {
+            $this->crud->persist('market_bulletin_contents', array_merge(['bulletin_id' => $bulletinId], $contentData));
+        }
+
+        // Un markdown importé manuellement EST du texte exploitable : sans ça,
+        // text_extracted resterait à 0 et masquerait le bouton "Analyser" côté
+        // admin (voir Bulletins.tsx) malgré un contenu utilisable.
+        $this->crud->merge('market_bulletins', [
+            'text_extracted' => 1,
+            'extraction_error' => null,
+        ], ['id' => $bulletinId]);
 
         return ['success' => true, 'data' => ['id' => $bulletinId, 'status' => 'success']];
     }

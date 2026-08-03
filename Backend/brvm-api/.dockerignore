@@ -1,0 +1,17 @@
+# Contenu régénéré/téléchargé au runtime — remplacé par des volumes montés
+# (voir docker-compose.yml), pas besoin de l'embarquer dans l'image (elle
+# resterait énorme et se périmerait immédiatement).
+storage/
+logs/
+cache/
+uploads/
+temp/
+locks/
+
+# Secrets — passent par les variables d'environnement du conteneur
+# (docker-compose.yml / .env.docker), jamais par un fichier dans l'image.
+.env
+
+.git
+.DS_Store
+*.log

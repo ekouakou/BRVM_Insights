@@ -1,0 +1,77 @@
+# Orchestration Docker de BRVM Insights (voir DOCKER.md pour le guide
+# complet) : base de données, API PHP, panneau d'admin React.
+#
+# Démarrage : cp .env.example .env (renseigner les secrets), puis
+#   docker compose up -d --build
+#
+# Toutes les variables ${...:-defaut} ont une valeur par défaut utilisable
+# telle quelle pour un premier essai local ; ne les considère pas comme
+# suffisantes pour un déploiement exposé publiquement (voir DOCKER.md).
+
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: brvm_trading_app
+      MYSQL_USER: ${DB_USER:-brvm}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-brvm}
+    volumes:
+      - db_data:/var/lib/mysql
+      # BD.sql crée lui-même "brvm_trading_app" (CREATE DATABASE IF NOT
+      # EXISTS) — exécuté une seule fois, au tout premier démarrage du
+      # volume db_data (comportement standard de l'image mysql officielle).
+      - ./Backend/brvm-api/BD.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "127.0.0.1:${DB_PUBLISHED_PORT:-3307}:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./Backend/brvm-api
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: brvm_trading_app
+      DB_USER: ${DB_USER:-brvm}
+      DB_PASSWORD: ${DB_PASSWORD:-brvm}
+      # Analyse IA (api_report_analysis.php, api_bulletin_analysis.php...) —
+      # laisser vide désactive juste ces fonctionnalités, le reste de l'app
+      # fonctionne sans (voir class/AnthropicClient.php / GeminiClient.php).
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      # Persistant : PDF téléchargés (rapports/bulletins) et journaux.
+      # cache/uploads/temp/locks restent dans le système de fichiers du
+      # conteneur (recréés automatiquement par config.php si absents) — pas
+      # besoin de les faire survivre à un `docker compose down`.
+      - backend_storage:/var/www/html/storage
+      - backend_logs:/var/www/html/logs
+    ports:
+      - "127.0.0.1:${BACKEND_PUBLISHED_PORT:-8081}:80"
+
+  frontend:
+    build:
+      context: ./Frontend/admin-web
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PUBLISHED_PORT:-8080}:80"
+
+volumes:
+  db_data:
+  backend_storage:
+  backend_logs:
