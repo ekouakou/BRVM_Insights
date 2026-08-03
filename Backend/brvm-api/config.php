@@ -4,6 +4,8 @@
  * config.php
  */
 
+//UPDATE system_config SET config_value = '20' WHERE config_key = 'sync_interval_minutes';
+
 // Polyfills pour fonctions PHP 8.0+ utilisées dans le code (str_contains,
 // str_starts_with, str_ends_with) — certains hébergements mutualisés
 // tournent encore en PHP 7.4 (EOL, voir scripts/check_hosting_requirements.php)
