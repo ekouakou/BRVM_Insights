@@ -129,3 +129,6 @@ Stack trace:
 [2026-07-31 22:31:33][INFO] Marché fermé, pas de synchronisation nécessaire
 [2026-07-31 22:31:33][INFO] Lock supprimé
 [2026-07-31 22:31:33] === Fin run_daily_sync.sh (code 1) ===
+[2026-08-03 16:35:06] === Démarrage run_daily_sync.sh ===
+[2026-08-03 16:35:06] MySQL injoignable sur 127.0.0.1:8889, démarrage de MAMP...
+[2026-08-03 16:36:09] ERREUR: MySQL toujours injoignable après 60s, abandon

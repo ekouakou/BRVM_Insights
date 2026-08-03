@@ -36,6 +36,8 @@ export interface Company {
   company_id: number
   symbol: string
   name: string
+  sector_id?: number | null
+  sector_name?: string | null
   active?: number
 }
 
@@ -46,6 +48,13 @@ export interface OhlcPoint {
   low: string | number
   close: string | number
   volume: string | number
+}
+
+export interface CompanyPriceSeries {
+  company_id: number
+  symbol: string
+  name: string
+  data: { date: string; price: string | number; volume: string | number; variation: string | number | null }[]
 }
 
 export interface SyncLog {

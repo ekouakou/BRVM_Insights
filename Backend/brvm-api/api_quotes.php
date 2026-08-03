@@ -291,12 +291,15 @@ class QuotesAPI {
     }
 
     /**
-     * Compare plusieurs entreprises
+     * Compare plusieurs entreprises — clôtures quotidiennes (stock_quotes) ou,
+     * si granularity=intraday, relevés intrajournaliers (intraday_quotes,
+     * bien plus fournis dans la même journée grâce au cron toutes les 10
+     * minutes, utile tant que peu de jours de clôture se sont accumulés).
      */
     private function compareCompanies($input) {
         $companyIds = $input['company_ids'] ?? [];
         $symbols = $input['symbols'] ?? [];
-        
+
         if (empty($companyIds) && empty($symbols)) {
             throw new Exception("IDs ou symboles des entreprises requis");
         }
@@ -313,14 +316,29 @@ class QuotesAPI {
             throw new Exception("Aucune entreprise trouvée");
         }
 
+        $granularity = ($input['granularity'] ?? 'daily') === 'intraday' ? 'intraday' : 'daily';
+
+        $organized = $granularity === 'intraday'
+            ? $this->compareCompaniesIntraday($companyIds, $input)
+            : $this->compareCompaniesDaily($companyIds, $input);
+
+        return [
+            'success' => true,
+            'data' => array_values($organized),
+            'companies_count' => count($organized),
+            'granularity' => $granularity
+        ];
+    }
+
+    private function compareCompaniesDaily($companyIds, $input) {
         $days = (int)($input['days'] ?? 30);
         $startDate = $input['start_date'] ?? null;
         $endDate = $input['end_date'] ?? date('Y-m-d');
 
         $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
-        
+
         $sql = "
-            SELECT 
+            SELECT
                 c.id AS company_id,
                 c.symbol,
                 c.name,
@@ -353,7 +371,6 @@ class QuotesAPI {
 
         $quotes = $this->crud->executeCustomQuery($sql, $params);
 
-        // Organiser les données par entreprise
         $organized = [];
         foreach ($quotes as $quote) {
             $symbol = $quote['symbol'];
@@ -373,11 +390,59 @@ class QuotesAPI {
             ];
         }
 
-        return [
-            'success' => true,
-            'data' => array_values($organized),
-            'companies_count' => count($organized)
-        ];
+        return $organized;
+    }
+
+    private function compareCompaniesIntraday($companyIds, $input) {
+        // Par défaut, la journée en cours seulement — un intervalle plus
+        // large reste possible (ex: comparer plusieurs jours de relevés
+        // intrajournaliers), mais le cas d'usage principal est "aujourd'hui".
+        $startDate = $input['start_date'] ?? date('Y-m-d');
+        $endDate = $input['end_date'] ?? $startDate;
+
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                c.symbol,
+                c.name,
+                iq.quote_datetime,
+                iq.price,
+                iq.volume,
+                iq.variation_percent
+            FROM intraday_quotes iq
+            INNER JOIN companies c ON c.id = iq.company_id
+            WHERE iq.company_id IN ($placeholders)
+            AND iq.quote_datetime >= ?
+            AND iq.quote_datetime <= ?
+            ORDER BY iq.quote_datetime ASC, c.symbol ASC
+        ";
+
+        $params = array_merge($companyIds, ["$startDate 00:00:00", "$endDate 23:59:59"]);
+
+        $snapshots = $this->crud->executeCustomQuery($sql, $params);
+
+        $organized = [];
+        foreach ($snapshots as $snap) {
+            $symbol = $snap['symbol'];
+            if (!isset($organized[$symbol])) {
+                $organized[$symbol] = [
+                    'company_id' => $snap['company_id'],
+                    'symbol' => $symbol,
+                    'name' => $snap['name'],
+                    'data' => []
+                ];
+            }
+            $organized[$symbol]['data'][] = [
+                'date' => $snap['quote_datetime'],
+                'price' => $snap['price'],
+                'volume' => $snap['volume'],
+                'variation' => $snap['variation_percent']
+            ];
+        }
+
+        return $organized;
     }
 
     /**
