@@ -1,1 +1,87 @@
-test
+Dear EDMOND KOUAKOU (Edcom),
+
+PLEASE READ THIS EMAIL IN FULL AND PRINT IT FOR YOUR RECORDS
+
+Thank you for your order from us! Your hosting account has now been setup and this email contains all the information you will need in order to begin using your account.
+
+If you have requested a domain name during sign up, please keep in mind that your domain name will not be visible on the internet instantly. This process is called propagation and can take up to 48 hours. Until your domain has propagated, your website and email will not function, we have provided a temporary url which you may use to view your website and upload files in the meantime.
+
+New Account Information
+
+Hosting Package: Hébergement Perso
+Domain: br-immobilier.ci
+First Payment Amount: 10.000,00 F CFA
+Recurring Amount: 10.000,00 F CFA
+Billing Cycle: Annually
+Next Due Date: 11/05/2023
+
+Login Details
+
+Username: brimmobi
+Password: 1XO9qfq08b
+
+Control Panel URL: http://192.99.36.69:2082/
+Once your domain has propagated, you may also use http://www.br-immobilier.ci:2082/
+
+Server Information
+
+Server Name: ns1.mjm.info
+Server IP: 192.99.36.69
+
+If you are using an existing domain with your new hosting account, you will need to update the nameservers to point to the nameservers listed below.
+
+Nameserver 1: ns1.mjm.info (192.99.36.69)
+Nameserver 2: ns2.mjm.info (192.99.36.69)
+
+Uploading Your Website
+
+Temporarily you may use one of the addresses given below to manage your web site:
+
+Temporary FTP Hostname: 192.99.36.69
+Temporary Webpage URL: http://192.99.36.69/~brimmobi/
+
+And once your domain has propagated you may use the details below:
+
+FTP Hostname: br-immobilier.ci
+Webpage URL: http://www.br-immobilier.ci
+
+Email Settings
+
+For email accounts that you setup, you should use the following connection details in your email program:
+
+POP3 Host Address: mail.br-immobilier.ci
+SMTP Host Address: mail.br-immobilier.ci
+Username: The email address you are checking email for
+Password: As specified in your control panel
+
+Thank you for choosing us.
+
+---
+Cordialement,
+Service Client
+JUST (TPEcloud)
+VOTRE HÉBERGEUR WEB
+
+E-mail: assistance@tpecloud.com
+Site web: www.tpecloud.eu
+Site web: www.tpecloud.africa
+CC: 1979106B • RC: CI-ABJ-2019-B-22539
+IF: 50630538 • ICE: 002946166000017
+SIRET: 890 248 149 00027
+
+Côte d'Ivoire: II Pltx 7ème tranche Abidjan
+France: 10 rue de Penthièvre 75008 Paris
+Maroc: Res. Shehrazade III N22 Palmiers Casablanca
+
+Tél / Fax : +225 0556 588 500
++225 2724 381 734
++33(0)185 732 219
++212 773 775 692
+
+-----------------------------------------------------------------------
+Vous recevez ce message parce que vous êtes en relation avec Just SARL (TPEcloud).
+Just SARL, procède au traitement informatisé de données à caractère personnel vous concernant dans le cadre de la gestion de cette relation.
+Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un ensemble de droits concernant vos données que vous pouvez exercer à tout moment.
+Vous pouvez choisir de ne plus recevoir de message par voie électronique. Pour en savoir plus, veuillez consulter notre Politique de protection des données.
+Nous vous remercions pour la confiance que vous accordez à TPEcloud et restons
+à votre disposition. Votre Service client: https://tpecloud.support
