@@ -10,6 +10,7 @@ class DbConnect {
     private $username;
     private $password;
     private $charset;
+    private $port;
 
     public function __construct() {
         $dbConfig = getConfig('db');
@@ -18,13 +19,14 @@ class DbConnect {
         $this->username = $dbConfig['username'];
         $this->password = $dbConfig['password'];
         $this->charset = $dbConfig['charset'];
+        $this->port = $dbConfig['port'];
 
         $this->connect();
     }
-    
+
     private function connect() {
         try {
-            $dsn = "mysql:host={$this->host};dbname={$this->dbname};charset={$this->charset}";
+            $dsn = "mysql:host={$this->host};port={$this->port};dbname={$this->dbname};charset={$this->charset}";
             
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

@@ -1,0 +1,13 @@
+---
+# Déploiement automatique via cPanel → Git™ Version Control → onglet "Pull or
+# Deploy" → bouton "Deploy HEAD Commit". Voir DEPLOY_CPANEL.md pour la mise
+# en place complète (clonage du dépôt, chemin, etc.).
+#
+# N'écrit QUE dans public_html/brvmapi/ les fichiers/dossiers listés
+# explicitement (liste blanche, pas liste noire) — storage/, logs/, cache/,
+# uploads/, temp/, locks/ et .env restent donc intouchés à chaque déploiement
+# (ils vivent uniquement sur le serveur, jamais dans le dépôt git).
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/brimmobi/public_html/brvmapi/
+    - /bin/cp -R Backend/brvm-api/*.php Backend/brvm-api/*.html Backend/brvm-api/*.md Backend/brvm-api/*.sql Backend/brvm-api/*.json Backend/brvm-api/class Backend/brvm-api/scripts Backend/brvm-api/migrations $DEPLOYPATH

@@ -4,26 +4,58 @@
  * config.php
  */
 
-// Définir l'environnement (development, staging, production)
-define('ENVIRONMENT', 'development');
+// Charge les variables d'environnement depuis .env (s'il existe) — DOIT
+// s'exécuter avant toute lecture de getenv() plus bas (ENVIRONMENT,
+// DB_CONFIG...), sinon un .env ne peut renseigner que ce qui est lu à la
+// demande (getenv() dans AnthropicClient/GeminiClient, lu après ce fichier)
+// mais pas ce qui est figé ici via define(). Utile en particulier sur un
+// hébergement mutualisé (cPanel) où on ne peut pas définir de vraies
+// variables d'environnement serveur, seulement déposer un fichier .env à
+// côté de ce script.
+if (file_exists(__DIR__ . '/.env')) {
+    $lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        if (strpos(trim($line), '#') === 0) {
+            continue; // Ignorer les commentaires
+        }
 
-// Configuration de la base de données
+        list($name, $value) = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value);
+
+        if (!array_key_exists($name, $_ENV)) {
+            putenv("$name=$value");
+            $_ENV[$name] = $value;
+        }
+    }
+}
+
+// Définir l'environnement (development, staging, production) — surchargeable
+// par la variable d'environnement APP_ENV (voir Dockerfile/docker-compose.yml),
+// sinon 'development' par défaut pour ne rien changer au fonctionnement MAMP.
+define('ENVIRONMENT', getenv('APP_ENV') ?: 'development');
+
+// Configuration de la base de données — chaque valeur est surchargeable par
+// variable d'environnement (DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD),
+// avec un repli sur les valeurs historiques (installation MAMP locale) quand
+// ces variables ne sont pas définies. Permet à la même image Docker de
+// pointer vers n'importe quelle base sans reconstruire l'image.
 define('DB_CONFIG', [
     'development' => [
-        'host' => 'localhost',
-        'dbname' => 'brvm_trading_app',
-        'username' => 'root',
-        'password' => 'root',
+        'host' => getenv('DB_HOST') ?: 'localhost',
+        'dbname' => getenv('DB_NAME') ?: 'brvm_trading_app',
+        'username' => getenv('DB_USER') ?: 'root',
+        'password' => getenv('DB_PASSWORD') ?: 'root',
         'charset' => 'utf8mb4',
-        'port' => 3306
+        'port' => (int) (getenv('DB_PORT') ?: 3306)
     ],
     'production' => [
-        'host' => 'localhost',
-        'dbname' => 'brvm_trading_app',
-        'username' => 'votre_user_prod',
-        'password' => 'votre_password_prod',
+        'host' => getenv('DB_HOST') ?: 'localhost',
+        'dbname' => getenv('DB_NAME') ?: 'brvm_trading_app',
+        'username' => getenv('DB_USER') ?: 'votre_user_prod',
+        'password' => getenv('DB_PASSWORD') ?: 'votre_password_prod',
         'charset' => 'utf8mb4',
-        'port' => 3306
+        'port' => (int) (getenv('DB_PORT') ?: 3306)
     ]
 ]);
 
@@ -179,23 +211,4 @@ ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
 if (ENVIRONMENT === 'production') {
     ini_set('session.cookie_secure', 1);
-}
-
-// Charger les variables d'environnement depuis .env si disponible
-if (file_exists(__DIR__ . '/.env')) {
-    $lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines as $line) {
-        if (strpos(trim($line), '#') === 0) {
-            continue; // Ignorer les commentaires
-        }
-        
-        list($name, $value) = explode('=', $line, 2);
-        $name = trim($name);
-        $value = trim($value);
-        
-        if (!array_key_exists($name, $_ENV)) {
-            putenv("$name=$value");
-            $_ENV[$name] = $value;
-        }
-    }
 }
