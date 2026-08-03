@@ -4,6 +4,29 @@
  * config.php
  */
 
+// Polyfills pour fonctions PHP 8.0+ utilisées dans le code (str_contains,
+// str_starts_with, str_ends_with) — certains hébergements mutualisés
+// tournent encore en PHP 7.4 (EOL, voir scripts/check_hosting_requirements.php)
+// alors que le développement se fait en PHP 8.x. Sans ça, la moindre
+// utilisation de ces fonctions provoque une erreur fatale (500 sans message,
+// display_errors étant désactivé en production) sur ces hébergements — voir
+// class/CompanySlugMatcher.php pour un cas réel rencontré en production.
+if (!function_exists('str_contains')) {
+    function str_contains(string $haystack, string $needle): bool {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
+if (!function_exists('str_starts_with')) {
+    function str_starts_with(string $haystack, string $needle): bool {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+if (!function_exists('str_ends_with')) {
+    function str_ends_with(string $haystack, string $needle): bool {
+        return $needle === '' || substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
 // Charge les variables d'environnement depuis .env (s'il existe) — DOIT
 // s'exécuter avant toute lecture de getenv() plus bas (ENVIRONMENT,
 // DB_CONFIG...), sinon un .env ne peut renseigner que ce qui est lu à la
