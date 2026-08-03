@@ -112,7 +112,12 @@ define('MARKET_CONFIG', [
     'trading_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
     'market_open_time' => '08:30',
     'market_close_time' => '16:00',
-    'sync_interval_minutes' => 5,
+    // Non lu par api_brvm_sync.php ni cron_sync_brvm.php pour ce paramètre :
+    // ils lisent exclusivement la table system_config (voir
+    // BRVMSyncAPI::getSystemConfig()) — gardé ici pour cohérence/référence
+    // uniquement. La vraie source de vérité pour "prochaine synchro" affiché
+    // dans le panneau d'admin est system_config.sync_interval_minutes.
+    'sync_interval_minutes' => 20,
     'data_retention_days' => 730 // 2 ans
 ]);
 
