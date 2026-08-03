@@ -4,7 +4,9 @@
 -- garde la valeur informative de system_config cohérente avec le déclencheur
 -- effectif.
 
-USE brvm_trading_app;
+-- Pas de "USE brvm_trading_app" ici : exécute ceci sur la base déjà
+-- sélectionnée (le nom réel peut différer selon l'hébergeur — voir
+-- scripts/migrate.php, qui applique ce fichier sans le modifier).
 
 INSERT INTO system_config (config_key, config_value, description)
 VALUES ('sync_interval_minutes', '10', 'Intervalle de synchronisation pendant les heures de marché (minutes)')

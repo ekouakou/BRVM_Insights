@@ -4,7 +4,9 @@
 -- class/AuthGuard.php rejette TOUTES les requêtes (admin_sessions introuvable),
 -- ce qui bloquait tous les endpoints api_*.php protégés.
 
-USE brvm_trading_app;
+-- Pas de "USE brvm_trading_app" ici : exécute ceci sur la base déjà
+-- sélectionnée (le nom réel peut différer selon l'hébergeur — voir
+-- scripts/migrate.php, qui applique ce fichier sans le modifier).
 
 CREATE TABLE IF NOT EXISTS admin_users (
     id INT AUTO_INCREMENT PRIMARY KEY,

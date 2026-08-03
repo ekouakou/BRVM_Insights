@@ -221,11 +221,54 @@ synchronisation vers `public_html/brvmapi/` à chaque déploiement.
 explicite dans `.cpanel.yml`, pas de suppression de ce qui n'y figure pas)
 — aucun risque d'écraser la config ou les PDF déjà téléchargés en prod.
 
+## Étape 9 — Appliquer une nouvelle migration de base de données
+
+Le code (étape 8) et le schéma de base de données sont deux choses
+différentes : un `git pull` ramène les nouveaux fichiers PHP **et** les
+nouveaux fichiers `migrations/00X_*.sql`, mais **n'exécute jamais le SQL
+tout seul**. Après chaque mise à jour qui ajoute une migration, il faut
+l'appliquer sur la base de prod. Deux façons, selon ce que ton hébergement
+permet :
+
+### Sans terminal — via phpMyAdmin (le plus simple)
+
+1. Ouvrir le nouveau fichier `migrations/00X_....sql` (celui qui vient
+   d'arriver avec le dernier `git pull`) sur ta machine, copier son contenu.
+2. cPanel → **phpMyAdmin** → sélectionner ta base (celle de l'étape 1) →
+   onglet **SQL**.
+3. Coller le contenu, cliquer **Exécuter**. Ces fichiers ne contiennent
+   jamais de `CREATE DATABASE`/`USE` (voir leur commentaire d'en-tête),
+   donc rien ne risque de pointer vers la mauvaise base.
+4. Si le fichier a déjà été appliqué par erreur, MySQL renverra une erreur
+   claire ("colonne déjà existante", "table déjà existante") — sans danger,
+   ça veut juste dire qu'il n'y a rien à faire.
+
+### Avec Cron Jobs (si tu préfères ne pas copier-coller du SQL à la main)
+
+`scripts/migrate.php` applique **automatiquement** toutes les migrations pas
+encore appliquées (il s'en souvient via la table `schema_migrations`), donc
+pas besoin de savoir laquelle est la "nouvelle" :
+
+1. cPanel → **Cron Jobs** → ajouter une tâche avec la même commande PHP que
+   l'étape 7, mais qui pointe vers `scripts/migrate.php` au lieu de
+   `cron_sync_brvm.php` :
+   ```
+   php /home/monlogin/public_html/brvmapi/scripts/migrate.php >> /home/monlogin/public_html/brvmapi/logs/migrate.log 2>&1
+   ```
+2. Réglage simple et sans risque : mets-la sur **toutes les 5 minutes**
+   (`*/5 * * * *`) le temps qu'elle se déclenche au moins une fois, puis
+   supprime la tâche. Le script est *idempotent* (une migration déjà
+   appliquée est sautée), donc même si tu oublies de la supprimer tout de
+   suite, aucun risque qu'elle rejoue quelque chose en double.
+3. Vérifier le résultat dans `logs/migrate.log` (Gestionnaire de fichiers)
+   après la première exécution.
+
 ## Résumé des fichiers concernés
 
 | Fichier | Rôle |
 |---|---|
-| `.cpanel.yml` (racine du dépôt) | Automatise le déploiement via Git™ Version Control (étape 8) |
+| `.cpanel.yml` (racine du dépôt) | Automatise le déploiement du **code** via Git™ Version Control (étape 8) |
+| `scripts/migrate.php` | Applique les migrations de **base de données** en attente — à lancer après chaque mise à jour qui en ajoute une (étape 9) |
 | `scripts/deploy_cpanel_ssh.sh` | Déploiement automatisé si SSH est disponible (voir section dédiée en haut de ce guide) |
 | `scripts/check_hosting_requirements.php` | Diagnostic à uploader/supprimer en premier (étape 0) |
 | `scripts/BD_cpanel_import.sql` | Schéma sans `CREATE DATABASE`/`USE`, pour import phpMyAdmin (étape 2) — utilisé aussi par `deploy_cpanel_ssh.sh` |
