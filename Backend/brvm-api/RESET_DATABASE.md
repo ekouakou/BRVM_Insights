@@ -43,6 +43,12 @@ retour en arrière possible une fois exécuté (sauf sauvegarde préalable).
 ```sql
 SET FOREIGN_KEY_CHECKS = 0;
 
+-- Procédure stockée (ni une table ni une vue, DROP TABLE/VIEW ne la touche
+-- pas — omise ici par le passé, ce qui laissait #1304 "already exists" au
+-- réimport même après avoir vidé tables et vues)
+DROP PROCEDURE IF EXISTS calculate_technical_indicators;
+
+
 -- Vues (DROP TABLE ne fonctionne pas dessus, il faut DROP VIEW)
 DROP VIEW IF EXISTS latest_quotes;
 DROP VIEW IF EXISTS top_gainers;
