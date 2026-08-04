@@ -50,13 +50,21 @@ export function Quotes() {
     enabled: !!companyId,
   })
 
+  // Un relevé intrajournalier arrive toutes les ~10 min pendant la séance —
+  // sans rafraîchissement automatique, le graphe reste figé sur les données
+  // chargées à l'ouverture de la page jusqu'au prochain rechargement manuel.
+  // Inutile de reinterroger une date passée (immuable), donc seulement
+  // activé quand la période affichée inclut aujourd'hui.
+  const intradayIsLive = intradayDate === todayIso()
   const intradayQuery = useQuery({
     queryKey: ['intraday', companyId, intradayDate],
     queryFn: () =>
       callApi<IntradayPoint[]>('api_quotes.php', 'intraday', { company_id: companyId, trading_date: intradayDate }),
     enabled: !!companyId,
+    refetchInterval: intradayIsLive ? 60_000 : false,
   })
 
+  const compareIsLive = compareGranularity === 'intraday' && compareEndDate === todayIso()
   const compareQuery = useQuery({
     queryKey: ['compare-quotes', compareSelected, compareGranularity, compareStartDate, compareEndDate],
     queryFn: () =>
@@ -67,6 +75,7 @@ export function Quotes() {
         end_date: compareEndDate,
       }),
     enabled: compareSelected.length > 0 && compareStartDate <= compareEndDate,
+    refetchInterval: compareIsLive ? 60_000 : false,
   })
 
   const companies = companiesQuery.data ?? []
@@ -364,7 +373,10 @@ export function Quotes() {
 
       {compareSelected.length > 0 && compareChartData.length > 0 && (
         <Card
-          title={showPercent ? 'Variation depuis le début de la période' : 'Cours (FCFA)'}
+          title={
+            (showPercent ? 'Variation depuis le début de la période' : 'Cours (FCFA)') +
+            (compareIsLive ? ' · actualisation auto (1 min)' : '')
+          }
         >
           <ResponsiveContainer width="100%" height={360}>
             <LineChart data={compareChartData}>
