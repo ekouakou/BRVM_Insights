@@ -11,6 +11,9 @@ const NAV_ITEMS = [
   { to: '/analysis', label: 'Analyse IA' },
   { to: '/comparison', label: 'Comparaison' },
   { to: '/combined', label: 'Analyse combinée' },
+  { to: '/market-health', label: 'Santé & secteurs' },
+  { to: '/statistics', label: 'Statistiques' },
+  { to: '/price-alerts', label: 'Alertes de prix' },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {

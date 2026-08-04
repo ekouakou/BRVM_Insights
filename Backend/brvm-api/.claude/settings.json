@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/src/pages"
+    ]
+  }
+}

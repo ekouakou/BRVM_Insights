@@ -85,12 +85,81 @@ class BRVMSyncService {
      * cours au fil de la séance.
      */
     private function recordIntradaySnapshot($companyId, $quoteData) {
+        $now = date('Y-m-d H:i:s');
+        $price = (float) $quoteData['close_price'];
+
         $this->crud->persist('intraday_quotes', [
             'company_id' => $companyId,
-            'quote_datetime' => date('Y-m-d H:i:s'),
-            'price' => $quoteData['close_price'],
+            'quote_datetime' => $now,
+            'price' => $price,
             'volume' => $quoteData['volume'],
             'variation_percent' => $quoteData['variation_percent']
+        ]);
+
+        $this->accumulateTotalVariation($companyId, $now, $price);
+    }
+
+    /**
+     * Accumule la "variation totale" (churn intrajournalier) du jour pour
+     * cette entreprise — somme des mouvements absolus entre relevés
+     * intrajournaliers successifs (voir TODO_ANALYSES.md, point 8) :
+     * hausses et baisses cumulées séparément dans intraday_total_variation,
+     * plutôt que la variation nette (qui s'annule si le cours va-et-vient).
+     *
+     * Le premier relevé du jour démarre l'accumulateur à 0 — l'écart entre
+     * la clôture de la veille et ce premier relevé n'est volontairement
+     * pas compté ici (déjà visible via variation_percent ailleurs) ; seul
+     * le mouvement observé *pendant* la séance compte dans ce total.
+     */
+    private function accumulateTotalVariation($companyId, $quoteDatetime, $price) {
+        $tradingDate = substr($quoteDatetime, 0, 10);
+
+        $existing = $this->crud->find('intraday_total_variation', [
+            'company_id' => $companyId,
+            'trading_date' => $tradingDate
+        ]);
+
+        if (empty($existing)) {
+            $this->crud->persist('intraday_total_variation', [
+                'company_id' => $companyId,
+                'trading_date' => $tradingDate,
+                'total_gain_percent' => 0,
+                'total_loss_percent' => 0,
+                'total_variation_percent' => 0,
+                'snapshots_count' => 1,
+                'last_price' => $price,
+                'last_quote_datetime' => $quoteDatetime
+            ]);
+            return;
+        }
+
+        $row = $existing[0];
+        $lastPrice = (float) $row['last_price'];
+        $update = [
+            'snapshots_count' => (int) $row['snapshots_count'] + 1,
+            'last_price' => $price,
+            'last_quote_datetime' => $quoteDatetime
+        ];
+
+        if ($lastPrice > 0) {
+            $delta = ($price - $lastPrice) / $lastPrice * 100;
+            $gain = (float) $row['total_gain_percent'];
+            $loss = (float) $row['total_loss_percent'];
+
+            if ($delta > 0) {
+                $gain += $delta;
+            } elseif ($delta < 0) {
+                $loss += abs($delta);
+            }
+
+            $update['total_gain_percent'] = $gain;
+            $update['total_loss_percent'] = $loss;
+            $update['total_variation_percent'] = $gain + $loss;
+        }
+
+        $this->crud->merge('intraday_total_variation', $update, [
+            'company_id' => $companyId,
+            'trading_date' => $tradingDate
         ]);
     }
 

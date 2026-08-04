@@ -52,6 +52,27 @@ class QuotesAPI {
                 case 'intraday':
                     return $this->getIntradayHistory($input);
 
+                case 'liquidity':
+                    return $this->getLiquidity($input);
+
+                case 'sector_performance':
+                    return $this->getSectorPerformance($input);
+
+                case 'total_variation':
+                    return $this->getTotalVariation($input);
+
+                case 'market_breadth':
+                    return $this->getMarketBreadth($input);
+
+                case 'correlation':
+                    return $this->getCorrelation($input);
+
+                case 'risk_adjusted':
+                    return $this->getRiskAdjustedPerformance($input);
+
+                case 'relative_strength':
+                    return $this->getRelativeStrength($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -549,6 +570,536 @@ class QuotesAPI {
             'count' => count($snapshots ?: []),
             'company_id' => $companyId,
             'trading_date' => $tradingDate
+        ];
+    }
+
+    /**
+     * Score de liquidité par entreprise — volume moyen et part de jours sans
+     * transaction sur une période. Caractéristique connue des marchés
+     * frontière comme la BRVM (plusieurs titres à volume nul certains jours,
+     * cf. TODO_ANALYSES.md point 2) : un cours qui ne bouge pas peut vouloir
+     * dire "stable" ou "personne n'a tradé" — nuance à afficher à côté de
+     * n'importe quel signal technique calculé sur ce cours.
+     *
+     * Seuils de classement volontairement simples (à ajuster une fois plus
+     * d'historique accumulé) : illiquide si >30% des jours à volume nul,
+     * sinon classé par volume moyen.
+     */
+    private function getLiquidity($input) {
+        $companyIds = $input['company_ids'] ?? [];
+        $days = (int)($input['days'] ?? 30);
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                c.symbol,
+                c.name,
+                AVG(sq.volume) AS avg_volume,
+                SUM(CASE WHEN sq.volume = 0 OR sq.volume IS NULL THEN 1 ELSE 0 END) AS zero_volume_days,
+                COUNT(*) AS total_days
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.trading_date >= DATE_SUB(?, INTERVAL ? DAY)
+            AND sq.trading_date <= ?
+            AND c.active = 1
+        ";
+
+        $params = [$endDate, $days, $endDate];
+
+        if (!empty($companyIds)) {
+            $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+            $sql .= " AND c.id IN ($placeholders)";
+            $params = array_merge($params, $companyIds);
+        }
+
+        $sql .= " GROUP BY c.id, c.symbol, c.name ORDER BY avg_volume ASC";
+
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+
+        $result = array_map(function ($row) {
+            $avgVolume = (float) $row['avg_volume'];
+            $totalDays = (int) $row['total_days'];
+            $zeroDays = (int) $row['zero_volume_days'];
+            $zeroRatio = $totalDays > 0 ? $zeroDays / $totalDays : 0;
+
+            if ($zeroRatio > 0.3) {
+                $label = 'Illiquide';
+            } elseif ($avgVolume < 200) {
+                $label = 'Faible';
+            } elseif ($avgVolume < 2000) {
+                $label = 'Moyenne';
+            } else {
+                $label = 'Élevée';
+            }
+
+            return [
+                'company_id' => (int) $row['company_id'],
+                'symbol' => $row['symbol'],
+                'name' => $row['name'],
+                'avg_volume' => round($avgVolume, 1),
+                'zero_volume_days' => $zeroDays,
+                'total_days' => $totalDays,
+                'zero_volume_ratio' => round($zeroRatio * 100, 1),
+                'liquidity' => $label
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'data' => $result,
+            'count' => count($result),
+            'days' => $days,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Performance moyenne par secteur — indice équipondéré base 100 au début
+     * de la période (moyenne, par jour, de l'indice base-100 de chaque
+     * entreprise du secteur) : compare des secteurs entiers comme le fait
+     * déjà l'action `compare` pour des entreprises individuelles.
+     */
+    private function getSectorPerformance($input) {
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $sql = "
+            SELECT
+                s.id AS sector_id,
+                s.name AS sector_name,
+                c.id AS company_id,
+                sq.trading_date,
+                sq.close_price
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            INNER JOIN sectors s ON s.id = c.sector_id
+            WHERE sq.trading_date >= ? AND sq.trading_date <= ?
+            AND c.active = 1
+            ORDER BY s.id, c.id, sq.trading_date ASC
+        ";
+
+        $rows = $this->crud->executeCustomQuery($sql, [$startDate, $endDate]) ?: [];
+
+        // Prix de référence par entreprise = sa première clôture de la période
+        $baseByCompany = [];
+        foreach ($rows as $row) {
+            $cid = $row['company_id'];
+            if (!isset($baseByCompany[$cid])) {
+                $baseByCompany[$cid] = (float) $row['close_price'];
+            }
+        }
+
+        // Indice base 100 par entreprise et par jour, moyenné par secteur
+        $bySector = [];
+        foreach ($rows as $row) {
+            $base = $baseByCompany[$row['company_id']];
+            if ($base <= 0) continue;
+
+            $index = ((float) $row['close_price'] / $base) * 100;
+            $sid = $row['sector_id'];
+            $date = $row['trading_date'];
+
+            if (!isset($bySector[$sid])) {
+                $bySector[$sid] = ['sector_name' => $row['sector_name'], 'dates' => []];
+            }
+            if (!isset($bySector[$sid]['dates'][$date])) {
+                $bySector[$sid]['dates'][$date] = ['sum' => 0, 'count' => 0];
+            }
+            $bySector[$sid]['dates'][$date]['sum'] += $index;
+            $bySector[$sid]['dates'][$date]['count']++;
+        }
+
+        $result = [];
+        foreach ($bySector as $sid => $info) {
+            ksort($info['dates']);
+            $series = [];
+            foreach ($info['dates'] as $date => $agg) {
+                $series[] = [
+                    'date' => $date,
+                    'index_value' => round($agg['sum'] / $agg['count'], 2),
+                    'companies_count' => $agg['count']
+                ];
+            }
+            $result[] = [
+                'sector_id' => (int) $sid,
+                'sector_name' => $info['sector_name'],
+                'data' => $series
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data' => $result,
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Variation totale (churn/volatilité intrajournalière) par entreprise —
+     * agrégat quotidien déjà accumulé en continu par
+     * BRVMSyncService::accumulateTotalVariation() dans
+     * intraday_total_variation (voir TODO_ANALYSES.md, point 8). Un point
+     * par jour (pas de vue intrajournalière ici, contrairement à l'action
+     * `compare`), même forme d'entrée que `compare` pour rester cohérent
+     * côté frontend.
+     */
+    private function getTotalVariation($input) {
+        $companyIds = $input['company_ids'] ?? [];
+
+        if (empty($companyIds)) {
+            throw new Exception("IDs des entreprises requis");
+        }
+
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                c.symbol,
+                c.name,
+                itv.trading_date,
+                itv.total_gain_percent,
+                itv.total_loss_percent,
+                itv.total_variation_percent
+            FROM intraday_total_variation itv
+            INNER JOIN companies c ON c.id = itv.company_id
+            WHERE itv.company_id IN ($placeholders)
+            AND itv.trading_date >= ? AND itv.trading_date <= ?
+            ORDER BY c.symbol ASC, itv.trading_date ASC
+        ";
+
+        $params = array_merge($companyIds, [$startDate, $endDate]);
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+
+        $organized = [];
+        foreach ($rows as $row) {
+            $symbol = $row['symbol'];
+            if (!isset($organized[$symbol])) {
+                $organized[$symbol] = [
+                    'company_id' => $row['company_id'],
+                    'symbol' => $symbol,
+                    'name' => $row['name'],
+                    'data' => []
+                ];
+            }
+            $organized[$symbol]['data'][] = [
+                'date' => $row['trading_date'],
+                'total_gain_percent' => $row['total_gain_percent'],
+                'total_loss_percent' => $row['total_loss_percent'],
+                'total_variation_percent' => $row['total_variation_percent']
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data' => array_values($organized),
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Largeur de marché dans le temps (TODO_ANALYSES.md point 6) — pour
+     * chaque jour de la période, part de titres en hausse/baisse/inchangés.
+     * Un indice porté par 3 titres n'a pas le même sens qu'une hausse
+     * partagée par 30 — généralise ce que market-movers.php calcule déjà
+     * pour un seul jour à une série temporelle.
+     */
+    private function getMarketBreadth($input) {
+        $days = (int)($input['days'] ?? 30);
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $sql = "
+            SELECT
+                sq.trading_date,
+                SUM(CASE WHEN sq.variation_percent > 0 THEN 1 ELSE 0 END) AS gainers,
+                SUM(CASE WHEN sq.variation_percent < 0 THEN 1 ELSE 0 END) AS losers,
+                SUM(CASE WHEN sq.variation_percent = 0 THEN 1 ELSE 0 END) AS unchanged,
+                COUNT(*) AS total
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.trading_date >= DATE_SUB(?, INTERVAL ? DAY)
+            AND sq.trading_date <= ?
+            AND c.active = 1
+            GROUP BY sq.trading_date
+            ORDER BY sq.trading_date ASC
+        ";
+
+        $rows = $this->crud->executeCustomQuery($sql, [$endDate, $days, $endDate]) ?: [];
+
+        $result = array_map(function ($row) {
+            $total = (int) $row['total'];
+            return [
+                'date' => $row['trading_date'],
+                'gainers' => (int) $row['gainers'],
+                'losers' => (int) $row['losers'],
+                'unchanged' => (int) $row['unchanged'],
+                'total' => $total,
+                'breadth_percent' => $total > 0 ? round((int) $row['gainers'] / $total * 100, 1) : null
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'data' => $result,
+            'days' => $days,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Corrélation de Pearson entre les variations quotidiennes de plusieurs
+     * entreprises (TODO_ANALYSES.md point 7) — quels titres bougent
+     * ensemble, utile pour la diversification d'un portefeuille. Restreint
+     * aux jours communs à toutes les entreprises sélectionnées (sinon des
+     * jours manquants différents fausseraient la comparaison).
+     */
+    private function getCorrelation($input) {
+        $companyIds = $input['company_ids'] ?? [];
+
+        if (count($companyIds) < 2) {
+            throw new Exception("Au moins 2 entreprises requises pour une corrélation");
+        }
+
+        $days = (int)($input['days'] ?? 90);
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+        $sql = "
+            SELECT c.id AS company_id, c.symbol, sq.trading_date, sq.variation_percent
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.company_id IN ($placeholders)
+            AND sq.trading_date >= DATE_SUB(?, INTERVAL ? DAY)
+            AND sq.trading_date <= ?
+            ORDER BY sq.trading_date ASC
+        ";
+        $params = array_merge($companyIds, [$endDate, $days, $endDate]);
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+
+        $bySymbol = [];
+        foreach ($rows as $row) {
+            $bySymbol[$row['symbol']][$row['trading_date']] = (float) $row['variation_percent'];
+        }
+
+        $commonDates = null;
+        foreach ($bySymbol as $dates) {
+            $ds = array_keys($dates);
+            $commonDates = $commonDates === null ? $ds : array_intersect($commonDates, $ds);
+        }
+        $commonDates = array_values($commonDates ?? []);
+        sort($commonDates);
+
+        $symbols = array_keys($bySymbol);
+        $series = [];
+        foreach ($symbols as $symbol) {
+            $series[$symbol] = array_map(fn($d) => $bySymbol[$symbol][$d], $commonDates);
+        }
+
+        $matrix = [];
+        foreach ($symbols as $a) {
+            foreach ($symbols as $b) {
+                $matrix[$a][$b] = $a === $b ? 1.0 : $this->pearsonCorrelation($series[$a], $series[$b]);
+            }
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'symbols' => $symbols,
+                'matrix' => $matrix,
+                'common_days' => count($commonDates)
+            ],
+            'days' => $days,
+            'end_date' => $endDate
+        ];
+    }
+
+    private function pearsonCorrelation($x, $y) {
+        $n = count($x);
+        if ($n < 2) {
+            return null;
+        }
+
+        $meanX = array_sum($x) / $n;
+        $meanY = array_sum($y) / $n;
+
+        $num = 0;
+        $denX = 0;
+        $denY = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $dx = $x[$i] - $meanX;
+            $dy = $y[$i] - $meanY;
+            $num += $dx * $dy;
+            $denX += $dx * $dx;
+            $denY += $dy * $dy;
+        }
+
+        if ($denX == 0 || $denY == 0) {
+            return null;
+        }
+
+        return round($num / sqrt($denX * $denY), 3);
+    }
+
+    /**
+     * Performance ajustée au risque (TODO_ANALYSES.md point 9) — dépend du
+     * point 8 (intraday_total_variation) comme mesure de risque : ratio
+     * rendement net / volatilité cumulée sur la période. Un titre qui monte
+     * de 10% sans bouger vaut mieux qu'un titre qui monte de 10% en
+     * oscillant sans cesse (rendement identique, risque pris différent).
+     */
+    private function getRiskAdjustedPerformance($input) {
+        $companyIds = $input['company_ids'] ?? [];
+
+        if (empty($companyIds)) {
+            throw new Exception("IDs des entreprises requis");
+        }
+
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+
+        $sqlPrices = "
+            SELECT c.id AS company_id, c.symbol, c.name, sq.trading_date, sq.close_price
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.company_id IN ($placeholders)
+            AND sq.trading_date >= ? AND sq.trading_date <= ?
+            ORDER BY c.id ASC, sq.trading_date ASC
+        ";
+        $priceRows = $this->crud->executeCustomQuery($sqlPrices, array_merge($companyIds, [$startDate, $endDate])) ?: [];
+
+        $firstPrice = [];
+        $lastPrice = [];
+        $names = [];
+        foreach ($priceRows as $row) {
+            $cid = $row['company_id'];
+            if (!isset($firstPrice[$cid])) {
+                $firstPrice[$cid] = (float) $row['close_price'];
+            }
+            $lastPrice[$cid] = (float) $row['close_price'];
+            $names[$cid] = ['symbol' => $row['symbol'], 'name' => $row['name']];
+        }
+
+        $sqlVol = "
+            SELECT company_id, SUM(total_variation_percent) AS total_volatility
+            FROM intraday_total_variation
+            WHERE company_id IN ($placeholders)
+            AND trading_date >= ? AND trading_date <= ?
+            GROUP BY company_id
+        ";
+        $volRows = $this->crud->executeCustomQuery($sqlVol, array_merge($companyIds, [$startDate, $endDate])) ?: [];
+        $volatilityByCompany = [];
+        foreach ($volRows as $row) {
+            $volatilityByCompany[$row['company_id']] = (float) $row['total_volatility'];
+        }
+
+        $result = [];
+        foreach ($firstPrice as $cid => $first) {
+            $last = $lastPrice[$cid];
+            $netReturn = $first > 0 ? (($last - $first) / $first) * 100 : null;
+            $volatility = $volatilityByCompany[$cid] ?? null;
+            $ratio = ($volatility !== null && $volatility > 0 && $netReturn !== null)
+                ? round($netReturn / $volatility, 3)
+                : null;
+
+            $result[] = [
+                'company_id' => $cid,
+                'symbol' => $names[$cid]['symbol'],
+                'name' => $names[$cid]['name'],
+                'net_return_percent' => $netReturn !== null ? round($netReturn, 2) : null,
+                'total_volatility_percent' => $volatility !== null ? round($volatility, 2) : null,
+                'risk_adjusted_ratio' => $ratio
+            ];
+        }
+
+        usort($result, fn($a, $b) => ($b['risk_adjusted_ratio'] ?? -999) <=> ($a['risk_adjusted_ratio'] ?? -999));
+
+        return [
+            'success' => true,
+            'data' => array_values($result),
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Force relative vs indice BRVM-COMPOSITE (TODO_ANALYSES.md point 10) —
+     * dépend du point 0 (index_composition), traité en amont via
+     * scripts/populate_market_cap.php. Compare la variation quotidienne
+     * d'une entreprise à celle de l'indice le même jour : positif =
+     * surperformance, négatif = sous-performance. N'utilise pas directement
+     * index_composition ici (le calcul repose sur index_values, déjà
+     * synchronisé quotidiennement) — la composition sert surtout de
+     * justification/traçabilité de ce que représente BRVM-COMPOSITE.
+     */
+    private function getRelativeStrength($input) {
+        $companyIds = $input['company_ids'] ?? [];
+
+        if (empty($companyIds)) {
+            throw new Exception("IDs des entreprises requis");
+        }
+
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                c.symbol,
+                c.name,
+                sq.trading_date,
+                sq.variation_percent AS company_variation,
+                iv.variation_percent AS index_variation
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            LEFT JOIN market_indices mi ON mi.code = 'BRVM-COMPOSITE'
+            LEFT JOIN index_values iv ON iv.trading_date = sq.trading_date AND iv.index_id = mi.id
+            WHERE sq.company_id IN ($placeholders)
+            AND sq.trading_date >= ? AND sq.trading_date <= ?
+            ORDER BY c.symbol ASC, sq.trading_date ASC
+        ";
+
+        $rows = $this->crud->executeCustomQuery($sql, array_merge($companyIds, [$startDate, $endDate])) ?: [];
+
+        $organized = [];
+        foreach ($rows as $row) {
+            $symbol = $row['symbol'];
+            if (!isset($organized[$symbol])) {
+                $organized[$symbol] = [
+                    'company_id' => $row['company_id'],
+                    'symbol' => $symbol,
+                    'name' => $row['name'],
+                    'data' => []
+                ];
+            }
+
+            $companyVar = $row['company_variation'] !== null ? (float) $row['company_variation'] : null;
+            $indexVar = $row['index_variation'] !== null ? (float) $row['index_variation'] : null;
+
+            $organized[$symbol]['data'][] = [
+                'date' => $row['trading_date'],
+                'company_variation_percent' => $companyVar,
+                'index_variation_percent' => $indexVar,
+                'relative_strength' => ($companyVar !== null && $indexVar !== null)
+                    ? round($companyVar - $indexVar, 4)
+                    : null
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data' => array_values($organized),
+            'index_code' => 'BRVM-COMPOSITE',
+            'start_date' => $startDate,
+            'end_date' => $endDate
         ];
     }
 }

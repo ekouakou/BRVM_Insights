@@ -85,3 +85,17 @@
 [2026-08-04 09:49:39][INFO] Anciens logs supprimés
 [2026-08-04 09:49:39][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-08-04 09:49:39][INFO] Lock supprimé
+[2026-08-04 16:35:10][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-04 16:35:10][INFO] Lock créé
+[2026-08-04 16:35:10][INFO] Synchronisation des cotations...
+[2026-08-04 16:35:13][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-08-04 16:35:13][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-04 16:35:13][INFO] Synchronisation des indices...
+[2026-08-04 16:35:14][INFO] Indices: Traités=4, Insérés=0, Mis à jour=4, Échoués=0
+[2026-08-04 16:35:14][INFO] Temps d'exécution total: 4.13s
+[2026-08-04 16:35:15][INFO] Notification push envoyée
+[2026-08-04 16:35:15][INFO] Nettoyage des données antérieures à 2024-08-04
+[2026-08-04 16:35:15][INFO] Anciennes cotations supprimées
+[2026-08-04 16:35:15][INFO] Anciens logs supprimés
+[2026-08-04 16:35:15][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-04 16:35:15][INFO] Lock supprimé

@@ -57,6 +57,175 @@ export interface CompanyPriceSeries {
   data: { date: string; price: string | number; volume: string | number; variation: string | number | null }[]
 }
 
+/** Une ligne de `technical_indicators` (api_technical_indicators.php, action get_indicators) — un jour donné. */
+export interface TechnicalIndicatorPoint {
+  company_id: number
+  trading_date: string
+  sma_10: string | number | null
+  sma_20: string | number | null
+  sma_50: string | number | null
+  sma_200: string | number | null
+  ema_10: string | number | null
+  ema_20: string | number | null
+  rsi_14: string | number | null
+  macd_line: string | number | null
+  macd_signal: string | number | null
+  macd_histogram: string | number | null
+  bb_upper: string | number | null
+  bb_middle: string | number | null
+  bb_lower: string | number | null
+  atr_14: string | number | null
+}
+
+/** Variation totale (churn intrajournalier) par entreprise (api_quotes.php, action total_variation). */
+export interface TotalVariationSeries {
+  company_id: number
+  symbol: string
+  name: string
+  data: {
+    date: string
+    total_gain_percent: string | number
+    total_loss_percent: string | number
+    total_variation_percent: string | number
+  }[]
+}
+
+/** Largeur de marché par jour (api_quotes.php, action market_breadth). */
+export interface MarketBreadthPoint {
+  date: string
+  gainers: number
+  losers: number
+  unchanged: number
+  total: number
+  breadth_percent: number | null
+}
+
+/** Matrice de corrélation entre entreprises (api_quotes.php, action correlation). */
+export interface CorrelationResult {
+  symbols: string[]
+  matrix: Record<string, Record<string, number | null>>
+  common_days: number
+}
+
+/** Performance ajustée au risque par entreprise (api_quotes.php, action risk_adjusted). */
+export interface RiskAdjustedResult {
+  company_id: number
+  symbol: string
+  name: string
+  net_return_percent: number | null
+  total_volatility_percent: number | null
+  risk_adjusted_ratio: number | null
+}
+
+/** Force relative vs indice BRVM-COMPOSITE (api_quotes.php, action relative_strength). */
+export interface RelativeStrengthSeries {
+  company_id: number
+  symbol: string
+  name: string
+  data: {
+    date: string
+    company_variation_percent: number | null
+    index_variation_percent: number | null
+    relative_strength: number | null
+  }[]
+}
+
+/** Alerte de prix (api_price_alerts.php). */
+export interface PriceAlert {
+  id: number
+  company_id: number
+  symbol: string
+  name: string
+  alert_type: 'above' | 'below' | 'change_percent'
+  target_price: string | number | null
+  target_percent: string | number | null
+  notification_email: string | null
+  notification_webhook: string | null
+  triggered: number
+  triggered_at: string | null
+  active: number
+  created_at: string
+}
+
+/** Résultat de api_price_alerts.php, action check. */
+export interface PriceAlertCheckResult {
+  triggered: {
+    id: number
+    symbol: string
+    name: string
+    alert_type: 'above' | 'below' | 'change_percent'
+    current_price: number
+    current_variation: number | null
+  }[]
+  checked_count: number
+  triggered_count: number
+}
+
+/** Indice base 100 par secteur (api_quotes.php, action sector_performance). */
+export interface SectorPerformanceSeries {
+  sector_id: number
+  sector_name: string
+  data: { date: string; index_value: number; companies_count: number }[]
+}
+
+/** api_data_quality.php, action reconciliation. */
+export interface ReconciliationIssue {
+  symbol: string
+  name: string
+  trading_date: string
+  close_price: string | number
+  previous_close: string | number
+  stored_variation: string | number
+  computed_variation: string | number
+}
+
+/** api_data_quality.php, action price_jumps. */
+export interface PriceJumpIssue {
+  symbol: string
+  name: string
+  previous_datetime: string
+  previous_price: string | number
+  quote_datetime: string
+  price: string | number
+  jump_percent: string | number
+}
+
+/** api_data_quality.php, action missing_days. */
+export interface MissingDaysIssue {
+  company_id: number
+  symbol: string
+  name: string
+  expected_days: number
+  actual_days: number
+  missing_days: number
+}
+
+/** Score de liquidité par entreprise (api_quotes.php, action liquidity). */
+export interface CompanyLiquidity {
+  company_id: number
+  symbol: string
+  name: string
+  avg_volume: number
+  zero_volume_days: number
+  total_days: number
+  zero_volume_ratio: number
+  liquidity: 'Illiquide' | 'Faible' | 'Moyenne' | 'Élevée'
+}
+
+/** Score composite achat/vente (api_signals.php) — synthèse mécanique, pas un conseil financier. */
+export interface CompanySignal {
+  company_id: number
+  symbol: string
+  name: string
+  sector: string | null
+  close_price: string | number | null
+  variation_percent: string | number | null
+  score: number | null
+  label: string
+  indicators_used: number
+  details: Record<string, { value?: number; signal: number; reason: string }>
+}
+
 export interface SyncLog {
   id: number
   sync_type: string

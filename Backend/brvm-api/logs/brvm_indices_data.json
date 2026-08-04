@@ -1,32 +1,32 @@
 {
-    "timestamp": "2026-08-04 09:49:39",
+    "timestamp": "2026-08-04 16:35:14",
     "data": [
         {
             "Nom": "BRVM-30",
             "Fermeture précédente": 231.45,
-            "Fermeture": 231.09,
-            "Variation (%)": -0.16,
+            "Fermeture": 231.33,
+            "Variation (%)": -0.05,
             "Variation 31 décembre (%)": 1.97
         },
         {
             "Nom": "BRVM - COMPOSITE",
             "Fermeture précédente": 485.43,
-            "Fermeture": 484.69,
-            "Variation (%)": -0.15,
+            "Fermeture": 485.89,
+            "Variation (%)": 0.09,
             "Variation 31 décembre (%)": 1.7
         },
         {
             "Nom": "BRVM - PRESTIGE",
             "Fermeture précédente": 176.88,
-            "Fermeture": 176.52,
-            "Variation (%)": -0.2,
+            "Fermeture": 178.52,
+            "Variation (%)": 0.93,
             "Variation 31 décembre (%)": 1.47
         },
         {
             "Nom": "BRVM - PRINCIPAL",
             "Fermeture précédente": 370.92,
-            "Fermeture": 370.89,
-            "Variation (%)": -0.01,
+            "Fermeture": 367.98,
+            "Variation (%)": -0.79,
             "Variation 31 décembre (%)": 0.78
         }
     ],

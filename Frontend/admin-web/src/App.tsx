@@ -12,6 +12,9 @@ import { Bulletins } from './pages/Bulletins'
 import { Analysis } from './pages/Analysis'
 import { Comparison } from './pages/Comparison'
 import { Combined } from './pages/Combined'
+import { MarketHealth } from './pages/MarketHealth'
+import { Statistics } from './pages/Statistics'
+import { PriceAlerts } from './pages/PriceAlerts'
 
 function Protected({ children }: { children: ReactNode }) {
   return (
@@ -34,6 +37,9 @@ export default function App() {
         <Route path="/analysis" element={<Protected><Analysis /></Protected>} />
         <Route path="/comparison" element={<Protected><Comparison /></Protected>} />
         <Route path="/combined" element={<Protected><Combined /></Protected>} />
+        <Route path="/market-health" element={<Protected><MarketHealth /></Protected>} />
+        <Route path="/statistics" element={<Protected><Statistics /></Protected>} />
+        <Route path="/price-alerts" element={<Protected><PriceAlerts /></Protected>} />
       </Routes>
     </AuthProvider>
   )
