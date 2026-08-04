@@ -132,3 +132,6 @@ Stack trace:
 [2026-08-03 16:35:06] === Démarrage run_daily_sync.sh ===
 [2026-08-03 16:35:06] MySQL injoignable sur 127.0.0.1:8889, démarrage de MAMP...
 [2026-08-03 16:36:09] ERREUR: MySQL toujours injoignable après 60s, abandon
+[2026-08-04 08:32:00] === Démarrage run_daily_sync.sh ===
+[2026-08-04 08:32:09] MySQL injoignable sur 127.0.0.1:8889, démarrage de MAMP...
+[2026-08-04 08:42:23] ERREUR: MySQL toujours injoignable après 60s, abandon

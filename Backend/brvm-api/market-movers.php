@@ -31,28 +31,34 @@ if (!$date) {
     $date = $result[0]['d'] ?? date('Y-m-d');
 }
 
-// Relevés intrajournaliers disponibles pour cette date (pour la navigation par heure)
-$availableTimes = $crud->executeCustomQuery(
-    "SELECT DISTINCT quote_datetime FROM intraday_quotes WHERE DATE(quote_datetime) = ? ORDER BY quote_datetime ASC",
-    [$date]
-) ?: [];
-
-$requestedTime = $_GET['time'] ?? null;
-$time = null;
-if ($requestedTime) {
-    foreach ($availableTimes as $t) {
-        $hhmm = date('H:i', strtotime($t['quote_datetime']));
-        if ($hhmm === $requestedTime || $t['quote_datetime'] === $requestedTime) {
-            $time = $t['quote_datetime'];
-            break;
-        }
-    }
-    // Si l'heure demandée ne correspond à aucun relevé connu, on retombe
-    // silencieusement sur la vue de clôture plutôt que d'afficher une erreur.
+/**
+ * Relevés intrajournaliers disponibles pour cette date, regroupés par
+ * MINUTE plutôt que par timestamp exact : les ~47 entreprises d'un même
+ * passage cron ne sont pas enregistrées à la même seconde (quelques
+ * secondes d'écart entre la première et la dernière), donc un DISTINCT sur
+ * quote_datetime brut faisait apparaître un bouton par entreprise au lieu
+ * d'un bouton par passage — et filtrer dessus ne remontait qu'une seule
+ * entreprise à la fois.
+ */
+function fetchAvailableTimeBuckets($crud, $date) {
+    return $crud->executeCustomQuery(
+        "SELECT DATE_FORMAT(quote_datetime, '%Y-%m-%d %H:%i:00') AS bucket
+         FROM intraday_quotes
+         WHERE DATE(quote_datetime) = ?
+         GROUP BY bucket
+         ORDER BY bucket ASC",
+        [$date]
+    ) ?: [];
 }
 
-if ($time) {
-    $rows = $crud->executeCustomQuery(
+/**
+ * Relevés de toutes les entreprises pour un passage cron donné (regroupés
+ * sur la même minute que $time) — dédoublonne par entreprise en gardant le
+ * relevé le plus récent de la fenêtre (sous-requête + jointure plutôt que
+ * ROW_NUMBER(), pour rester compatible MySQL 5.7).
+ */
+function fetchIntradayRows($crud, $date, $time) {
+    return $crud->executeCustomQuery(
         "SELECT
             c.symbol, c.name, iq.volume,
             sq.previous_close AS previous_close,
@@ -62,14 +68,22 @@ if ($time) {
                 ELSE ROUND((iq.price - sq.previous_close) / sq.previous_close * 100, 2)
             END AS variation_percent
          FROM intraday_quotes iq
+         INNER JOIN (
+             SELECT company_id, MAX(quote_datetime) AS latest_ts
+             FROM intraday_quotes
+             WHERE quote_datetime >= ? AND quote_datetime < DATE_ADD(?, INTERVAL 1 MINUTE)
+             GROUP BY company_id
+         ) latest ON latest.company_id = iq.company_id AND latest.latest_ts = iq.quote_datetime
          INNER JOIN companies c ON c.id = iq.company_id
          LEFT JOIN stock_quotes sq ON sq.company_id = iq.company_id AND sq.trading_date = ?
-         WHERE iq.quote_datetime = ? AND c.active = 1
+         WHERE c.active = 1
          ORDER BY variation_percent DESC",
-        [$date, $time]
+        [$time, $time, $date]
     ) ?: [];
-} else {
-    $rows = $crud->executeCustomQuery(
+}
+
+function fetchCloseRows($crud, $date) {
+    return $crud->executeCustomQuery(
         "SELECT
             c.symbol, c.name, sq.volume, sq.variation_percent,
             sq.previous_close AS previous_close,
@@ -82,14 +96,52 @@ if ($time) {
     ) ?: [];
 }
 
+$availableTimes = fetchAvailableTimeBuckets($crud, $date);
+
+$requestedTime = $_GET['time'] ?? null;
+$time = null;
+if ($requestedTime) {
+    foreach ($availableTimes as $t) {
+        if (substr($t['bucket'], 11, 5) === $requestedTime) {
+            $time = $t['bucket'];
+            break;
+        }
+    }
+    // Si l'heure demandée ne correspond à aucun relevé connu, on retombe
+    // silencieusement sur la vue de clôture plutôt que d'afficher une erreur.
+}
+
+// Repli automatique : si aucune heure n'est demandée mais qu'il n'existe
+// aucune clôture enregistrée pour ce jour (cron de clôture en échec ce
+// jour-là alors que l'intrajournalier a bien tourné), on affiche le dernier
+// relevé intrajournalier connu plutôt qu'une page vide.
+$closeMissing = false;
+if ($time) {
+    $rows = fetchIntradayRows($crud, $date, $time);
+} else {
+    $rows = fetchCloseRows($crud, $date);
+    if (empty($rows) && !empty($availableTimes)) {
+        $closeMissing = true;
+        $time = end($availableTimes)['bucket'];
+        $rows = fetchIntradayRows($crud, $date, $time);
+    }
+}
+
 $gainers = array_values(array_filter($rows, fn($r) => (float) $r['variation_percent'] > 0));
 $unchanged = array_values(array_filter($rows, fn($r) => (float) $r['variation_percent'] == 0));
 $losers = array_values(array_filter($rows, fn($r) => (float) $r['variation_percent'] < 0));
 usort($losers, fn($a, $b) => (float) $a['variation_percent'] <=> (float) $b['variation_percent']);
 
-// Dates disponibles pour la navigation rapide (les 10 dernières séances)
+// Dates disponibles pour la navigation rapide (les 10 dernières séances) —
+// union clôtures + relevés intrajournaliers, pour qu'un jour sans clôture
+// enregistrée (mais avec de l'intrajournalier) reste accessible dans le nav.
 $availableDates = $crud->executeCustomQuery(
-    "SELECT DISTINCT trading_date FROM stock_quotes ORDER BY trading_date DESC LIMIT 10"
+    "SELECT d FROM (
+        SELECT trading_date AS d FROM stock_quotes
+        UNION
+        SELECT DATE(quote_datetime) AS d FROM intraday_quotes
+     ) all_dates
+     ORDER BY d DESC LIMIT 10"
 ) ?: [];
 
 function fmtPct($v) {
@@ -215,12 +267,15 @@ function renderTable($rows, $variantClass) {
     <div class="sub">
       <?= htmlspecialchars(date('d/m/Y', strtotime($date))) ?><?= $time ? ' — relevé de ' . htmlspecialchars(date('H:i', strtotime($time))) : ' — clôture' ?>
       — <?= count($rows) ?> société(s)
+      <?php if ($closeMissing): ?>
+        <br><span style="color: var(--critical);">Aucune clôture enregistrée ce jour (synchro probablement en échec) — dernier relevé intrajournalier affiché à la place.</span>
+      <?php endif; ?>
     </div>
 
     <?php if (!empty($availableDates)): ?>
     <div class="nav-label">Jour</div>
     <div class="date-nav">
-      <?php foreach ($availableDates as $d): $d = $d['trading_date']; ?>
+      <?php foreach ($availableDates as $d): $d = $d['d']; ?>
         <a href="?date=<?= urlencode($d) ?>" class="<?= $d === $date ? 'active' : '' ?>"><?= htmlspecialchars(date('d/m', strtotime($d))) ?></a>
       <?php endforeach; ?>
     </div>
@@ -229,8 +284,8 @@ function renderTable($rows, $variantClass) {
     <?php if (!empty($availableTimes)): ?>
     <div class="nav-label">Heure (relevés intrajournaliers)</div>
     <div class="time-nav">
-      <a href="?date=<?= urlencode($date) ?>" class="<?= !$time ? 'active' : '' ?>">Clôture</a>
-      <?php foreach ($availableTimes as $t): $hhmm = date('H:i', strtotime($t['quote_datetime'])); ?>
+      <a href="?date=<?= urlencode($date) ?>" class="<?= (!$time && !$closeMissing) ? 'active' : '' ?>">Clôture</a>
+      <?php foreach ($availableTimes as $t): $hhmm = substr($t['bucket'], 11, 5); ?>
         <a href="?date=<?= urlencode($date) ?>&time=<?= urlencode($hhmm) ?>" class="<?= ($time && date('H:i', strtotime($time)) === $hhmm) ? 'active' : '' ?>"><?= htmlspecialchars($hhmm) ?></a>
       <?php endforeach; ?>
     </div>
