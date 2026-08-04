@@ -1,3 +1,4 @@
+-- ALREADY-IN-BD-SQL
 -- Migration 004 : authentification du panneau d'administration (Frontend/admin-web)
 -- Schéma déjà présent dans BD.sql (ajouté par un autre travail sur le projet),
 -- mais jamais appliqué à cette base existante — sans ces tables,

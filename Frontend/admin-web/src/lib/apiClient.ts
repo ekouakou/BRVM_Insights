@@ -39,6 +39,16 @@ export function bulletinDownloadUrl(bulletinId: number): string {
 }
 
 /**
+ * URL de téléchargement d'un dump complet de la base (voir
+ * RESET_DATABASE.md) — même principe que reportDownloadUrl() (token en
+ * query param, requis pour un lien de navigateur classique).
+ */
+export function dbDumpDownloadUrl(): string {
+  const token = getToken() ?? ''
+  return `${API_BASE_URL}/api_db_dump.php?action=download&token=${encodeURIComponent(token)}`
+}
+
+/**
  * Une réponse non-JSON (page d'erreur HTML) arrive surtout quand MAMP coupe
  * la connexion après 30s d'inactivité côté client (mod_fastcgi) alors que le
  * script PHP continue de tourner côté serveur — voir GUIDE.md. Le traitement

@@ -25,11 +25,13 @@ class ReportComparisonService {
     }
 
     /**
-     * @param int[] $companyIds
+     * @param int[] $companyIds Ignoré si $reportIds est fourni (dérivé des rapports sélectionnés)
+     * @param int[]|null $reportIds Sélection explicite de rapports (voir Reports.tsx) — prioritaire
+     *        sur companyIds/startDate/endDate/reportType, qui ne servent alors qu'en repli d'affichage
      * @return array Résultat structuré prêt à être renvoyé par l'API
      */
-    public function compare(array $companyIds, string $startDate, string $endDate, ?string $reportType = null, ?string $provider = null, ?string $model = null, bool $forceRefresh = false): array {
-        if (empty($companyIds)) {
+    public function compare(array $companyIds, string $startDate, string $endDate, ?string $reportType = null, ?string $provider = null, ?string $model = null, bool $forceRefresh = false, ?array $reportIds = null): array {
+        if ($reportIds === null && empty($companyIds)) {
             throw new Exception("Au moins une entreprise (company_ids ou symbols) requise");
         }
 
@@ -39,18 +41,36 @@ class ReportComparisonService {
         }
         $model = $model ?: self::PROVIDERS[$provider]['default_model'];
 
-        $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
-        sort($companyIds);
+        if ($reportIds !== null) {
+            $reports = $this->findReportsByIds($reportIds);
+            if (empty($reports)) {
+                throw new Exception("Aucun des rapports sélectionnés n'a de texte extrait disponible");
+            }
+            // Dérivés de la sélection explicite plutôt que fournis par l'appelant —
+            // gardent la mise en cache (request_hash), le graphique de cours et
+            // l'affichage cohérents avec ce qui a réellement été analysé.
+            $companyIds = array_values(array_unique(array_map(fn($r) => (int) $r['company_id'], $reports)));
+            sort($companyIds);
+            $publishDates = array_values(array_filter(array_column($reports, 'publish_date')));
+            $startDate = $publishDates ? min($publishDates) : $startDate;
+            $endDate = $publishDates ? max($publishDates) : $endDate;
+            $reportType = null;
+        } else {
+            $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
+            sort($companyIds);
 
-        $reports = $this->findReports($companyIds, $startDate, $endDate, $reportType);
-        if (empty($reports)) {
-            throw new Exception(
-                "Aucun rapport avec texte extrait trouvé pour ces entreprises entre $startDate et $endDate" .
-                ($reportType ? " (type: $reportType)" : "")
-            );
+            $reports = $this->findReports($companyIds, $startDate, $endDate, $reportType);
+            if (empty($reports)) {
+                throw new Exception(
+                    "Aucun rapport avec texte extrait trouvé pour ces entreprises entre $startDate et $endDate" .
+                    ($reportType ? " (type: $reportType)" : "")
+                );
+            }
         }
 
-        $requestHash = hash('sha256', json_encode([$companyIds, $startDate, $endDate, $reportType]));
+        $requestHash = $reportIds !== null
+            ? hash('sha256', json_encode(['report_ids' => array_values(array_unique(array_map('intval', array_column($reports, 'id'))))]))
+            : hash('sha256', json_encode([$companyIds, $startDate, $endDate, $reportType]));
         $computedDate = date('Y-m-d');
 
         $existing = $this->crud->executeCustomQuery(
@@ -163,6 +183,25 @@ class ReportComparisonService {
         }
 
         return $this->formatResult($rows[0], true);
+    }
+
+    /**
+     * Sélection explicite de rapports par ID (voir Reports.tsx) — même garde-fou
+     * text_extracted=1 que findReports(), sans filtre de date/type/entreprise.
+     */
+    private function findReportsByIds(array $reportIds): array {
+        $reportIds = array_values(array_unique(array_map('intval', $reportIds)));
+        if (empty($reportIds)) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($reportIds), '?'));
+        $sql = "SELECT * FROM company_reports
+                WHERE id IN ($placeholders)
+                  AND text_extracted = 1
+                ORDER BY company_id, publish_date ASC";
+
+        return $this->crud->executeCustomQuery($sql, $reportIds) ?: [];
     }
 
     private function findReports(array $companyIds, string $startDate, string $endDate, ?string $reportType): array {

@@ -1,3 +1,4 @@
+-- ALREADY-IN-BD-SQL
 -- Migration 005 : passe l'intervalle de synchro affiché/documenté de 15 (ou 5,
 -- valeur historique) à 10 minutes. N'affecte pas le comportement réel du
 -- cron (contrôlé par docker/crontab ou launchd, pas par cette table), mais

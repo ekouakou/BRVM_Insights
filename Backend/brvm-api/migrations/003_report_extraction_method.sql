@@ -1,3 +1,4 @@
+-- ALREADY-IN-BD-SQL
 -- Migration 003 : trace la méthode d'extraction du texte (natif vs OCR) pour
 -- chaque rapport, utile pour distinguer un texte fiable (pdftotext) d'un texte
 -- potentiellement imparfait (OCR sur PDF scanné).

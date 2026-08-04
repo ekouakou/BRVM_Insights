@@ -113,6 +113,16 @@ export interface ReportDetail {
   markdown_error: string | null
 }
 
+export interface CompanyWithReports {
+  company_id: number
+  symbol: string
+  name: string
+  brvm_report_slug: string | null
+  reports_count: number
+  reports_with_text: number | null
+  latest_report_date: string | null
+}
+
 export interface DiscoverResult {
   company_id: number
   symbol: string

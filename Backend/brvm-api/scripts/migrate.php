@@ -180,13 +180,23 @@ if (!$tableExists) {
 
     out("✓ Schéma initialisé depuis BD.sql.");
 
-    // BD.sql contient déjà tout ce que les migrations appliqueraient : on les
-    // marque comme faites pour ne pas les rejouer (elles échoueraient sur des
-    // colonnes/tables déjà existantes).
+    // Seules les migrations explicitement marquées "-- ALREADY-IN-BD-SQL" (en
+    // première ligne) ont un contenu réellement répliqué dans BD.sql — les
+    // marquer comme appliquées évite de les rejouer en erreur (colonnes/tables
+    // déjà existantes). Une migration SANS ce marqueur (ex: 007, qui insère des
+    // données ne pouvant pas être répétées dans BD.sql) reste "en attente" et
+    // sera appliquée pour de vrai au prochain lancement — sans ce garde-fou,
+    // toute migration de ce type serait silencieusement marquée "faite" sans
+    // jamais avoir réellement tourné.
     ensureMigrationsTable($pdo);
     foreach (glob(MIGRATIONS_DIR . '/*.sql') as $file) {
-        markApplied($pdo, basename($file));
-        out("  (migration " . basename($file) . " déjà incluse dans BD.sql, marquée comme appliquée)");
+        $firstLine = trim((string) (file($file, FILE_IGNORE_NEW_LINES)[0] ?? ''));
+        if ($firstLine === '-- ALREADY-IN-BD-SQL') {
+            markApplied($pdo, basename($file));
+            out("  (migration " . basename($file) . " déjà incluse dans BD.sql, marquée comme appliquée)");
+        } else {
+            out("  (migration " . basename($file) . " NON incluse dans BD.sql, restera à appliquer)");
+        }
     }
 
     out("");

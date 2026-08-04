@@ -1,3 +1,4 @@
+-- ALREADY-IN-BD-SQL
 -- Migration 006 : ajoute variation_percent à intraday_quotes (présent dans
 -- BD.sql depuis l'ajout de BRVMSyncService::recordIntradaySnapshot(), mais
 -- jamais migré sur les bases déjà provisionnées avant cet ajout).

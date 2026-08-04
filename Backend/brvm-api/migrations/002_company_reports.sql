@@ -1,6 +1,10 @@
+-- ALREADY-IN-BD-SQL
 -- Migration 002 : rapports des sociétés cotées (scraping + stockage + extraction de texte)
 -- À appliquer sur une base déjà créée par BD.sql (le schéma de BD.sql inclut déjà
--- ces mêmes objets pour les nouvelles installations).
+-- ces mêmes objets pour les nouvelles installations). Le marqueur ci-dessus dit à
+-- scripts/migrate.php de la considérer comme déjà appliquée lors d'une
+-- initialisation fraîche depuis BD.sql (voir sa docstring) — ne pas l'ajouter à
+-- une migration dont le contenu n'est PAS répliqué dans BD.sql (ex: 007).
 
 -- Pas de "USE brvm_trading_app" ici : exécute ceci sur la base déjà
 -- sélectionnée (le nom réel peut différer selon l'hébergeur — voir

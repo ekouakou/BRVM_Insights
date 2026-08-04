@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { callApi } from '../lib/apiClient'
-import type { Company, ComparisonResult } from '../lib/types'
+import type { Company, CompanyWithReports, ComparisonResult } from '../lib/types'
 import { Button, Card, ErrorState, Input, LoadingState, Select } from '../components/ui'
 
 export function Comparison() {
@@ -17,6 +17,18 @@ export function Comparison() {
     queryKey: ['companies-list'],
     queryFn: () => callApi<Company[]>('api_companies.php', 'list', { per_page: 200, active: 1 }),
   })
+
+  // Nombre de rapports au texte extrait par entreprise — la comparaison
+  // (class/ReportComparisonService.php) exige text_extracted=1 sur les
+  // rapports pris en compte, donc une entreprise sans aucun rapport traité
+  // ne peut produire aucun résultat exploitable.
+  const reportsReadinessQuery = useQuery({
+    queryKey: ['companies-with-reports'],
+    queryFn: () => callApi<CompanyWithReports[]>('api_reports.php', 'list_companies'),
+  })
+  const readyCompanyIds = new Set(
+    (reportsReadinessQuery.data ?? []).filter((c) => (c.reports_with_text ?? 0) > 0).map((c) => c.company_id)
+  )
 
   const compareMutation = useMutation({
     mutationFn: (forceRefresh: boolean) =>
@@ -37,6 +49,18 @@ export function Comparison() {
 
   const result = compareMutation.data
 
+  // Regroupe les entreprises par secteur d'activité (banques ensemble, etc.)
+  // — "Autres" en dernier pour celles sans secteur renseigné.
+  const companiesBySector = new Map<string, Company[]>()
+  for (const c of companiesQuery.data ?? []) {
+    const sector = c.sector_name ?? 'Autres'
+    if (!companiesBySector.has(sector)) companiesBySector.set(sector, [])
+    companiesBySector.get(sector)!.push(c)
+  }
+  const sortedSectors = [...companiesBySector.keys()].sort((a, b) =>
+    a === 'Autres' ? 1 : b === 'Autres' ? -1 : a.localeCompare(b)
+  )
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -48,19 +72,38 @@ export function Comparison() {
         <div className="flex flex-col gap-4">
           <div>
             <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprises</span>
-            <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto rounded-md border border-gray-200 p-3 dark:border-gray-800">
-              {(companiesQuery.data ?? []).map((c) => (
-                <label
-                  key={c.company_id}
-                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${
-                    selected.includes(c.company_id)
-                      ? 'border-indigo-500 bg-indigo-600 text-white'
-                      : 'border-gray-300 text-gray-600 dark:border-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  <input type="checkbox" className="hidden" checked={selected.includes(c.company_id)} onChange={() => toggle(c.company_id)} />
-                  {c.symbol}
-                </label>
+            <div className="flex max-h-64 flex-col gap-3 overflow-y-auto rounded-md border border-gray-200 p-3 dark:border-gray-800">
+              {sortedSectors.map((sector) => (
+                <div key={sector}>
+                  <div className="mb-1 text-xs font-semibold text-gray-500 dark:text-gray-400">{sector}</div>
+                  <div className="flex flex-wrap gap-2">
+                    {companiesBySector.get(sector)!.map((c) => {
+                      const ready = readyCompanyIds.has(c.company_id)
+                      return (
+                        <label
+                          key={c.company_id}
+                          title={ready ? undefined : "Aucun rapport avec texte extrait pour cette entreprise — indisponible pour la comparaison"}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium ${
+                            !ready
+                              ? 'cursor-not-allowed border-gray-200 text-gray-300 dark:border-gray-800 dark:text-gray-600'
+                              : selected.includes(c.company_id)
+                              ? 'cursor-pointer border-indigo-500 bg-indigo-600 text-white'
+                              : 'cursor-pointer border-gray-300 text-gray-600 dark:border-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={selected.includes(c.company_id)}
+                            disabled={!ready}
+                            onChange={() => toggle(c.company_id)}
+                          />
+                          {c.symbol}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
           </div>

@@ -65,10 +65,23 @@ class ReportComparisonAPI {
 
     /**
      * Déclenche (ou réutilise le cache du jour pour) une comparaison de rapports.
+     *
+     * Deux modes : report_ids (sélection explicite de rapports précis, voir
+     * Reports.tsx — prioritaire, ignore company_ids/dates) ou company_ids +
+     * start_date/end_date (mode historique, période + entreprise(s), voir
+     * Comparison.tsx).
      */
     private function compare($input) {
-        $companyIds = $this->resolveCompanyIds($input);
-        [$startDate, $endDate] = $this->resolvePeriod($input);
+        $reportIds = !empty($input['report_ids']) ? array_map('intval', $input['report_ids']) : null;
+
+        if ($reportIds !== null) {
+            $companyIds = [];
+            $startDate = '';
+            $endDate = date('Y-m-d');
+        } else {
+            $companyIds = $this->resolveCompanyIds($input);
+            [$startDate, $endDate] = $this->resolvePeriod($input);
+        }
 
         $reportType = $input['report_type'] ?? null;
         $provider = $input['provider'] ?? null;
@@ -78,7 +91,7 @@ class ReportComparisonAPI {
         $service = new ReportComparisonService($this->crud);
 
         try {
-            $result = $service->compare($companyIds, $startDate, $endDate, $reportType, $provider, $model, $forceRefresh);
+            $result = $service->compare($companyIds, $startDate, $endDate, $reportType, $provider, $model, $forceRefresh, $reportIds);
             return ['success' => true, 'data' => $result];
         } catch (Exception $e) {
             // Erreur fournisseur IA/réseau/données manquantes : pas un crash serveur

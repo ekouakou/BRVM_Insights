@@ -1,2 +1,7 @@
 scripts/run_daily_sync.local.sh
 .env
+
+# Le dépôt grossit trop vite avec les PDF scrapés — les 683 déjà suivis
+# restent en historique, mais on arrête d'en ajouter de nouveaux (utiliser
+# api_db_dump.php / la synchro plutôt que git pour transporter ces fichiers).
+storage/reports/

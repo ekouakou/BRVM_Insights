@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { BarChart, Bar, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { callApi, reportDownloadUrl, uploadFile } from '../lib/apiClient'
-import type { BackfillCompanyProgress, CompanyMatchResult, DiscoverResult, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
+import type { BackfillCompanyProgress, ComparisonResult, CompanyMatchResult, DiscoverResult, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
 import { AnalysisBadge, Button, Card, ErrorState, LoadingState, MarkdownBadge, Modal, StatTile, Table } from '../components/ui'
 import { BoltIcon, CloseIcon, EyeIcon, IconButton, InfoIcon, RetryIcon, UploadIcon } from '../components/icons'
 
@@ -39,6 +40,9 @@ export function Reports() {
     processed: number
     failed: number
   } | null>(null)
+  const [selectedReportIds, setSelectedReportIds] = useState<number[]>([])
+  const [showReportComparison, setShowReportComparison] = useState(false)
+  const [preAnalyzeProgress, setPreAnalyzeProgress] = useState<{ done: number; total: number } | null>(null)
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({})
   const markdownFileInput = useRef<HTMLInputElement | null>(null)
   const queryClient = useQueryClient()
@@ -98,6 +102,48 @@ export function Reports() {
       queryClient.invalidateQueries({ queryKey: ['backfill-progress'] })
     },
   })
+
+  // Analyse groupée d'une sélection explicite de rapports (checkboxes du
+  // tableau, éventuellement à cheval sur plusieurs entreprises visitées) —
+  // voir ReportComparisonService::compare() côté backend, mode report_ids.
+  const reportComparisonMutation = useMutation({
+    mutationFn: (forceRefresh: boolean) =>
+      callApi<ComparisonResult>('api_report_comparison.php', 'compare', {
+        report_ids: selectedReportIds,
+        provider: 'gemini',
+        force_refresh: forceRefresh,
+      }),
+  })
+
+  function toggleReportSelection(id: number) {
+    setSelectedReportIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  // Pré-analyse chaque rapport sélectionné individuellement (séquentiel,
+  // depuis le frontend) AVANT d'appeler compare() : ReportComparisonService
+  // déclenche sinon ces mêmes analyses dans une seule requête serveur, ce qui
+  // dépasse facilement le délai d'inactivité fastcgi de MAMP (30s, voir
+  // apache_error.log) ou le max_execution_time de 30s courant sur un
+  // hébergement mutualisé dès que 2-3 rapports n'ont jamais été analysés. Une
+  // fois chaque rapport en cache, l'appel compare() final reste rapide (une
+  // seule synthèse IA, pas de ré-analyse).
+  async function openReportComparison() {
+    setShowReportComparison(true)
+    setPreAnalyzeProgress({ done: 0, total: selectedReportIds.length })
+    try {
+      for (const id of selectedReportIds) {
+        try {
+          await callApi('api_report_analysis.php', 'analyze', { report_id: id, provider: 'gemini' })
+        } catch {
+          // Erreur remontée pour de bon par compare() ensuite (skipped_reports côté service) ; on continue.
+        }
+        setPreAnalyzeProgress((prev) => (prev ? { ...prev, done: prev.done + 1 } : prev))
+      }
+    } finally {
+      setPreAnalyzeProgress(null)
+    }
+    reportComparisonMutation.mutate(false)
+  }
 
   function onProcessed(result: ReportProcessResult) {
     setResults((prev) => ({ ...prev, [result.id]: result }))
@@ -460,6 +506,12 @@ export function Reports() {
                       : 'Formater tous les rapports (Markdown)'}
                   </span>
                 </Button>
+                <Button onClick={openReportComparison} disabled={selectedReportIds.length === 0}>
+                  <span className="flex items-center gap-2">
+                    <BoltIcon />
+                    {`Analyser les rapports sélectionnés (${selectedReportIds.length})`}
+                  </span>
+                </Button>
               </div>
             )}
           </div>
@@ -487,7 +539,7 @@ export function Reports() {
           {selectedSymbol && reportsQuery.isLoading && <LoadingState />}
           {selectedSymbol && reportsQuery.error && <ErrorState message={(reportsQuery.error as Error).message} />}
           {selectedSymbol && reportsQuery.data && (
-            <Table headers={['Type', 'Titre', 'Date', 'Statut', 'Action']}>
+            <Table headers={['', 'Type', 'Titre', 'Date', 'Statut', 'Action']}>
               {reportsQuery.data.map((r) => {
                 const result = results[r.id]
                 const isPending = pendingId === r.id && (processMutation.isPending || uploadMutation.isPending)
@@ -501,6 +553,15 @@ export function Reports() {
                 return (
                   <Fragment key={r.id}>
                     <tr>
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedReportIds.includes(r.id)}
+                          disabled={!extracted}
+                          onChange={() => toggleReportSelection(r.id)}
+                          title={extracted ? 'Sélectionner pour analyse groupée' : 'Traite ce rapport avant de le sélectionner'}
+                        />
+                      </td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.report_type}</td>
                       <td className="px-3 py-2 max-w-[240px] truncate" title={r.title}>{r.title}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{r.publish_date ?? '—'}</td>
@@ -569,7 +630,7 @@ export function Reports() {
                     </tr>
                     {detailOpen && hasDetail && (
                       <tr>
-                        <td colSpan={5} className="bg-red-50 px-3 py-2 dark:bg-red-950/40">
+                        <td colSpan={6} className="bg-red-50 px-3 py-2 dark:bg-red-950/40">
                           <div className="flex items-start justify-between gap-3">
                             <p className="text-xs text-red-700 dark:text-red-300">
                               {transportNote ?? errorMessage}
@@ -702,6 +763,128 @@ export function Reports() {
                     : "Texte pas encore extrait pour ce rapport. Ouvre le PDF original ci-dessus pour le consulter."}
                 </p>
               )}
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {showReportComparison && (
+        <Modal title="Analyse groupée des rapports sélectionnés" onClose={() => setShowReportComparison(false)}>
+          {preAnalyzeProgress && (
+            <LoadingState label={`Analyse individuelle des rapports… (${preAnalyzeProgress.done}/${preAnalyzeProgress.total})`} />
+          )}
+          {!preAnalyzeProgress && reportComparisonMutation.isPending && (
+            <LoadingState label="Synthèse comparative en cours…" />
+          )}
+          {reportComparisonMutation.isError && <ErrorState message={(reportComparisonMutation.error as Error).message} />}
+          {reportComparisonMutation.data && reportComparisonMutation.data.status === 'failed' && (
+            <ErrorState message={reportComparisonMutation.data.error_message ?? "Échec de l'analyse"} />
+          )}
+          {reportComparisonMutation.data && reportComparisonMutation.data.analysis && (
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <span>{reportComparisonMutation.data.companies.map((c) => c.symbol).join(', ')}</span>
+                <span className="flex items-center gap-2">
+                  {reportComparisonMutation.data.provider}/{reportComparisonMutation.data.model}
+                  {reportComparisonMutation.data.cached && ' · depuis le cache'}
+                  <Button variant="secondary" onClick={() => reportComparisonMutation.mutate(true)} disabled={reportComparisonMutation.isPending}>
+                    Forcer
+                  </Button>
+                </span>
+              </div>
+
+              <Card>
+                <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+                  {reportComparisonMutation.data.analysis.comparative_summary}
+                </p>
+              </Card>
+
+              {reportComparisonMutation.data.analysis.cross_company_ranking && (
+                <Card title="Classement comparatif">
+                  <p className="text-sm text-gray-800 dark:text-gray-200">{reportComparisonMutation.data.analysis.cross_company_ranking}</p>
+                </Card>
+              )}
+
+              {reportComparisonMutation.data.analysis.trend_analysis && reportComparisonMutation.data.analysis.trend_analysis.length > 0 && (
+                <Card title="Tendance">
+                  <div className="flex flex-col gap-4">
+                    {reportComparisonMutation.data.analysis.trend_analysis.map((t) => (
+                      <div key={t.company_symbol}>
+                        <div className="text-sm font-semibold">{t.company_symbol} — {t.company_name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          CA: {t.revenue_trend_percent ?? '—'}% · Résultat net: {t.net_income_trend_percent ?? '—'}%
+                        </div>
+                        <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{t.narrative}</p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {reportComparisonMutation.data.analysis.price_correlation_note && (
+                  <Card title="Corrélation cours / fondamentaux">
+                    <p className="text-sm text-gray-800 dark:text-gray-200">{reportComparisonMutation.data.analysis.price_correlation_note}</p>
+                  </Card>
+                )}
+                {reportComparisonMutation.data.analysis.risks_evolution && (
+                  <Card title="Évolution des risques">
+                    <p className="text-sm text-gray-800 dark:text-gray-200">{reportComparisonMutation.data.analysis.risks_evolution}</p>
+                  </Card>
+                )}
+              </div>
+
+              {reportComparisonMutation.data.analysis.decision_support_notes && reportComparisonMutation.data.analysis.decision_support_notes.length > 0 && (
+                <Card title="Points d'appui à la décision">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {reportComparisonMutation.data.analysis.decision_support_notes.map((d) => (
+                      <div key={d.company_symbol} className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+                        <div className="mb-1 text-sm font-semibold">{d.company_symbol}</div>
+                        <div className="mb-1 text-sm"><span className="font-medium text-emerald-600 dark:text-emerald-400">Bull:</span> {d.bull_case}</div>
+                        <div className="mb-1 text-sm"><span className="font-medium text-red-600 dark:text-red-400">Bear:</span> {d.bear_case}</div>
+                        <ul className="mt-1 list-disc pl-4 text-xs text-gray-600 dark:text-gray-400">
+                          {d.key_watch_points.map((p, i) => <li key={i}>{p}</li>)}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {reportComparisonMutation.data.chart_data?.price_series.map((serie) => (
+                serie.data.length >= 2 && (
+                  <Card key={serie.company_id} title={`Cours — ${serie.symbol}`}>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={serie.data}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+                        <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Card>
+                )
+              ))}
+
+              {reportComparisonMutation.data.chart_data?.financials_series.map((serie) => (
+                serie.data.length > 0 && (
+                  <Card key={serie.company_id} title={`Chiffres clés dans le temps — ${serie.symbol}`}>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={serie.data}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                        <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} width={80} />
+                        <Tooltip />
+                        <Bar dataKey="revenue" fill="#4f46e5" name="Chiffre d'affaires" />
+                        <Bar dataKey="net_income" fill="#a5b4fc" name="Résultat net" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Card>
+                )
+              ))}
+
+              <p className="text-xs italic text-gray-400">{reportComparisonMutation.data.disclaimer}</p>
             </div>
           )}
         </Modal>
