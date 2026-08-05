@@ -623,3 +623,8 @@ d'exploitable. Le fichier PDF original reste téléchargé dans
 
 https://raw.githubusercontent.com/ekouakou/BRVM_Insights/main/parent-responsable/version.json
 
+
+
+admin	
+771d84d1d99f
+
