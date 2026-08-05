@@ -1,7 +1,14 @@
 {
   "permissions": {
+    "allow": [
+      "Read(//Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/**)",
+      "Bash(npx tsc *)",
+      "Bash(grep -n \"Historique des comparaisons\\\\|ComparisonResultView\\\\|<details\\\\|compareLeft\\\\|compareRight\" /Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/src/pages/Comparison.tsx)",
+      "Read(//Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/src/pages/**)"
+    ],
     "additionalDirectories": [
-      "/Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/src/pages"
+      "/Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/src/pages",
+      "/Applications/MAMP/htdocs/BRVM_Insights/Frontend/admin-web/src/lib"
     ]
   }
 }

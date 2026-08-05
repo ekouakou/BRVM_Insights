@@ -34,7 +34,8 @@ même forme) — le registre passe de 13 à 15 chart_type :
 - `migrations/009_chart_analyses.sql` — appliquée en local (nouvelle table
   `chart_analyses`, aucune modif d'une table existante).
 - `class/ChartAnalysisService.php` — générique sur `chart_type` (registre
-  `METHODOLOGY`, 13 entrées couvrant tout le périmètre), cache par
+  `METHODOLOGY`, 15 entrées, toutes branchées côté frontend — vérifié par
+  recoupement `grep`), cache par
   `(request_hash, provider, model)`, `history()` filtrée à la sélection
   courante (paramètres exacts, pas une liste globale). Fournisseur par
   défaut `gemini` (défaut réel du projet partout ailleurs, y compris
@@ -48,7 +49,7 @@ même forme) — le registre passe de 13 à 15 chart_type :
   `.env`) : prompt, appel IA, conformité au schéma JSON, persistance DB,
   formatage — chaîne complète validée sur données réelles.
 
-**Branché sur (11 chart_type, tous les menus) :**
+**Branché sur (15 chart_type, tous les menus) :**
 - `Quotes.tsx` : `quotes_signals` (Signaux techniques, sélection de lignes
   par case à cocher), `quotes_close_sma` (Cours de clôture + SMA)
 - `Statistics.tsx` : `total_variation`, `correlation`, `risk_adjusted`,
@@ -57,6 +58,8 @@ même forme) — le registre passe de 13 à 15 chart_type :
   `data_quality_reconciliation`, `data_quality_price_jumps`,
   `data_quality_missing_days`
 - `Overview.tsx` : `market_summary`
+- `Comparison.tsx` : `quotes_comparison`, `intraday_volume`,
+  `share_turnover`
 
 **Graphe "Comparaison entre entreprises" de Quotes.tsx** : confirmé par
 l'utilisateur comme suppression intentionnelle — non reconstruit sur
@@ -519,3 +522,8 @@ logique 4-5 fois :
    données déjà prête ? Vu qu'aucune migration n'est requise pour ces 3
    tables, ce pourrait être un gain rapide indépendant du reste de ce
    document.
+
+
+   =======
+
+   je veux une meilleur affichage des historique des analyse IA, je veux pouvoir notter et donnée des etoiles sur chaque historique

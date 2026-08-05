@@ -214,6 +214,33 @@ class CombinedAnalysisService {
         return array_map(fn($row) => $this->formatResult($row, true), $rows);
     }
 
+    /**
+     * Note (1-5 étoiles) et/ou commentaire libre sur une analyse combinée
+     * déjà enregistrée — voir ChartAnalysisService::rate() pour le même
+     * pattern.
+     */
+    public function rate(int $id, ?int $rating, ?string $notes, bool $ratingProvided, bool $notesProvided): array {
+        if ($ratingProvided && $rating !== null && ($rating < 1 || $rating > 5)) {
+            throw new Exception("La note doit être comprise entre 1 et 5");
+        }
+
+        $row = $this->crud->findById('combined_analyses', $id);
+        if (!$row) {
+            throw new Exception("Analyse combinée non trouvée (id=$id)");
+        }
+
+        $update = [];
+        if ($ratingProvided) $update['rating'] = $rating;
+        if ($notesProvided) $update['notes'] = $notes;
+
+        if (!empty($update)) {
+            $this->crud->merge('combined_analyses', $update, ['id' => $id]);
+        }
+
+        $updatedRow = $this->crud->findById('combined_analyses', $id);
+        return $this->formatResult($updatedRow, true);
+    }
+
     private function findReports(array $reportIds): array {
         $placeholders = implode(',', array_fill(0, count($reportIds), '?'));
         return $this->crud->executeCustomQuery(
@@ -464,6 +491,8 @@ PROMPT;
             'model' => $row['model'],
             'status' => $row['status'],
             'error_message' => $row['error_message'] ?? null,
+            'rating' => isset($row['rating']) ? (int) $row['rating'] : null,
+            'notes' => $row['notes'] ?? null,
             'analysis' => $row['status'] === 'success' ? array_merge(
                 ['combined_overview' => $row['summary']],
                 array_diff_key($details, ['companies' => null, 'reports' => null, 'bulletins' => null, 'chart_data' => null, 'skipped_reports' => null, 'skipped_bulletins' => null])

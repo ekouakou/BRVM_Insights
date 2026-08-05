@@ -218,6 +218,35 @@ class ReportAnalysisService {
         }, $rows);
     }
 
+    /**
+     * Note (1-5 étoiles) et/ou commentaire libre sur une analyse déjà
+     * enregistrée — voir ChartAnalysisService::rate() pour le même pattern
+     * (rating/notes ne sont modifiés que s'ils sont explicitement fournis).
+     */
+    public function rate(int $id, ?int $rating, ?string $notes, bool $ratingProvided, bool $notesProvided): array {
+        if ($ratingProvided && $rating !== null && ($rating < 1 || $rating > 5)) {
+            throw new Exception("La note doit être comprise entre 1 et 5");
+        }
+
+        $row = $this->crud->findById('company_report_analyses', $id);
+        if (!$row) {
+            throw new Exception("Analyse non trouvée (id=$id)");
+        }
+
+        $update = [];
+        if ($ratingProvided) $update['rating'] = $rating;
+        if ($notesProvided) $update['notes'] = $notes;
+
+        if (!empty($update)) {
+            $this->crud->merge('company_report_analyses', $update, ['id' => $id]);
+        }
+
+        $updatedRow = $this->crud->findById('company_report_analyses', $id);
+        $report = $this->crud->findById('company_reports', $updatedRow['report_id']);
+        $company = $this->crud->findById('companies', $report['company_id']);
+        return $this->formatResult($updatedRow, $report, $company, true);
+    }
+
     private function createClient(string $provider): AiClientInterface {
         $class = self::PROVIDERS[$provider]['class'];
         return new $class();
@@ -439,6 +468,8 @@ PROMPT;
             'market_context_date' => $row['market_context_date'],
             'status' => $row['status'],
             'error_message' => $row['error_message'] ?? null,
+            'rating' => isset($row['rating']) ? (int) $row['rating'] : null,
+            'notes' => $row['notes'] ?? null,
             'analysis' => $row['status'] === 'success' ? array_merge(
                 ['executive_summary' => $row['summary']],
                 $details

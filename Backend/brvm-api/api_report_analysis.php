@@ -52,6 +52,9 @@ class ReportAnalysisAPI {
                 case 'history':
                     return $this->history($input);
 
+                case 'rate':
+                    return $this->rate($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -121,6 +124,28 @@ class ReportAnalysisAPI {
         $data = $service->history($reportId, $companyId);
 
         return ['success' => true, 'data' => $data, 'count' => count($data)];
+    }
+
+    /**
+     * Note (1-5 étoiles) et/ou commentaire libre sur une analyse déjà
+     * enregistrée — rating/notes ne sont modifiés que s'ils sont
+     * explicitement présents dans le payload.
+     */
+    private function rate($input) {
+        $id = (int) ($input['id'] ?? 0);
+        if (!$id) {
+            throw new Exception("id requis");
+        }
+
+        $ratingProvided = array_key_exists('rating', $input);
+        $notesProvided = array_key_exists('notes', $input);
+        $rating = $ratingProvided ? ($input['rating'] !== null ? (int) $input['rating'] : null) : null;
+        $notes = $notesProvided ? $input['notes'] : null;
+
+        $service = new ReportAnalysisService($this->crud);
+        $result = $service->rate($id, $rating, $notes, $ratingProvided, $notesProvided);
+
+        return ['success' => true, 'data' => $result];
     }
 }
 

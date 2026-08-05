@@ -233,6 +233,34 @@ class ChartAnalysisService {
         return $row ? $this->formatResult($row, true) : null;
     }
 
+    /**
+     * Note (1-5 étoiles) et/ou commentaire libre sur une analyse déjà
+     * enregistrée — $rating à null efface la note, $notes à null (et non
+     * absent) efface le commentaire ; seuls les champs explicitement
+     * fournis par l'appelant sont modifiés (voir api_chart_analysis.php).
+     */
+    public function rate(int $id, ?int $rating, ?string $notes, bool $ratingProvided, bool $notesProvided): array {
+        if ($ratingProvided && $rating !== null && ($rating < 1 || $rating > 5)) {
+            throw new Exception("La note doit être comprise entre 1 et 5");
+        }
+
+        $row = $this->crud->findById('chart_analyses', $id);
+        if (!$row) {
+            throw new Exception("Analyse non trouvée (id=$id)");
+        }
+
+        $update = [];
+        if ($ratingProvided) $update['rating'] = $rating;
+        if ($notesProvided) $update['notes'] = $notes;
+
+        if (!empty($update)) {
+            $this->crud->merge('chart_analyses', $update, ['id' => $id]);
+        }
+
+        $updatedRow = $this->crud->findById('chart_analyses', $id);
+        return $this->formatResult($updatedRow, true);
+    }
+
     private function hashRequest(string $chartType, array $parameters): string {
         ksort($parameters);
         return hash('sha256', json_encode([$chartType, $parameters]));
@@ -312,6 +340,8 @@ PROMPT;
             'model' => $row['model'],
             'status' => $row['status'],
             'error_message' => $row['error_message'] ?? null,
+            'rating' => isset($row['rating']) ? (int) $row['rating'] : null,
+            'notes' => $row['notes'] ?? null,
             'summary' => $row['summary'],
             'methodology_explained' => $details['methodology_explained'] ?? null,
             'key_observations' => $details['key_observations'] ?? [],

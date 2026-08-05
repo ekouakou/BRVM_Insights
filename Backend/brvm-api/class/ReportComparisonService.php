@@ -212,6 +212,32 @@ class ReportComparisonService {
     }
 
     /**
+     * Note (1-5 étoiles) et/ou commentaire libre sur une comparaison déjà
+     * enregistrée — voir ChartAnalysisService::rate() pour le même pattern.
+     */
+    public function rate(int $id, ?int $rating, ?string $notes, bool $ratingProvided, bool $notesProvided): array {
+        if ($ratingProvided && $rating !== null && ($rating < 1 || $rating > 5)) {
+            throw new Exception("La note doit être comprise entre 1 et 5");
+        }
+
+        $row = $this->crud->findById('company_report_comparisons', $id);
+        if (!$row) {
+            throw new Exception("Comparaison non trouvée (id=$id)");
+        }
+
+        $update = [];
+        if ($ratingProvided) $update['rating'] = $rating;
+        if ($notesProvided) $update['notes'] = $notes;
+
+        if (!empty($update)) {
+            $this->crud->merge('company_report_comparisons', $update, ['id' => $id]);
+        }
+
+        $updatedRow = $this->crud->findById('company_report_comparisons', $id);
+        return $this->formatResult($updatedRow, true);
+    }
+
+    /**
      * Sélection explicite de rapports par ID (voir Reports.tsx) — même garde-fou
      * text_extracted=1 que findReports(), sans filtre de date/type/entreprise.
      */
@@ -531,6 +557,8 @@ PROMPT;
             'model' => $row['model'],
             'status' => $row['status'],
             'error_message' => $row['error_message'] ?? null,
+            'rating' => isset($row['rating']) ? (int) $row['rating'] : null,
+            'notes' => $row['notes'] ?? null,
             'analysis' => $row['status'] === 'success' ? array_merge(
                 ['comparative_summary' => $row['summary']],
                 array_diff_key($details, ['companies' => null, 'chart_data' => null, 'skipped_reports' => null])
