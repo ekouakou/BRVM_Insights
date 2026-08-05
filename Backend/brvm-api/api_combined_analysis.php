@@ -48,6 +48,9 @@ class CombinedAnalysisAPI {
                 case 'get':
                     return $this->get($input);
 
+                case 'history':
+                    return $this->history($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -89,6 +92,15 @@ class CombinedAnalysisAPI {
         }
 
         return ['success' => true, 'data' => $result];
+    }
+
+    private function history($input) {
+        [$reportIds, $bulletinIds] = $this->resolveIds($input);
+
+        $service = new CombinedAnalysisService($this->crud);
+        $data = $service->history($reportIds, $bulletinIds);
+
+        return ['success' => true, 'data' => $data, 'count' => count($data)];
     }
 
     private function resolveIds($input): array {

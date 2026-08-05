@@ -105,8 +105,9 @@ class ReportComparisonService {
 
         $priceSeries = $this->getPriceSeries($companyIds, $companies, $startDate, $endDate);
         $financialsSeries = $this->buildFinancialsSeries($reportAnalyses, $companies);
+        $turnoverData = $this->getTurnoverData($companyIds, $startDate, $endDate);
 
-        $prompt = $this->buildPrompt($companies, $reportAnalyses, $priceSeries, $startDate, $endDate);
+        $prompt = $this->buildPrompt($companies, $reportAnalyses, $priceSeries, $turnoverData, $startDate, $endDate);
         $client = $this->createClient($provider);
         $aiResult = $client->generateContent($prompt, $model, $this->responseSchema());
 
@@ -186,6 +187,31 @@ class ReportComparisonService {
     }
 
     /**
+     * Historique des comparaisons pour ces critères exacts (tous
+     * fournisseurs/modèles confondus), du plus récent au plus ancien — pas
+     * une liste globale toutes sélections confondues. Même calcul de
+     * request_hash double-mode que compare()/getLatest() : priorité à
+     * $reportIds s'il est fourni (sélection explicite), sinon
+     * companyIds/dates/type.
+     */
+    public function history(array $companyIds, string $startDate, string $endDate, ?string $reportType = null, ?array $reportIds = null): array {
+        if ($reportIds !== null) {
+            $requestHash = hash('sha256', json_encode(['report_ids' => array_values(array_unique(array_map('intval', $reportIds)))]));
+        } else {
+            $companyIds = array_values(array_unique(array_map('intval', $companyIds)));
+            sort($companyIds);
+            $requestHash = hash('sha256', json_encode([$companyIds, $startDate, $endDate, $reportType]));
+        }
+
+        $rows = $this->crud->executeCustomQuery(
+            "SELECT * FROM company_report_comparisons WHERE request_hash = ? ORDER BY id DESC",
+            [$requestHash]
+        ) ?: [];
+
+        return array_map(fn($row) => $this->formatResult($row, true), $rows);
+    }
+
+    /**
      * Sélection explicite de rapports par ID (voir Reports.tsx) — même garde-fou
      * text_extracted=1 que findReports(), sans filtre de date/type/entreprise.
      */
@@ -262,6 +288,39 @@ class ReportComparisonService {
     }
 
     /**
+     * Volume échangé et rotation du flottant sur la période, par entreprise
+     * — même calcul que api_quotes.php::getShareTurnover() (action
+     * share_turnover, utilisée par la carte "Rotation du flottant" de
+     * Comparison.tsx), réutilisé ici pour que le prompt IA en tienne compte
+     * plutôt que de se limiter au seul cours de clôture.
+     */
+    private function getTurnoverData(array $companyIds, string $startDate, string $endDate): array {
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+        $sql = "SELECT
+                    c.id AS company_id, c.symbol, c.name, c.shares_outstanding,
+                    COALESCE(SUM(sq.volume), 0) AS total_volume_traded
+                FROM companies c
+                LEFT JOIN stock_quotes sq
+                    ON sq.company_id = c.id AND sq.trading_date >= ? AND sq.trading_date <= ?
+                WHERE c.id IN ($placeholders)
+                GROUP BY c.id, c.symbol, c.name, c.shares_outstanding
+                ORDER BY c.symbol ASC";
+
+        $rows = $this->crud->executeCustomQuery($sql, array_merge([$startDate, $endDate], $companyIds)) ?: [];
+
+        return array_map(function ($row) {
+            $sharesOutstanding = $row['shares_outstanding'] !== null ? (float) $row['shares_outstanding'] : null;
+            $volumeTraded = (float) $row['total_volume_traded'];
+            return [
+                'company_id' => (int) $row['company_id'],
+                'symbol' => $row['symbol'],
+                'total_volume_traded' => $volumeTraded,
+                'turnover_percent' => ($sharesOutstanding && $sharesOutstanding > 0) ? round(($volumeTraded / $sharesOutstanding) * 100, 2) : null,
+            ];
+        }, $rows);
+    }
+
+    /**
      * Série des chiffres clés (déjà extraits par l'analyse individuelle de
      * chaque rapport) par entreprise — la matière première d'un graphe de
      * tendance financière (CA/résultat net dans le temps).
@@ -302,7 +361,7 @@ class ReportComparisonService {
         return new $class();
     }
 
-    private function buildPrompt(array $companies, array $reportAnalyses, array $priceSeries, string $startDate, string $endDate): string {
+    private function buildPrompt(array $companies, array $reportAnalyses, array $priceSeries, array $turnoverData, string $startDate, string $endDate): string {
         $companyCount = count($companies);
         $reportsBlock = '';
         foreach ($reportAnalyses as $entry) {
@@ -353,6 +412,16 @@ class ReportComparisonService {
             );
         }
 
+        $turnoverBlock = '';
+        foreach ($turnoverData as $t) {
+            $turnoverBlock .= sprintf(
+                "\n%s : volume total échangé sur la période = %s titres%s.\n",
+                $t['symbol'],
+                number_format($t['total_volume_traded'], 0, '.', ' '),
+                $t['turnover_percent'] !== null ? sprintf(" (soit %s%% du capital, taux de rotation)", $t['turnover_percent']) : ''
+            );
+        }
+
         $comparisonAxis = $companyCount > 1
             ? "Compare aussi les entreprises ENTRE ELLES (force financière relative, laquelle est la mieux positionnée et pourquoi), en plus de la tendance de chacune dans le temps."
             : "Une seule entreprise ici : concentre-toi sur sa tendance dans le temps (mets cross_company_ranking à null).";
@@ -372,6 +441,12 @@ $reportsBlock
 
 Performance boursière sur la période :
 $priceBlock
+
+Volume échangé et rotation du flottant sur la période (utilise ces chiffres
+pour enrichir price_correlation_note — un mouvement de cours porté par un
+fort volume est plus significatif qu'un mouvement sur un titre peu
+liquide) :
+$turnoverBlock
 
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte (aucun texte
 avant/après, pas de balises markdown) :
@@ -446,6 +521,7 @@ PROMPT;
         $details = json_decode($row['details'] ?? 'null', true) ?: [];
 
         return [
+            'id' => (int) $row['id'],
             'company_ids' => json_decode($row['company_ids'], true),
             'report_ids' => json_decode($row['report_ids'] ?? '[]', true),
             'start_date' => $row['start_date'],

@@ -194,6 +194,26 @@ class CombinedAnalysisService {
         return $this->formatResult($rows[0], true);
     }
 
+    /**
+     * Historique des analyses combinées pour cette sélection exacte de
+     * rapports+bulletins (tous fournisseurs/modèles confondus), du plus
+     * récent au plus ancien.
+     */
+    public function history(array $reportIds, array $bulletinIds): array {
+        $reportIds = array_values(array_unique(array_map('intval', $reportIds)));
+        $bulletinIds = array_values(array_unique(array_map('intval', $bulletinIds)));
+        sort($reportIds);
+        sort($bulletinIds);
+        $requestHash = hash('sha256', json_encode([$reportIds, $bulletinIds]));
+
+        $rows = $this->crud->executeCustomQuery(
+            "SELECT * FROM combined_analyses WHERE request_hash = ? ORDER BY id DESC",
+            [$requestHash]
+        ) ?: [];
+
+        return array_map(fn($row) => $this->formatResult($row, true), $rows);
+    }
+
     private function findReports(array $reportIds): array {
         $placeholders = implode(',', array_fill(0, count($reportIds), '?'));
         return $this->crud->executeCustomQuery(
@@ -437,6 +457,7 @@ PROMPT;
         $details = json_decode($row['details'] ?? 'null', true) ?: [];
 
         return [
+            'id' => (int) $row['id'],
             'report_ids' => json_decode($row['report_ids'], true),
             'bulletin_ids' => json_decode($row['bulletin_ids'], true),
             'provider' => $row['provider'],

@@ -198,18 +198,23 @@ class ReportAnalysisService {
             throw new Exception("report_id ou company_id requis");
         }
 
-        return array_map(function ($row) {
-            return [
-                'id' => $row['id'],
-                'report_id' => $row['report_id'],
-                'provider' => $row['provider'],
-                'model' => $row['model'],
-                'market_context_date' => $row['market_context_date'],
-                'status' => $row['status'],
-                'summary' => $row['summary'],
-                'created_at' => $row['created_at'],
-                'updated_at' => $row['updated_at'],
-            ];
+        $reportsById = [];
+        $companiesById = [];
+
+        return array_map(function ($row) use (&$reportsById, &$companiesById) {
+            $rId = $row['report_id'];
+            if (!isset($reportsById[$rId])) {
+                $reportsById[$rId] = $this->crud->findById('company_reports', $rId);
+            }
+            $report = $reportsById[$rId];
+
+            $cId = $report['company_id'] ?? null;
+            if ($cId !== null && !isset($companiesById[$cId])) {
+                $companiesById[$cId] = $this->crud->findById('companies', $cId);
+            }
+            $company = $cId !== null ? ($companiesById[$cId] ?? null) : null;
+
+            return $this->formatResult($row, $report, $company, true);
         }, $rows);
     }
 
@@ -417,6 +422,7 @@ PROMPT;
         $details = json_decode($row['details'] ?? 'null', true) ?: [];
 
         return [
+            'id' => (int) $row['id'],
             'report' => [
                 'id' => $report['id'],
                 'title' => $report['title'],

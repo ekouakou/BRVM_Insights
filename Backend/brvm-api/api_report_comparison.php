@@ -51,6 +51,9 @@ class ReportComparisonAPI {
                 case 'get':
                     return $this->get($input);
 
+                case 'history':
+                    return $this->history($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -116,6 +119,31 @@ class ReportComparisonAPI {
         }
 
         return ['success' => true, 'data' => $result];
+    }
+
+    /**
+     * Historique des comparaisons pour ces critères (tous fournisseurs/
+     * modèles confondus), sans jamais appeler l'IA — même double-mode que
+     * `compare` (report_ids prioritaire, sinon company_ids + dates).
+     */
+    private function history($input) {
+        $reportIds = !empty($input['report_ids']) ? array_map('intval', $input['report_ids']) : null;
+
+        if ($reportIds !== null) {
+            $companyIds = [];
+            $startDate = '';
+            $endDate = date('Y-m-d');
+        } else {
+            $companyIds = $this->resolveCompanyIds($input);
+            [$startDate, $endDate] = $this->resolvePeriod($input);
+        }
+
+        $reportType = $input['report_type'] ?? null;
+
+        $service = new ReportComparisonService($this->crud);
+        $data = $service->history($companyIds, $startDate, $endDate, $reportType, $reportIds);
+
+        return ['success' => true, 'data' => $data, 'count' => count($data)];
     }
 
     /**
