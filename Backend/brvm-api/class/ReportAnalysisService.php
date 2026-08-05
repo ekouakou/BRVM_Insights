@@ -273,8 +273,10 @@ class ReportAnalysisService {
             $q = $marketContext['quote'];
             $i = $marketContext['indicators'] ?? [];
             $marketBlock = sprintf(
-                "Cours du %s : ouverture %s / clôture %s FCFA (plus haut %s, plus bas %s), " .
-                "variation %s%%, volume %s, valeur échangée %s FCFA. " .
+                "Cours du %s : ouverture %s / clôture %s FCFA (plus haut %s, plus bas %s). " .
+                "Variation %s%% par rapport à la clôture de la séance précédente (%s FCFA) — PAS par rapport à " .
+                "l'ouverture du jour même, ne pas les comparer comme si elles étaient sur la même base. " .
+                "Volume %s, valeur échangée %s FCFA. " .
                 "Indicateurs techniques : RSI(14) %s, SMA20 %s, SMA50 %s, SMA200 %s, EMA10 %s, EMA20 %s, " .
                 "MACD %s (signal %s), Bandes de Bollinger [%s ; %s ; %s], ATR(14) %s.",
                 $marketContext['trading_date'],
@@ -283,6 +285,7 @@ class ReportAnalysisService {
                 $q['high_price'] ?? '?',
                 $q['low_price'] ?? '?',
                 $q['variation_percent'] ?? '?',
+                $q['previous_close'] ?? '?',
                 $q['volume'] ?? '?',
                 $q['turnover'] ?? '?',
                 $i['rsi_14'] ?? 'n/a',

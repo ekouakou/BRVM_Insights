@@ -284,10 +284,10 @@ function renderTable($rows, $variantClass) {
     <?php if (!empty($availableTimes)): ?>
     <div class="nav-label">Heure (relevés intrajournaliers)</div>
     <div class="time-nav">
-      <a href="?date=<?= urlencode($date) ?>" class="<?= (!$time && !$closeMissing) ? 'active' : '' ?>">Clôture</a>
       <?php foreach ($availableTimes as $t): $hhmm = substr($t['bucket'], 11, 5); ?>
         <a href="?date=<?= urlencode($date) ?>&time=<?= urlencode($hhmm) ?>" class="<?= ($time && date('H:i', strtotime($time)) === $hhmm) ? 'active' : '' ?>"><?= htmlspecialchars($hhmm) ?></a>
       <?php endforeach; ?>
+      <a href="?date=<?= urlencode($date) ?>" class="<?= (!$time && !$closeMissing) ? 'active' : '' ?>">Clôture</a>
     </div>
     <?php endif; ?>
   </header>
