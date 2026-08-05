@@ -628,3 +628,6 @@ https://raw.githubusercontent.com/ekouakou/BRVM_Insights/main/parent-responsable
 admin	
 771d84d1d99f
 
+INSERT INTO admin_users (username, password_hash) VALUES ('admin', '$2y$10$DNpqV/TRgKox8oO95tI0mu0lvSXqnfCQVPG/c2cigsomwsxq27u7y');
+
+
