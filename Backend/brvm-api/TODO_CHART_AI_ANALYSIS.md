@@ -1,13 +1,51 @@
 # Analyse IA des graphes de comparaison
 
-## ✅ Implémentation complète (05/08/2026, trois tranches)
+## ✅ Implémentation complète (05/08/2026, quatre tranches)
 
 Infrastructure générique + intégration sur tous les chart_type du
 périmètre + retrofit multi-fournisseurs des 3 systèmes d'analyse IA
 préexistants du projet + granularité de sélection par ligne + vue
 côte-à-côte + enrichissement du prompt de Comparaison + les 3 graphes de
 `Comparison.tsx` (Cours comparés, Volumes intrajournaliers, Rotation du
-flottant).
+flottant) + notation par étoiles et affichage d'historique redesigné (voir
+4ème tranche ci-dessous).
+
+**4ème tranche (sur demande)** : notation (1-5 étoiles) et commentaire
+libre sur chaque entrée d'historique, + refonte visuelle de l'affichage de
+l'historique, sur les 4 systèmes d'analyse IA du projet (nouveaux
+graphes/tableaux ET les 3 systèmes préexistants) :
+- `migrations/010_analysis_ratings.sql` — ajoute `rating` (TINYINT
+  UNSIGNED NULL, 1-5) et `notes` (TEXT NULL) aux 4 tables d'analyse
+  (`chart_analyses`, `company_report_analyses`,
+  `company_report_comparisons`, `combined_analyses`). Pas de CHECK SQL
+  (compat MySQL/MariaDB anciennes) — validation 1-5 côté PHP.
+- Nouvelle méthode `rate(id, rating, notes, ratingProvided,
+  notesProvided)` sur les 4 services, + nouvelle action `rate` sur les 4
+  contrôleurs (`api_chart_analysis.php`, `api_report_analysis.php`,
+  `api_report_comparison.php`, `api_combined_analysis.php`) — rating/notes
+  ne sont modifiés que s'ils sont explicitement présents dans le payload
+  (permet de mettre à jour l'un sans effacer l'autre). `rating`/`notes`
+  ajoutés au `formatResult()` des 4 services. Testé contre données réelles
+  (les 4 `rate()` + le cas d'erreur note hors bornes 1-5).
+- Frontend : nouveau composant `components/ui.tsx::StarRating` (étoiles
+  cliquables, mode lecture seule si `onChange` absent) et nouveau
+  `components/AnalysisHistoryList.tsx` (liste générique réutilisée sur les
+  4 systèmes) qui remplace l'ancien `<details><ul>` de simples liens par
+  des cartes : badge provider/modèle coloré (gemini=bleu,
+  anthropic=violet), date, badges cache/échec, aperçu (1 ligne tronquée du
+  résumé), et étoiles cliquables par entrée — cliquer une étoile note
+  immédiatement (pas de bouton "valider" séparé), sans recharger l'analyse
+  affichée. Entrée actuellement affichée surlignée (`selectedId`). Étoiles
+  également affichées sur le panneau de résultat couramment affiché (pas
+  seulement dans la liste d'historique).
+- Branché sur `ChartAiAnalysis.tsx` (donc tous les nouveaux
+  graphes/tableaux) et sur `Analysis.tsx`/`Comparison.tsx`/`Combined.tsx`
+  (y compris en mode côte-à-côte).
+- Commentaire libre (`notes`) : colonne et action backend prêtes
+  (`rate` accepte aussi `notes`), mais pas encore d'UI dédiée pour le
+  saisir (seules les étoiles sont câblées côté frontend pour l'instant) —
+  à ajouter si besoin (ex: petit champ texte sous les étoiles, sauvegarde
+  au blur).
 
 **Décisions utilisateur (2ème tranche)** :
 - Graphe "Comparaison entre entreprises" de **Quotes.tsx** (page
