@@ -337,3 +337,113 @@
 [2026-08-02 19:10:31] Scraping des rapports pour 'bank-africa-bf', page 5: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=5
 [2026-08-02 19:10:33] Page 5 pour 'bank-africa-bf': 0 rapport(s), dont 0 nouveau(x)
 [2026-08-02 19:10:33] 87 rapport(s) trouvé(s) au total pour 'bank-africa-bf'
+[2026-08-04 05:12:25] Découverte annuaire, page 0: https://www.brvm.org/fr/rapports-societes-cotees
+[2026-08-04 05:12:26] Page 0: 30 entrées, dont 30 nouvelles
+[2026-08-04 05:12:26] Découverte annuaire, page 1: https://www.brvm.org/fr/rapports-societes-cotees?page=1
+[2026-08-04 05:12:28] Page 1: 30 entrées, dont 30 nouvelles
+[2026-08-04 05:12:28] Découverte annuaire, page 2: https://www.brvm.org/fr/rapports-societes-cotees?page=2
+[2026-08-04 05:12:30] Page 2: 15 entrées, dont 15 nouvelles
+[2026-08-04 05:12:30] Découverte annuaire, page 3: https://www.brvm.org/fr/rapports-societes-cotees?page=3
+[2026-08-04 05:12:32] Page 3: 0 entrées, dont 0 nouvelles
+[2026-08-04 05:12:32] Scraping des rapports pour 'servair-abidjan-ci', page 0: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci
+[2026-08-04 05:12:33] Page 0 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:12:33] Scraping des rapports pour 'servair-abidjan-ci', page 1: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=1
+[2026-08-04 05:12:35] Page 1 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:12:35] Scraping des rapports pour 'servair-abidjan-ci', page 2: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=2
+[2026-08-04 05:12:37] Page 2 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:12:37] Scraping des rapports pour 'servair-abidjan-ci', page 3: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=3
+[2026-08-04 05:12:40] Page 3 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:12:40] Scraping des rapports pour 'servair-abidjan-ci', page 4: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=4
+[2026-08-04 05:12:42] Page 4 pour 'servair-abidjan-ci': 6 rapport(s), dont 6 nouveau(x)
+[2026-08-04 05:12:42] Scraping des rapports pour 'servair-abidjan-ci', page 5: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=5
+[2026-08-04 05:12:43] Page 5 pour 'servair-abidjan-ci': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 05:12:43] 86 rapport(s) trouvé(s) au total pour 'servair-abidjan-ci'
+[2026-08-04 05:13:15] Scraping des rapports pour 'bank-africa-sn', page 0: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-sn
+[2026-08-04 05:13:18] Page 0 pour 'bank-africa-sn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:13:18] Scraping des rapports pour 'bank-africa-sn', page 1: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-sn?page=1
+[2026-08-04 05:13:20] Page 1 pour 'bank-africa-sn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:13:20] Scraping des rapports pour 'bank-africa-sn', page 2: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-sn?page=2
+[2026-08-04 05:13:21] Page 2 pour 'bank-africa-sn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:13:21] Scraping des rapports pour 'bank-africa-sn', page 3: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-sn?page=3
+[2026-08-04 05:13:23] Page 3 pour 'bank-africa-sn': 3 rapport(s), dont 3 nouveau(x)
+[2026-08-04 05:13:23] Scraping des rapports pour 'bank-africa-sn', page 4: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-sn?page=4
+[2026-08-04 05:13:25] Page 4 pour 'bank-africa-sn': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 05:13:25] 63 rapport(s) trouvé(s) au total pour 'bank-africa-sn'
+[2026-08-04 05:27:00] Scraping des rapports pour 'bank-africa-bn', page 0: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn
+[2026-08-04 05:27:02] Page 0 pour 'bank-africa-bn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:27:02] Scraping des rapports pour 'bank-africa-bn', page 1: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=1
+[2026-08-04 05:27:04] Page 1 pour 'bank-africa-bn': 19 rapport(s), dont 19 nouveau(x)
+[2026-08-04 05:27:04] Scraping des rapports pour 'bank-africa-bn', page 2: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=2
+[2026-08-04 05:27:06] Page 2 pour 'bank-africa-bn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:27:06] Scraping des rapports pour 'bank-africa-bn', page 3: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=3
+[2026-08-04 05:27:08] Page 3 pour 'bank-africa-bn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:27:08] Scraping des rapports pour 'bank-africa-bn', page 4: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=4
+[2026-08-04 05:27:09] Page 4 pour 'bank-africa-bn': 15 rapport(s), dont 15 nouveau(x)
+[2026-08-04 05:27:09] Scraping des rapports pour 'bank-africa-bn', page 5: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=5
+[2026-08-04 05:27:12] Page 5 pour 'bank-africa-bn': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 05:27:12] 94 rapport(s) trouvé(s) au total pour 'bank-africa-bn'
+[2026-08-04 05:27:15] Scraping des rapports pour 'bank-africa-bn', page 0: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn
+[2026-08-04 05:27:17] Page 0 pour 'bank-africa-bn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:27:17] Scraping des rapports pour 'bank-africa-bn', page 1: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=1
+[2026-08-04 05:27:18] Page 1 pour 'bank-africa-bn': 19 rapport(s), dont 19 nouveau(x)
+[2026-08-04 05:27:18] Scraping des rapports pour 'bank-africa-bn', page 2: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=2
+[2026-08-04 05:27:20] Page 2 pour 'bank-africa-bn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:27:20] Scraping des rapports pour 'bank-africa-bn', page 3: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=3
+[2026-08-04 05:27:22] Page 3 pour 'bank-africa-bn': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 05:27:22] Scraping des rapports pour 'bank-africa-bn', page 4: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=4
+[2026-08-04 05:27:23] Page 4 pour 'bank-africa-bn': 15 rapport(s), dont 15 nouveau(x)
+[2026-08-04 05:27:23] Scraping des rapports pour 'bank-africa-bn', page 5: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bn?page=5
+[2026-08-04 05:27:25] Page 5 pour 'bank-africa-bn': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 05:27:25] 94 rapport(s) trouvé(s) au total pour 'bank-africa-bn'
+[2026-08-04 22:03:27] Scraping des rapports pour 'bank-africa-bf', page 0: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf
+[2026-08-04 22:03:33] Page 0 pour 'bank-africa-bf': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:03:33] Scraping des rapports pour 'bank-africa-bf', page 1: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=1
+[2026-08-04 22:03:42] Page 1 pour 'bank-africa-bf': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:03:42] Scraping des rapports pour 'bank-africa-bf', page 2: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=2
+[2026-08-04 22:03:59] Page 2 pour 'bank-africa-bf': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:03:59] Scraping des rapports pour 'bank-africa-bf', page 3: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=3
+[2026-08-04 22:04:05] Page 3 pour 'bank-africa-bf': 19 rapport(s), dont 19 nouveau(x)
+[2026-08-04 22:04:05] Scraping des rapports pour 'bank-africa-bf', page 4: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=4
+[2026-08-04 22:04:13] Scraping des rapports pour 'bank-africa-bf', page 0: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf
+[2026-08-04 22:04:14] Page 4 pour 'bank-africa-bf': 8 rapport(s), dont 8 nouveau(x)
+[2026-08-04 22:04:14] Scraping des rapports pour 'bank-africa-bf', page 5: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=5
+[2026-08-04 22:04:16] Page 0 pour 'bank-africa-bf': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:04:16] Scraping des rapports pour 'bank-africa-bf', page 1: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=1
+[2026-08-04 22:04:16] Page 5 pour 'bank-africa-bf': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 22:04:16] 87 rapport(s) trouvé(s) au total pour 'bank-africa-bf'
+[2026-08-04 22:04:20] Page 1 pour 'bank-africa-bf': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:04:20] Scraping des rapports pour 'bank-africa-bf', page 2: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=2
+[2026-08-04 22:04:27] Page 2 pour 'bank-africa-bf': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:04:27] Scraping des rapports pour 'bank-africa-bf', page 3: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=3
+[2026-08-04 22:04:30] Page 3 pour 'bank-africa-bf': 19 rapport(s), dont 19 nouveau(x)
+[2026-08-04 22:04:30] Scraping des rapports pour 'bank-africa-bf', page 4: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=4
+[2026-08-04 22:04:34] Page 4 pour 'bank-africa-bf': 8 rapport(s), dont 8 nouveau(x)
+[2026-08-04 22:04:34] Scraping des rapports pour 'bank-africa-bf', page 5: https://www.brvm.org/fr/rapports-societe-cotes/bank-africa-bf?page=5
+[2026-08-04 22:04:38] Page 5 pour 'bank-africa-bf': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 22:04:38] 87 rapport(s) trouvé(s) au total pour 'bank-africa-bf'
+[2026-08-04 22:29:10] Scraping des rapports pour 'servair-abidjan-ci', page 0: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci
+[2026-08-04 22:29:12] Page 0 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:29:12] Scraping des rapports pour 'servair-abidjan-ci', page 1: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=1
+[2026-08-04 22:29:15] Page 1 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:29:15] Scraping des rapports pour 'servair-abidjan-ci', page 2: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=2
+[2026-08-04 22:29:17] Page 2 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:29:17] Scraping des rapports pour 'servair-abidjan-ci', page 3: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=3
+[2026-08-04 22:29:19] Page 3 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:29:19] Scraping des rapports pour 'servair-abidjan-ci', page 4: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=4
+[2026-08-04 22:29:22] Page 4 pour 'servair-abidjan-ci': 6 rapport(s), dont 4 nouveau(x)
+[2026-08-04 22:29:22] Scraping des rapports pour 'servair-abidjan-ci', page 5: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=5
+[2026-08-04 22:29:24] Page 5 pour 'servair-abidjan-ci': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 22:29:24] 84 rapport(s) trouvé(s) au total pour 'servair-abidjan-ci'
+[2026-08-04 22:39:35] Scraping des rapports pour 'servair-abidjan-ci', page 0: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci
+[2026-08-04 22:39:38] Page 0 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:39:38] Scraping des rapports pour 'servair-abidjan-ci', page 1: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=1
+[2026-08-04 22:39:39] Page 1 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:39:39] Scraping des rapports pour 'servair-abidjan-ci', page 2: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=2
+[2026-08-04 22:39:41] Page 2 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:39:41] Scraping des rapports pour 'servair-abidjan-ci', page 3: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=3
+[2026-08-04 22:39:43] Page 3 pour 'servair-abidjan-ci': 20 rapport(s), dont 20 nouveau(x)
+[2026-08-04 22:39:43] Scraping des rapports pour 'servair-abidjan-ci', page 4: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=4
+[2026-08-04 22:39:45] Page 4 pour 'servair-abidjan-ci': 6 rapport(s), dont 6 nouveau(x)
+[2026-08-04 22:39:45] Scraping des rapports pour 'servair-abidjan-ci', page 5: https://www.brvm.org/fr/rapports-societe-cotes/servair-abidjan-ci?page=5
+[2026-08-04 22:39:46] Page 5 pour 'servair-abidjan-ci': 0 rapport(s), dont 0 nouveau(x)
+[2026-08-04 22:39:46] 86 rapport(s) trouvé(s) au total pour 'servair-abidjan-ci'

@@ -12,7 +12,7 @@ lui qui a produit exactement ce genre de confusion (fichiers multiples,
 encodage corrompu) la dernière fois :
 
 - Panneau d'admin → page **Synchronisation** → bouton **"Télécharger un dump
-  de la base (.sql)"**
+  de la base (.sql.gz)"**
 - Ou directement : `GET api_db_dump.php?action=download&token=...`
 
 Dump complet (schéma + données, tables et vues) en pur PHP/PDO — pas de
@@ -20,9 +20,17 @@ dépendance à `mysqldump`, encodage UTF-8 propre garanti (requêtes non
 bufferisées + écriture progressive, robuste même sur une grosse table sans
 déclencher les timeouts de 30s rencontrés ailleurs sur ce projet), clause
 `DEFINER` des vues retirée pour rester importable sur n'importe quel compte
-MySQL. Le fichier généré s'importe directement (`mysql -u ... < dump.sql` ou
-phpMyAdmin → Importer) : il gère lui-même la suppression préalable de tout
-ce qu'il va recréer, pas besoin de lancer le script de l'étape 1 avant.
+MySQL. **Compressé en gzip à la volée** (le SQL est très répétitif, donc très
+compressible — le fichier téléchargé est nettement plus petit).
+
+Avant de l'importer, décompresse-le d'abord :
+```bash
+gunzip dump_brvm_trading_app_*.sql.gz
+```
+(ou double-clic sur macOS/Windows, ou 7-Zip/The Unarchiver). Le fichier `.sql`
+obtenu s'importe directement (`mysql -u ... < dump.sql` ou phpMyAdmin →
+Importer) : il gère lui-même la suppression préalable de tout ce qu'il va
+recréer, pas besoin de lancer le script de l'étape 1 avant.
 
 ## ⚠️ Avant de lancer quoi que ce soit (suppression manuelle, section suivante)
 

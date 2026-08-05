@@ -7,11 +7,11 @@
  * puis réimporter facilement (voir RESET_DATABASE.md).
  *
  * Endpoint: api_db_dump.php
- *   GET ?action=download&token=...   Télécharge le dump (.sql), streamé
- *                                     directement (pas de fichier temporaire
- *                                     sur le serveur).
+ *   GET ?action=download&token=...   Télécharge le dump compressé (.sql.gz),
+ *                                     streamé directement (pas de fichier
+ *                                     temporaire sur le serveur).
  *
- * Deux précautions notables (déjà rencontrées sur ce projet) :
+ * Trois précautions notables (déjà rencontrées sur ce projet) :
  *   - Requêtes non bufferisées (MYSQL_ATTR_USE_BUFFERED_QUERY=false) : évite
  *     de charger des tables volumineuses (ex: intraday_quotes, des milliers
  *     de lignes) entièrement en mémoire avant de commencer à écrire.
@@ -20,6 +20,11 @@
  *     max_execution_time — vécu avec l'analyse groupée de rapports). Écrire
  *     et vider le buffer de sortie en continu évite de déclencher ce
  *     garde-fou même si le dump total prend plus de 30s.
+ *   - Compression gzip à la volée (deflate_init/deflate_add, zlib) : le SQL
+ *     généré est très répétitif (mêmes INSERT INTO/colonnes des milliers de
+ *     fois), donc très compressible — réduit nettement la taille du fichier
+ *     téléchargé. Réimport : décompresser d'abord (`gunzip` ou 7-Zip/The
+ *     Unarchiver), voir RESET_DATABASE.md.
  */
 
 header('Access-Control-Allow-Origin: *');
@@ -50,6 +55,17 @@ class DbDumpAPI {
     private const BATCH_MAX_ROWS = 100;
     private const BATCH_MAX_BYTES = 2 * 1024 * 1024; // 2 Mo — tables à colonnes LONGTEXT (rapports/bulletins)
 
+    // Compression gzip à la volée (format .sql.gz) : le SQL est très
+    // répétitif (mêmes noms de colonnes/INSERT INTO répétés des milliers de
+    // fois), donc très compressible — réduit nettement la taille du fichier
+    // téléchargé, important vu la volumétrie de certaines tables (rapports,
+    // bulletins). deflate_init/deflate_add (zlib, PHP 7.0+) permettent de
+    // produire un flux gzip valide au fil de l'eau, sans tout garder en
+    // mémoire — cohérent avec le reste de cette classe (écriture batch par
+    // batch pour éviter les timeouts sur un dump volumineux).
+    private $deflateContext;
+    private string $pendingOutput = '';
+
     public function __construct() {
         $dbConfig = getConfig('db');
         $dsn = "mysql:host={$dbConfig['host']};port={$dbConfig['port']};dbname={$dbConfig['dbname']};charset={$dbConfig['charset']}";
@@ -75,9 +91,11 @@ class DbDumpAPI {
     private function downloadDump(): void {
         $dbConfig = getConfig('db');
         $dbName = $dbConfig['dbname'];
-        $filename = "dump_{$dbName}_" . date('Y-m-d_His') . '.sql';
+        $filename = "dump_{$dbName}_" . date('Y-m-d_His') . '.sql.gz';
 
-        header('Content-Type: application/sql; charset=utf-8');
+        $this->deflateContext = deflate_init(ZLIB_ENCODING_GZIP, ['level' => 6]);
+
+        header('Content-Type: application/gzip');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('X-Accel-Buffering: no'); // évite un éventuel reverse proxy qui bufferiserait tout avant d'envoyer
 
@@ -106,7 +124,7 @@ class DbDumpAPI {
         }
 
         $this->write("\nSET FOREIGN_KEY_CHECKS = 1;\n");
-        $this->flush();
+        $this->finish();
         exit;
     }
 
@@ -198,10 +216,29 @@ class DbDumpAPI {
     }
 
     private function write(string $s): void {
-        echo $s;
+        $this->pendingOutput .= $s;
     }
 
+    /**
+     * Compresse le SQL accumulé depuis le dernier flush() et l'envoie —
+     * ZLIB_SYNC_FLUSH vide le compresseur sans clore le flux gzip (le
+     * fichier reste valide à la toute fin seulement, voir finish()).
+     */
     private function flush(): void {
+        if ($this->pendingOutput !== '') {
+            echo deflate_add($this->deflateContext, $this->pendingOutput, ZLIB_SYNC_FLUSH);
+            $this->pendingOutput = '';
+        }
+        if (ob_get_level() > 0) {
+            ob_flush();
+        }
+        flush();
+    }
+
+    /** Clôt proprement le flux gzip (CRC32 + taille finale) — à appeler une seule fois, en tout dernier. */
+    private function finish(): void {
+        echo deflate_add($this->deflateContext, $this->pendingOutput, ZLIB_FINISH);
+        $this->pendingOutput = '';
         if (ob_get_level() > 0) {
             ob_flush();
         }

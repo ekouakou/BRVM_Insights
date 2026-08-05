@@ -79,15 +79,16 @@ export function Sync() {
 
       <Card title="Sauvegarde / export de la base">
         <p className="mb-3 text-sm text-gray-600 dark:text-gray-400">
-          Télécharge un dump SQL complet (schéma + données, tables et vues) — utile pour continuer le développement en
-          local avec des données réelles, ou avant une opération risquée. Voir <code>RESET_DATABASE.md</code> pour la
-          procédure de réimport. Peut prendre un moment sur une base volumineuse.
+          Télécharge un dump SQL complet (schéma + données, tables et vues), compressé en .sql.gz — utile pour
+          continuer le développement en local avec des données réelles, ou avant une opération risquée. Décompresse
+          le fichier (<code>gunzip</code>, 7-Zip, The Unarchiver…) avant de l'importer. Voir{' '}
+          <code>RESET_DATABASE.md</code> pour la procédure complète. Peut prendre un moment sur une base volumineuse.
         </p>
         <a
           href={dbDumpDownloadUrl()}
           className="inline-flex w-fit items-center gap-2 rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
         >
-          Télécharger un dump de la base (.sql)
+          Télécharger un dump de la base (.sql.gz)
         </a>
       </Card>
 

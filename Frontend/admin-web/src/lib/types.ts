@@ -50,6 +50,24 @@ export interface OhlcPoint {
   volume: string | number
 }
 
+/** Taux de rotation du flottant sur une période (api_quotes.php, action share_turnover). */
+export interface ShareTurnover {
+  company_id: number
+  symbol: string
+  name: string
+  shares_outstanding: number | null
+  total_volume_traded: number
+  turnover_percent: number | null
+  /** actions en circulation − volume échangé, plafonné à 0 — estimation basse, voir fully_rotated */
+  shares_untouched_estimate: number | null
+  /** true si le volume échangé dépasse les actions en circulation (capital retradé au moins 1x en moyenne) */
+  fully_rotated: boolean
+  floating_market_cap: number | null
+  market_cap: number | null
+  /** floating_market_cap / market_cap — part réellement disponible au marché (hors participations stratégiques) */
+  floating_percent: number | null
+}
+
 export interface CompanyPriceSeries {
   company_id: number
   symbol: string

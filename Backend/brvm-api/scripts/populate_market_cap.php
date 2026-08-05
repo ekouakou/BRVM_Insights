@@ -1,6 +1,6 @@
 <?php
 /**
- * Peuple companies.market_cap / companies.shares_outstanding (TODO_ANALYSES.md
+ * Peuple companies.market_cap / companies.shares_outstanding / companies.floating_market_cap (TODO_ANALYSES.md
  * point 0, prérequis bloquant plusieurs analyses) depuis
  * https://www.brvm.org/fr/capitalisations/0, et la composition de l'indice
  * BRVM-COMPOSITE (toutes les entreprises cotées, pondérées par capitalisation
@@ -79,6 +79,7 @@ function parseCapitalizationsTable($html) {
 
             $symbol = trim($cells->item(0)->textContent);
             $sharesOutstanding = parseFrenchNumber($cells->item(2)->textContent);
+            $floatingMarketCap = parseFrenchNumber($cells->item(4)->textContent);
             $marketCap = parseFrenchNumber($cells->item(5)->textContent);
             $weightPercent = parseFrenchNumber($cells->item(6)->textContent);
 
@@ -89,6 +90,7 @@ function parseCapitalizationsTable($html) {
             $result[] = [
                 'symbol' => $symbol,
                 'shares_outstanding' => $sharesOutstanding,
+                'floating_market_cap' => $floatingMarketCap,
                 'market_cap' => $marketCap,
                 'weight_percent' => $weightPercent,
             ];
@@ -137,6 +139,7 @@ foreach ($rows as $row) {
 
     $crud->merge('companies', [
         'shares_outstanding' => $row['shares_outstanding'],
+        'floating_market_cap' => $row['floating_market_cap'],
         'market_cap' => $row['market_cap'],
     ], ['id' => $companyId]);
     $updated++;

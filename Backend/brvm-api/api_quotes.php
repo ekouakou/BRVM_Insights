@@ -73,6 +73,9 @@ class QuotesAPI {
                 case 'relative_strength':
                     return $this->getRelativeStrength($input);
 
+                case 'share_turnover':
+                    return $this->getShareTurnover($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -1098,6 +1101,111 @@ class QuotesAPI {
             'success' => true,
             'data' => array_values($organized),
             'index_code' => 'BRVM-COMPOSITE',
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Compare, par entreprise, le nombre d'actions en circulation
+     * (companies.shares_outstanding — valeur quasi-fixe, scrapée
+     * ponctuellement par scripts/populate_market_cap.php, pas à chaque
+     * synchro) au volume total échangé sur la période donnée
+     * (SUM(stock_quotes.volume)).
+     *
+     * Attention à ne pas lire "actions en circulation" comme un stock
+     * "en attente de vente" : ce sont TOUTES les actions émises, déjà
+     * détenues par quelqu'un (fondateurs, État, public...) dès l'introduction
+     * en bourse — il n'y a pas "d'actions pas encore vendues" pour une
+     * société déjà cotée. Trois métriques dérivées, chacune répondant à une
+     * question différente :
+     *   - turnover_percent : part du capital qui a changé de main sur la
+     *     période (volume / actions en circulation).
+     *   - shares_untouched_estimate : actions en circulation − volume
+     *     échangé, càd le nombre d'actions n'ayant PAS retrouvé d'acheteur
+     *     sur la période (restées chez leur détenteur actuel) — une
+     *     ESTIMATION BASSE seulement (les mêmes titres peuvent être
+     *     retradés plusieurs fois dans la période), plafonnée à 0 avec
+     *     fully_rotated=true quand le volume dépasse les actions en
+     *     circulation (le "capital" a été retradé au moins une fois en
+     *     moyenne, la métrique perd son sens).
+     *   - floating_percent : part RÉELLEMENT disponible au marché, hors
+     *     participations stratégiques bloquées (floating_market_cap /
+     *     market_cap, tel que publié par BRVM) — la notion la plus proche
+     *     "d'actions disponibles à l'achat" pour une société déjà cotée.
+     * shares_outstanding/floating_market_cap peuvent être NULL si
+     * populate_market_cap.php n'a pas encore tourné pour cette entreprise —
+     * les métriques dérivées valent alors null plutôt qu'une valeur trompeuse.
+     */
+    private function getShareTurnover($input) {
+        $companyIds = $input['company_ids'] ?? [];
+
+        if (empty($companyIds)) {
+            throw new Exception("IDs des entreprises requis");
+        }
+
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                c.symbol,
+                c.name,
+                c.shares_outstanding,
+                c.market_cap,
+                c.floating_market_cap,
+                COALESCE(SUM(sq.volume), 0) AS total_volume_traded
+            FROM companies c
+            LEFT JOIN stock_quotes sq
+                ON sq.company_id = c.id
+                AND sq.trading_date >= ? AND sq.trading_date <= ?
+            WHERE c.id IN ($placeholders)
+            GROUP BY c.id, c.symbol, c.name, c.shares_outstanding, c.market_cap, c.floating_market_cap
+            ORDER BY c.symbol ASC
+        ";
+
+        $params = array_merge([$startDate, $endDate], $companyIds);
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+
+        $result = array_map(function ($row) {
+            $sharesOutstanding = $row['shares_outstanding'] !== null ? (float) $row['shares_outstanding'] : null;
+            $marketCap = $row['market_cap'] !== null ? (float) $row['market_cap'] : null;
+            $floatingMarketCap = $row['floating_market_cap'] !== null ? (float) $row['floating_market_cap'] : null;
+            $volumeTraded = (float) $row['total_volume_traded'];
+
+            $turnoverPercent = ($sharesOutstanding && $sharesOutstanding > 0)
+                ? round(($volumeTraded / $sharesOutstanding) * 100, 2)
+                : null;
+
+            $fullyRotated = $sharesOutstanding !== null && $volumeTraded > $sharesOutstanding;
+            $sharesUntouchedEstimate = $sharesOutstanding !== null
+                ? max(0, $sharesOutstanding - $volumeTraded)
+                : null;
+
+            $floatingPercent = ($marketCap && $marketCap > 0 && $floatingMarketCap !== null)
+                ? round(($floatingMarketCap / $marketCap) * 100, 2)
+                : null;
+
+            return [
+                'company_id' => (int) $row['company_id'],
+                'symbol' => $row['symbol'],
+                'name' => $row['name'],
+                'shares_outstanding' => $sharesOutstanding,
+                'total_volume_traded' => $volumeTraded,
+                'turnover_percent' => $turnoverPercent,
+                'shares_untouched_estimate' => $sharesUntouchedEstimate,
+                'fully_rotated' => $fullyRotated,
+                'floating_market_cap' => $floatingMarketCap,
+                'market_cap' => $marketCap,
+                'floating_percent' => $floatingPercent
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'data' => $result,
             'start_date' => $startDate,
             'end_date' => $endDate
         ];
