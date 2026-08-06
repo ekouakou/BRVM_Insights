@@ -86,9 +86,13 @@ class ChartAnalysisService {
             "ratios très différents si l'un est monté en ligne quasi droite et l'autre en oscillant fortement.",
         'relative_strength' =>
             "Pour chaque entreprise et chaque jour : variation quotidienne (%) du titre moins variation " .
-            "quotidienne (%) de l'indice BRVM-COMPOSITE le même jour. Positif = le titre a surperformé le " .
-            "marché ce jour-là, négatif = sous-performé. BRVM-COMPOSITE regroupe l'ensemble des sociétés " .
-            "cotées à la BRVM, pondérées par leur capitalisation boursière.",
+            "quotidienne (%) de l'indice BRVM-COMPOSITE le même jour (champ 'relative_strength' des données " .
+            "fournies). Positif = le titre a surperformé le marché ce jour-là, négatif = sous-performé. " .
+            "BRVM-COMPOSITE regroupe l'ensemble des sociétés cotées à la BRVM, pondérées par leur " .
+            "capitalisation boursière — sa variation quotidienne réelle est fournie telle quelle dans " .
+            "'index_variation_percent' (identique pour toutes les entreprises à une date donnée) : appuie-toi " .
+            "dessus pour distinguer un titre qui surperforme un marché déjà haussier d'un titre qui ne fait " .
+            "que reculer moins vite qu'un marché baissier.",
         'sector_performance' =>
             "Indice équipondéré par secteur d'activité : pour chaque secteur et chaque jour, moyenne de " .
             "l'indice base 100 (cours du jour / cours au premier jour de la période × 100) de toutes les " .
@@ -174,10 +178,15 @@ class ChartAnalysisService {
             "distribution normale), skewness et kurtosis (asymétrie et queues de distribution des rendements), " .
             "et bêta vs indice BRVM-COMPOSITE (covariance/variance des rendements quotidiens sur les jours " .
             "communs, régression classique — à distinguer du 'relative_strength' déjà existant, qui est un " .
-            "écart de rendement jour par jour, pas un coefficient de régression). En-dessous de 20 rendements " .
-            "quotidiens disponibles (champ insufficient_history=true), toutes ces métriques sauf le rendement " .
-            "net simple sont volontairement laissées à null plutôt que calculées sur un échantillon trop court " .
-            "pour être statistiquement significatif.",
+            "écart de rendement jour par jour, pas un coefficient de régression). Le champ " .
+            "'benchmark_return_percent' donne la performance RÉELLE de BRVM-COMPOSITE sur exactement la même " .
+            "période (même calcul que 'net_return_percent', première vs dernière clôture connue de l'indice) — " .
+            "identique pour toutes les entreprises de la sélection : toujours citer ce chiffre en le comparant " .
+            "au bêta plutôt que de commenter le bêta seul, un bêta > 1 sur un marché en baisse est un signal " .
+            "différent du même bêta sur un marché en hausse. En-dessous de 20 rendements quotidiens disponibles " .
+            "(champ insufficient_history=true), toutes ces métriques sauf le rendement net simple sont " .
+            "volontairement laissées à null plutôt que calculées sur un échantillon trop court pour être " .
+            "statistiquement significatif.",
         'screener' =>
             "Classement filtrable de toutes les entreprises actives (ou du sous-ensemble déjà filtré côté " .
             "utilisateur) croisant plusieurs sources déjà calculées ailleurs dans l'application " .
@@ -188,6 +197,45 @@ class ChartAnalysisService {
             "sector_size, ex: 2 sur 4 = 2ᵉ meilleure performance parmi les 4 entreprises de ce secteur ayant une " .
             "cotation sur la période). Une entreprise sans cotation sur la période n'a pas de rang sectoriel " .
             "(sector_rank=null) plutôt qu'un rang par défaut trompeur.",
+        'fundamentals' =>
+            "Ratios fondamentaux (PER, PEG, Price/Book, ROE, ROA, marges, EV/EBITDA, rendement du dividende, " .
+            "payout ratio...) par entreprise sélectionnée (api_fundamentals.php, action 'list'). " .
+            "IMPORTANT — nature de la donnée, différente des indicateurs techniques déjà analysés ailleurs dans " .
+            "cette application (calcul déterministe sur des cours en base) : ces ratios sont EXTRAITS PAR IA du " .
+            "texte du dernier rapport financier de chaque entreprise déjà traité avec succès (états financiers, " .
+            "rapport annuel/semestriel/trimestriel), pas calculés depuis une source structurée fiable. Un champ " .
+            "vide signifie que le rapport source ne divulguait pas l'élément nécessaire (ex. nombre d'actions en " .
+            "circulation rarement précisé, rendant PER/EPS/P-B incalculables même sur un rapport bien traité) — " .
+            "pas une erreur. La date du rapport source (source_publish_date) doit toujours être mentionnée : un " .
+            "chiffre correct pour l'exercice couvert par le rapport peut être ancien par rapport à aujourd'hui. " .
+            "'peg_ratio' est le seul champ calculé ici (PER ÷ croissance du chiffre d'affaires), tous les autres " .
+            "proviennent tels quels de l'extraction IA du rapport.",
+        'backtest' =>
+            "Simulation mécanique, jour par jour, d'une règle de trading simple sur l'historique déjà persisté " .
+            "d'une entreprise (api_backtest.php, action 'run'), comparée à un simple 'acheter et garder' sur la " .
+            "même période. Deux règles possibles : 'signal_score' (entre en position quand le score composite — " .
+            "même formule que 'quotes_signals' — atteint le seuil d'achat, sort quand il retombe au seuil de " .
+            "vente) ou 'golden_cross' (entre au croisement haussier d'une paire de moyennes mobiles, sort au " .
+            "croisement baissier). equity_curve donne l'évolution de 100 FCFA investis selon la stratégie vs " .
+            "buy-and-hold ; trades liste chaque position ouverte/fermée avec son rendement. " .
+            "IMPORTANT : quand insufficient_history=true (moins de 60 jours de bourse simulés), le résultat n'a " .
+            "quasiment aucune valeur statistique (souvent 0 ou 1 trade) — à signaler explicitement dans ton " .
+            "analyse plutôt que de commenter la performance comme si l'échantillon était suffisant. Ceci n'est " .
+            "jamais un conseil en investissement, seulement le résultat mécanique d'une règle simple sur des " .
+            "données passées.",
+        'corporate_actions' =>
+            "Calendrier des opérations sur titres (dividendes, augmentations de capital, admissions, assemblées " .
+            "générales...) extraites PAR IA du texte des Bulletins Officiels de la Cote (BOC) déjà traités " .
+            "(api_bulletin_corporate_actions.php, action 'list'). Chaque ligne provient d'un bulletin précis " .
+            "(bulletin_publish_date) et est rattachée à une entreprise de la base quand possible " .
+            "(match_confidence='exact' ou 'fuzzy' ; company_id=null si le nom mentionné dans le bulletin n'a pas " .
+            "pu être rapproché avec confiance suffisante — dans ce cas company_name_raw contient le nom tel " .
+            "qu'écrit dans le bulletin). event_date peut être null si le bulletin ne précise pas de date exacte " .
+            "pour l'opération (ex: assemblée générale 'à une date ultérieure'). Cette extraction dépend " .
+            "entièrement de ce qui est explicitement écrit dans les bulletins déjà traités : l'absence d'une " .
+            "opération dans ce calendrier ne signifie pas qu'elle n'existe pas, seulement qu'elle n'a pas encore " .
+            "été identifiée dans un bulletin traité (pending_count indique combien de bulletins restent à " .
+            "extraire).",
     ];
 
     private $crud;

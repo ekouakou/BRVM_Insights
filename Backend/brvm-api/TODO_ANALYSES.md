@@ -358,21 +358,27 @@ gain + loss). Ça permet d'afficher au choix 1, 2 ou 3 courbes côté
 frontend (décision utilisateur : affichage flexible, pas figé sur un seul
 mode — voir "Frontend" plus bas).
 
-#### ⚠️ Point encore à trancher : premier relevé de la journée
+#### Point tranché : premier relevé de la journée
 
-Le tout premier relevé du jour (~08:30) n'a pas de relevé précédent CE
-jour pour calculer un delta. Deux options :
+Décision "démarre à 0" confirmée et implémentée dans
+`BRVMSyncService::accumulateTotalVariation()` — le premier relevé du jour
+crée simplement la ligne `intraday_total_variation` avec les totaux à 0,
+sans comparaison à la clôture de la veille.
 
-- **Démarre à 0 (recommandé, pas encore confirmé par l'utilisateur)** :
-  seuls les mouvements observés *pendant* la journée comptent — l'écart
-  d'ouverture par rapport à la clôture de la veille (déjà visible ailleurs
-  via `stock_quotes.variation_percent`/`intraday_quotes.variation_percent`)
-  n'est pas inclus dans le total.
-- **Compare à la clôture de la veille** : le premier delta du jour capture
-  aussi le "gap" d'ouverture nocturne dans le total accumulé.
+Précision apportée le 06/08/2026 : la bourse peut mettre du temps à ouvrir
+le matin (~08:30) — la synchro tourne quand même à l'heure prévue et
+récupère les données disponibles à ce moment-là. Ça ne change rien à la
+logique ci-dessus : "premier relevé du jour" = premier appel à
+`accumulateTotalVariation()` qui trouve encore aucune ligne pour
+`(company_id, today)`, quelle que soit l'heure réelle à laquelle ça se
+produit (pas de dépendance à une heure d'ouverture fixe côté code).
 
-**À trancher avec l'utilisateur avant de coder l'accumulation** — la
-réponse change le sens de la métrique.
+Autre précision : il n'y a pas de "clôture" calculée séparément — le
+dernier relevé `intraday_quotes` du jour (le plus grand `quote_datetime`
+pour `trading_date` donnée) EST la clôture. C'est cohérent avec
+`stock_quotes.close_price`, mis à jour par upsert (`merge`) à chaque
+synchro : après la dernière synchro du jour, il contient nécessairement le
+prix du dernier relevé intrajournalier.
 
 #### Architecture proposée
 
@@ -519,28 +525,40 @@ requêtant chacun la même série de cours, un seul passage par entreprise) :
   "Métriques de risque avancées") et l'`InfoPanel` du nouvel onglet
   explique explicitement la différence.
 
-### 23. Classement sectoriel des entreprises + screener multi-critères
+### ✅ 23. Classement sectoriel des entreprises + screener multi-critères — FAIT le 06/08/2026
 
-**Constat** : `sector_performance` classe déjà les *secteurs* entre eux
-(moyenne), et `volume_ranking`/`performance_ranking` classent déjà les
-*entreprises* sur un seul critère à la fois — mais rien ne croise les deux
-(classement des entreprises *au sein de* leur secteur) ni ne permet de
-filtrer sur plusieurs critères en même temps (ex. "RSI &lt; 30 ET volume
-élevé ET secteur Finance").
+**Fait** : nouveau fichier `api_screener.php`, action `screen` — pour
+chaque entreprise active, assemble en une seule ligne : dernière cotation
+connue (cours/variation/volume), derniers indicateurs techniques, score
+composite (RSI/MACD/tendance/Bollinger, même formule que
+`api_signals.php`, plafonné si illiquide), classification de liquidité (30
+jours glissants), performance de cours sur la période choisie, et **rang
+au sein du secteur** par cette performance (calculé en PHP par tri/
+regroupement, pas en SQL — cohérent avec le reste du projet qui évite les
+window functions SQL pour rester compatible d'anciennes versions
+MySQL/MariaDB). Filtres combinables (ET logique) : secteur, score min/max,
+RSI min/max, variation min/max, volume min, liquidité (multi-choix).
+Nouveau `chart_type` `screener` enregistré. Frontend : nouvel écran
+`/screener` (nav "Screener") — Card de filtres empilables, tableau
+résultat avec colonne "Rang secteur" (ex. "2/4"), sélection de lignes +
+analyse IA (avec l'option "Inclure les résultats financiers").
 
-**Aucun changement de base de données nécessaire** (agrégation de données
-déjà exposées par les endpoints existants : `list` signaux, `volume_ranking`,
-`performance_ranking`, `liquidity`).
+**Décision prise en implémentant** : la formule du score composite et la
+classification de liquidité sont **dupliquées une 3ᵉ fois** (déjà
+dupliquées de `api_quotes.php` vers `api_signals.php` au point 16) plutôt
+que factorisées dans une classe partagée — choix délibéré pour rester
+cohérent avec la convention déjà établie dans ce projet (fichiers API
+indépendants, pas de couplage entre classes) et pour ne prendre aucun
+risque de régression sur le code déjà testé du point 16. Si la formule du
+score ou les seuils de liquidité changent un jour, il faudra les mettre à
+jour aux 3 endroits (`api_quotes.php`, `api_signals.php`,
+`api_screener.php`) — signalé en commentaire en tête de chacun des deux
+derniers fichiers.
 
-**À faire** :
-- Backend : nouvelle action assemblant plusieurs sources déjà existantes
-  par `company_id` (signal, volume, performance, liquidité, secteur) en une
-  seule table filtrable côté serveur (seuils configurables par critère).
-- Frontend : nouvel écran "Screener" — filtres empilables (façon les
-  `Select`/`Input` déjà utilisés ailleurs) + tableau résultat triable,
-  potentiellement le plus utile des nouveaux écrans pour la prise de
-  décision rapide (« quelles entreprises correspondent à mes critères
-  maintenant ? ») mais aussi le plus gros morceau frontend de ce plan.
+**Testé sur données réelles** (via réflexion PHP) : 47 entreprises
+retournées sans filtre, rang sectoriel correct (ex. ABJC classée 2ᵉ/4 du
+secteur Services sur la période testée), filtre liquidité fonctionnel
+(47 → 32 entreprises avec liquidité "Élevée" uniquement).
 
 ## Priorité basse / gros chantiers
 
@@ -557,112 +575,191 @@ vérifie les seuils à chaque synchro, notification (OneSignal, déjà en
 place pour d'autres usages — voir `class/OneSignalNotifier.php`), UI de
 gestion des alertes (créer/modifier/supprimer).
 
-### 12. Suivi des dividendes et opérations sur titres — NOUVEAU
+### ✅ 12. Suivi des dividendes et opérations sur titres — FAIT le 06/08/2026
 
-**Constat** : `market_bulletins` contient déjà 11 bulletins téléchargés,
-mais `market_bulletin_contents.extracted_text` est **vide (0 ligne
-extraite)** — le texte n'a jamais été traité, alors que le pipeline
-d'extraction/analyse IA existe déjà pour les rapports d'entreprise
-(`company_report_analyses`, `ReportAnalysisService.php`). Les bulletins
-officiels de la cote contiennent typiquement les annonces de détachement
-de dividende, augmentations de capital, etc.
+**Repris après la mise de côté du 04/08/2026** (voir historique ci-dessous) :
+extraction structurée (une ligne par opération, pas un simple résumé texte)
+des dividendes, augmentations de capital, admissions et assemblées
+générales mentionnées dans les Bulletins Officiels de la Cote (BOC) déjà
+traités, sur le modèle de `MarketBulletinAnalysisService.php` mais avec un
+schéma de sortie tabulaire plutôt qu'un résumé de séance.
 
-**Gros chantier** : appliquer le même pipeline d'extraction de texte +
-analyse IA déjà construit pour les rapports, mais sur les bulletins ;
-définir un schéma de sortie structuré (date, entreprise, type
-d'opération, montant) plutôt que le résumé libre utilisé pour les
-rapports ; construire un calendrier de dividendes côté frontend. À ne
-prendre qu'une fois les chantiers prioritaires faits — dépend aussi de
-la fiabilité de l'extraction de texte des rapports (déjà des échecs
-observés ailleurs dans le projet, `extraction_error`).
+**Historique (04/08/2026)** : la cause des échecs d'extraction de texte à
+l'époque était poppler/tesseract non installés sur la machine. Une fois
+réglé, `scripts/extract_pending_bulletins.php` a été exécuté avec succès
+sur les 9 bulletins restés en attente — les 16 bulletins en base ont
+désormais tous `extracted_text` + `formatted_markdown` (`markdown_status
+= success`).
 
-**⏸️ Mis de côté le 04/08/2026** (sur demande explicite, pas par manque de
-solution) — diagnostic fait en cours de route au cas où quelqu'un reprend
-ce point plus tard :
-- La cause des 10 échecs sur 11 bulletins était simplement **poppler/tesseract
-  non installés** sur cette machine au moment des tentatives (erreur stockée :
-  `pdftotext introuvable`). Les deux sont maintenant disponibles
-  (`/opt/homebrew/bin/pdftotext`, `/opt/homebrew/bin/tesseract`) et
-  l'extraction fonctionne quand testée directement (`PdfTextExtractor` sur
-  `boc_20260730_2.pdf` → succès, méthode `text`, 157 463 caractères).
-- Le bulletin #1 a `text_extracted = 1` mais un contenu illisible
-  (caractères `�`) dans `market_bulletin_contents` — probablement hérité
-  d'un des imports de dump avec encodage corrompu rencontrés cette semaine
-  (voir `RESET_DATABASE.md`), pas un bug du pipeline d'extraction lui-même.
-- Script déjà écrit et prêt (non exécuté) :
-  `scripts/extract_pending_bulletins.php` — rejoue l'extraction pour tout
-  bulletin à `text_extracted = 0` ou au contenu vide, réutilise
-  `PdfTextExtractor`/`BRVMBulletinsScraper` directement (pas
-  `api_bulletins.php`, qui fait `AuthGuard::requireAuth()` en tête de
-  fichier, incompatible CLI).
+**Fait** :
+1. **Migration `012_bulletin_corporate_actions.sql`** — colonnes
+   `corporate_actions_status/error/provider/model/updated_at` sur
+   `market_bulletin_contents` (même statut de cache que pour le markdown) ;
+   nouvelle table `market_bulletin_corporate_actions` (une ligne par
+   opération : `bulletin_id`, `company_id` nullable, `company_name_raw`,
+   `match_confidence`, `action_type`, `event_date`, `amount`, `currency`,
+   `description`, `source_section`).
+2. **`CompanySlugMatcher::matchCompanyName()`** (nouvelle méthode statique,
+   même classe que `computeSlugAssignments` déjà utilisée pour le
+   rattachement des rapports) — rattache un nom libre extrait par l'IA à
+   une entreprise de la base, en 3 paliers : nom exact, ticker
+   contenu/préfixe (dans les deux sens — les bulletins omettent parfois le
+   dernier caractère du symbole, ex. "SIB" pour SIBC), puis similarité
+   textuelle sur nom ET symbole (seuil 75%).
+3. **`class/BulletinCorporateActionsService.php`** (nouveau, mirror de
+   `MarketBulletinAnalysisService.php`) — méthode `extract()` : préfère le
+   markdown restructuré au texte brut, prompt dédié demandant une extraction
+   exhaustive au format `{"actions": [...]}`, ré-extraction = source de
+   vérité (DELETE + re-INSERT des lignes du bulletin, pas d'accumulation de
+   doublons à chaque relance). `listActions()` : vue calendrier filtrable
+   (entreprise/type/période) + liste des bulletins encore en attente
+   d'extraction.
+4. **`api_bulletin_corporate_actions.php`** (nouveau, 3ᵉ fichier sibling
+   de `api_bulletins.php`/`api_bulletin_analysis.php`) — actions
+   `extract`/`list`/`get`. `chart_type` IA `corporate_actions` enregistré
+   dans `ChartAnalysisService::METHODOLOGY`.
+5. **`scripts/extract_corporate_actions.php`** (nouveau, CLI batch,
+   `--provider=`/`--force`) + **`scripts/rematch_corporate_actions.php`**
+   (nouveau, rejoue uniquement le rattachement entreprise sans rappeler
+   l'IA — utile après une correction de `CompanySlugMatcher`, comme celle
+   ci-dessous, sans regénérer un coût IA).
+6. **Frontend** : nouveaux types (`CorporateAction`,
+   `CorporateActionsListResult`, `CorporateActionsExtractResult`), nouvelle
+   page `pages/CorporateActions.tsx` (`/corporate-actions`, nav "Opérations
+   sur titres") — calendrier filtrable, bouton "Extraire" par bulletin en
+   attente, badge "approx." sur les rattachements `fuzzy`.
 
-### 24. Fondamentaux calculés depuis des données structurées (PER, P/B, ROE, ROA, marges, FCF yield, dividend yield, payout, PEG)
+**Bugs trouvés et corrigés en testant sur données réelles** (important :
+ces trois cas n'étaient visibles qu'en confrontant l'algorithme à de vrais
+noms de bulletins, pas en le relisant) :
+- **"SIB" rattaché à tort à SITAB (STBC) au lieu de SIBC** — le repli par
+  similarité ne comparait le texte brut qu'aux NOMS complets des
+  entreprises, jamais à leurs symboles. Un ticker court écrit tel quel dans
+  le bulletin ("SIB") pouvait donc perdre face au nom complet d'une
+  entreprise sans rapport ("SITAB") simplement parce que la chaîne se
+  trouvait être plus proche en caractères. Corrigé en comparant aussi au
+  symbole de chaque entreprise, et en autorisant explicitement le sens
+  "symbole commence par la cible" (pas seulement "cible contient le
+  symbole") pour couvrir les tickers tronqués d'un caractère.
+- **"BIIC" à égalité parfaite (75%) entre deux entreprises différentes**
+  (BICB, Bénin vs BICC, Côte d'Ivoire) — l'algorithme prenait alors le
+  premier candidat rencontré, arbitraire et non reproductible. Ajout d'un
+  garde-fou : si le meilleur score est partagé par ≥ 2 entreprises
+  différentes, ne rattacher à aucune plutôt que deviner (même philosophie
+  que le garde-fou anti-collision déjà présent dans
+  `computeSlugAssignments`).
+- **"BANK OF AFRICA BN/ML/SN/NG/BF" jamais rattachées** (6 entités
+  distinctes, une par pays, BRVM-COMPOSITE) — le nom de base identique
+  ("BANK OF AFRICA") les mettait systématiquement à égalité, tombant dans
+  le garde-fou ci-dessus. Or le bulletin précise bien le pays en dernier
+  mot. Ajout d'un palier dédié : si le dernier mot de la cible est une
+  abréviation pays reconnue (`BULLETIN_COUNTRY_TOKEN_TO_CODE` — distincte
+  de `COUNTRY_SLUG_SUFFIX`, les abréviations utilisées dans les bulletins
+  différant parfois du code ISO, ex. "NG" pour le Niger), on restreint la
+  comparaison aux entreprises de ce pays avant de comparer le nom de base.
+  Nécessite `country_code` dans la requête `companies` passée au matcher
+  (jointure `countries`, même requête que `api_reports.php`/
+  `scripts/backfill_reports.php` pour `computeSlugAssignments`).
 
-**Constat important — deux filières séparées existent déjà, à ne pas
-confondre** :
-- La table `companies` n'a **aucune colonne fondamentale** (ni EPS, ni
-  valeur comptable, ni dette, ni dividende) — impossible de calculer un
-  PER/P-B/ROE depuis la base relationnelle aujourd'hui.
-- En revanche, `company_report_analyses` contient déjà des ratios
-  équivalents **extraits par IA** depuis le texte des rapports PDF
-  (`key_financials`/`valuation_assessment` dans le schéma
-  `class/AnthropicClient.php` — revenue, marges, ROE/ROA, PER, P/B,
-  EV/EBITDA, dividend yield, payout ratio...). C'est riche, mais
-  **dépendant de la fiabilité d'extraction PDF** (voir les
-  `extraction_error` déjà rencontrés, point 12) — une fiabilité
-  différente d'un calcul déterministe sur des colonnes de base.
-- **PEG ratio absent des deux filières** — PER et croissance existent
-  séparément, rien ne les divise.
+**Testé sur données réelles** : extraction lancée sur les 16 bulletins en
+base (fournisseur Gemini par défaut) — **13 réussies, 573 opérations
+extraites**, taux de rattachement entreprise 77-100% selon le type
+d'opération (92% pour les assemblées générales, le type le plus fréquent).
+3 bulletins (#4, #8, #10 — 22-28 juillet 2026) échouent de façon
+persistante avec un timeout réseau Gemini (60s, 0 octet reçu) même après
+plusieurs tentatives et un essai avec le fournisseur Anthropic (bloqué par
+une clé API invalide dans cet environnement, pas un problème du code) —
+probablement une taille/complexité de contenu qui pousse Gemini au-delà de
+son délai habituel sur ces bulletins précis. Pas bloquant : ces 3
+bulletins restent visibles dans `pending_bulletins` côté frontend
+(bouton "Extraire" par bulletin), à relancer individuellement plus tard.
+Les cas non rattachés restants après correction (ex. "TOTAL" seul — deux
+entités Total distinctes en base, Côte d'Ivoire et Sénégal, sans indice de
+pays dans le texte ; les titres de créance type "FCTC EPT...", qui ne sont
+pas des actions donc absents de la table `companies`) sont des ambiguïtés
+réelles, pas des bugs — cohérent avec la philosophie "mieux vaut un
+rattachement manquant qu'un rattachement faux" déjà appliquée ailleurs
+dans cette classe.
 
-**Décision à prendre avant de coder** : soit (a) exploiter ce qui existe
-déjà côté IA (rapide, mais hérite de la fragilité d'extraction PDF —
-suffisant pour un premier écran "Fondamentaux" avec un avertissement clair
-sur la source), soit (b) construire une vraie table `company_fundamentals`
-alimentée par une source fiable (scraping d'une page dédiée sur brvm.org si
-elle existe, ou saisie manuelle trimestrielle) — plus fiable mais plus
-lourd, et sans garantie qu'une source structurée existe pour la BRVM.
+### ✅ 24. Fondamentaux (PER, P/B, ROE, ROA, marges, dividend yield, payout, PEG) — FAIT le 06/08/2026
 
-**Nouvelle table nécessaire seulement pour l'option (b).**
+**Décision initiale de l'utilisateur : option (b)** (nouvelle table
+fiable, alimentée par scraping brvm.org). **Vérifié en direct sur
+brvm.org avant de coder quoi que ce soit** (pages individuelles
+`/fr/emetteurs/societes-cotees/{slug}`, structure `DOMDocument`/`DOMXPath`
+cohérente et scrapable comme `scripts/populate_market_cap.php`) — mais
+constat bloquant : **les données y sont périmées, de façon très inégale
+selon l'entreprise** (Bank of Africa Bénin : dernier exercice affiché
+2015 ; Africa Global Logistics : 2022 — soit 4 à 11 ans de retard par
+rapport à aujourd'hui), et **aucune "Capitaux propres" n'y figure**
+(seulement "Capital social", pas équivalent — bloquant pour ROE/P-B). Une
+"source fiable" scrapée se serait donc révélée en réalité **moins à jour**
+que les rapports déjà traités par la filière IA existante. Remonté à
+l'utilisateur, qui a basculé sur l'**option (a)**.
 
-**À faire (option a, plus rapide)** :
-- Backend : nouvelle action agrégeant, par entreprise, le dernier
-  `company_report_analyses` disponible (déjà stocké) — pas de nouveau
-  calcul, juste une lecture/formatage dédiée avec le PEG calculé (PER ÷
-  croissance du CA déjà présente) puisque c'est la seule pièce manquante.
-- Frontend : nouvel écran "Fondamentaux" ou section sur la fiche
-  entreprise, avec mention explicite "estimé par IA depuis le dernier
-  rapport traité, à vérifier" — cohérent avec le disclaimer déjà utilisé
-  partout ailleurs dans l'app pour l'IA.
+**Fait (option a)** : nouveau fichier `api_fundamentals.php`, action
+`list` — pour chaque entreprise active, prend son dernier
+`company_report_analyses` réussi (par date de publication du rapport
+source), extrait `key_financials`/`valuation_assessment` du JSON déjà
+stocké (`details`), calcule le PEG (PER ÷ croissance du CA — seule pièce
+manquante du schéma IA existant). `companies_without_data`/count
+retournés pour que le frontend annonce explicitement les entreprises sans
+donnée plutôt que de laisser croire à une liste complète. Nouveau
+`chart_type` `fundamentals` enregistré. Frontend : nouvel écran
+`/fundamentals` (nav "Fondamentaux") — tableau avec date du rapport
+source toujours visible par ligne, `InfoPanel` expliquant explicitement
+la nature IA de la donnée (et pourquoi brvm.org a été écarté), sélection
++ analyse IA.
 
-### 25. Moteur de backtesting simple
+**Testé sur données réelles** : sur 47 entreprises actives, **10
+seulement** ont au moins un rapport analysé avec succès (37 sans donnée,
+listées explicitement dans l'UI) ; sur les analyses existantes, le PER
+n'est renseigné que dans 6/83 cas (le nombre d'actions en circulation est
+rarement précisé dans les rapports sources, rendant PER/EPS/P-B
+incalculables même sur un rapport par ailleurs bien traité) — attendu et
+expliqué dans l'`InfoPanel`, pas un bug. La couverture s'améliorera
+naturellement au fil du traitement de nouveaux rapports (page Rapports).
 
-**Gros chantier, à ne prendre qu'après les points prioritaires.** Aucun
-code de backtest n'existe (seul un commentaire dans
-`TechnicalIndicatorsCalculator.php` explique que la persistance des
-indicateurs a été pensée *pour permettre* un futur backtesting). Objectif
-minimal réaliste : tester une règle simple ("acheter si signal composite ≥
-+1, vendre si ≤ -1", ou "acheter au golden cross, vendre au death cross")
-sur l'historique déjà accumulé, et calculer la performance qu'aurait eue
-cette règle par rapport à un simple "acheter et garder".
+### ✅ 25. Moteur de backtesting simple — FAIT le 06/08/2026
 
-**Nouvelle table probable** (`backtest_runs`/`backtest_trades`) pour
-stocker les résultats plutôt que tout recalculer à chaque affichage.
+**Décision de l'utilisateur** : construire le moteur dès maintenant plutôt
+que d'attendre un historique plus long — le code fonctionne dès
+aujourd'hui sur ce qui existe (peu ou pas de trades pour l'instant) et
+deviendra utile progressivement, sans changement de code, à mesure que
+l'historique s'accumule au fil des synchronisations quotidiennes.
 
-**À faire** :
-- Backend : moteur simulant l'application d'une règle jour par jour sur
-  l'historique `stock_quotes`/`technical_indicators`/signaux déjà
-  persistés (pas de nouvelle collecte de données nécessaire, seulement du
-  rejeu) ; calcul de la performance simulée, du nombre de trades, du
-  taux de réussite, comparée au "buy & hold" sur la même période.
-  **Limite à annoncer clairement à l'utilisateur** : historique encore
-  très court aujourd'hui (3 jours de `technical_indicators` au 06/08/2026)
-  — un backtest sur une fenêtre aussi courte n'a quasiment aucune valeur
-  statistique ; ce chantier ne devient réellement utile qu'après plusieurs
-  mois d'accumulation de données.
-- Frontend : nouvel écran "Backtesting" — sélection d'une règle
-  prédéfinie + période, résultat sous forme de courbe de performance
-  cumulée vs buy & hold, avec l'avertissement ci-dessus toujours visible
-  tant que l'historique reste court.
+**Fait** : nouveau fichier `api_backtest.php`, action `run` — simule
+jour par jour, pour une entreprise et une période, l'une des deux règles
+prévues (`signal_score` : entre/sort selon le score composite, seuils
+configurables ; `golden_cross` : entre/sort au croisement d'une paire de
+SMA configurable parmi 10/20/50), et compare la courbe d'équity obtenue
+(base 100) à un simple "acheter et garder" sur la même période. Renvoie
+le nombre d'opérations, le taux de réussite, le rendement moyen par
+opération, et `insufficient_history` (moins de 60 jours de bourse
+simulés) pour que le frontend affiche un avertissement explicite et
+persistant plutôt que de laisser croire à un résultat fiable. Nouveau
+`chart_type` `backtest` enregistré. Frontend : nouvel écran `/backtest`
+(nav "Backtesting") — sélection entreprise/règle/paramètres/période,
+bandeau d'avertissement ambre quand l'historique est insuffisant, courbe
+d'équity stratégie vs acheter-garder, tableau des opérations.
+
+**Décisions prises en implémentant** :
+- **Pas de nouvelle table** (`backtest_runs`/`backtest_trades` envisagées
+  dans le plan initial) — la simulation est rejouée à la demande à chaque
+  affichage, peu coûteuse sur l'historique actuel. À revoir si
+  l'historique devient trop long pour un recalcul systématique rapide, ou
+  si comparer plusieurs runs entre eux devient un besoin réel.
+- **Formule du score composite dupliquée une 4ᵉ fois** (déjà dupliquée
+  dans `api_signals.php` et `api_screener.php`) — même choix de
+  cohérence avec la convention déjà établie dans ce projet (fichiers API
+  indépendants) plutôt qu'une factorisation qui aurait nécessité de
+  toucher aux fichiers déjà testés.
+- **Testé sur données réelles** (via réflexion PHP, les deux règles) :
+  avec 3 jours d'historique, 0 trade détecté dans les deux cas
+  (`insufficient_history=true`), courbe d'équity correctement calculée
+  malgré tout (acheter-garder reflète le vrai mouvement du cours, la
+  stratégie reste plate faute d'avoir jamais pu entrer en position) —
+  comportement attendu, pas un bug.
 
 ## Rappel — pourquoi attendre la fermeture du marché
 
@@ -677,3 +774,17 @@ appelé par le cron, mais une fois par jour seulement
 faible, mais même précaution : tester hors séance avant de déployer. Tous
 les autres points sont des endpoints de lecture (ou des scripts ponctuels
 comme le peuplement du point 0), sans risque, déployables à tout moment.
+
+
+
+Points 17-22
+
+Backend api_screener.php (testé sur données réelles)
+
+Enregistrer chart_type screener + type frontend
+
+Créer Screener.tsx (filtres + tableau) + route/nav
+
+Vérifier (php -l, tsc), documenter point 23
+
+Statuer sur points 24 (décision utilisateur) et 25 (différé)

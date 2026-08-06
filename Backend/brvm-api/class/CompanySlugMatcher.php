@@ -16,6 +16,12 @@ class CompanySlugMatcher {
     // Code pays (countries.code) -> suffixe utilisé dans les slugs brvm.org
     private const COUNTRY_SLUG_SUFFIX = ['CI' => 'ci', 'SN' => 'sn', 'BF' => 'bf', 'BJ' => 'bn', 'TG' => 'tg', 'NE' => 'ng', 'ML' => 'ml', 'GW' => 'gw'];
 
+    // Abréviation pays telle qu'utilisée en toute fin de nom dans les bulletins
+    // (ex: "BANK OF AFRICA BN") -> countries.code. Différent de COUNTRY_SLUG_SUFFIX
+    // (sens inverse, et abréviations parfois différentes : "NG" pour le Niger
+    // dans les bulletins, alors que le code ISO est "NE").
+    private const BULLETIN_COUNTRY_TOKEN_TO_CODE = ['CI' => 'CI', 'SN' => 'SN', 'BF' => 'BF', 'ML' => 'ML', 'TG' => 'TG', 'GW' => 'GW', 'NG' => 'NE', 'NE' => 'NE', 'BN' => 'BJ', 'BJ' => 'BJ'];
+
     public static function normalizeForMatch(string $str): string {
         $str = strtoupper($str);
         $str = iconv('UTF-8', 'ASCII//TRANSLIT', $str);
@@ -100,5 +106,120 @@ class CompanySlugMatcher {
         }
 
         return ['assignments' => $assignments, 'review' => $review];
+    }
+
+    /**
+     * Rattache un nom d'entreprise libre (tel qu'extrait par l'IA d'un bulletin,
+     * ex: "NESTLE CI" ou "SONATEL") à une entreprise de la table companies.
+     * Contrairement à computeSlugAssignments (rattachement en masse, sûr par
+     * construction), ici on tolère un score plus bas ('fuzzy') car le nom
+     * source est du texte libre d'IA et non un annuaire structuré — mais on
+     * retourne toujours le niveau de confiance pour que l'appelant puisse
+     * décider d'afficher un doute (voir BulletinCorporateActionsService).
+     *
+     * @param array $companies Lignes companies (avec au moins id, symbol, name, full_name)
+     * @return array{company_id:int, confidence:string, score:int}|null
+     */
+    public static function matchCompanyName(string $rawName, array $companies): ?array {
+        $target = self::normalizeForMatch($rawName);
+        if ($target === '') {
+            return null;
+        }
+
+        foreach ($companies as $c) {
+            $candidateName = self::normalizeForMatch($c['full_name'] ?: $c['name']);
+            if ($candidateName !== '' && $candidateName === $target) {
+                return ['company_id' => (int) $c['id'], 'confidence' => 'exact', 'score' => 100];
+            }
+        }
+
+        foreach ($companies as $c) {
+            $symbol = self::normalizeForMatch($c['symbol']);
+            if ($symbol === '') continue;
+            // Les bulletins utilisent parfois le ticker BRVM brut, qui omet le
+            // dernier caractère du symbole en base (ex: "SIB" pour SIBC) — d'où
+            // la vérification dans les deux sens, pas seulement symbole ⊂ cible.
+            if (str_contains($target, $symbol) || (mb_strlen($target) >= 3 && str_starts_with($symbol, $target))) {
+                return ['company_id' => (int) $c['id'], 'confidence' => 'fuzzy', 'score' => 90];
+            }
+        }
+
+        // Groupes régionaux listés séparément par pays (ex: Bank of Africa,
+        // une entité par pays) : le nom de base est identique d'un pays à
+        // l'autre ("BANK OF AFRICA"), donc systématiquement à égalité sur la
+        // seule similarité textuelle. Les bulletins précisent le pays en
+        // dernier mot ("BANK OF AFRICA BN") — si présent et reconnu, on
+        // restreint la comparaison aux entreprises de ce pays avant de
+        // départager, plutôt que de renoncer à un rattachement pourtant
+        // résoluble avec cette information.
+        $tokens = explode(' ', $target);
+        $lastToken = end($tokens);
+        if ($lastToken !== false && isset(self::BULLETIN_COUNTRY_TOKEN_TO_CODE[$lastToken]) && count($tokens) > 1) {
+            $countryCode = self::BULLETIN_COUNTRY_TOKEN_TO_CODE[$lastToken];
+            $targetBase = implode(' ', array_slice($tokens, 0, -1));
+            $sameCountry = array_values(array_filter($companies, fn($c) => ($c['country_code'] ?? null) === $countryCode));
+
+            if (!empty($sameCountry)) {
+                $match = self::bestFuzzyMatch($targetBase, $sameCountry);
+                if ($match !== null) {
+                    return $match;
+                }
+            }
+        }
+
+        // Repli par similarité textuelle : compare la cible à la fois au nom
+        // complet ET au symbole de chaque entreprise (pas seulement le nom).
+        // Sans ça, un ticker court comme "SIB" (Société Ivoirienne de Banque)
+        // peut se retrouver rapproché par erreur d'une entreprise sans lien
+        // dont le NOM complet ressemble davantage au texte brut (ex: "SITAB")
+        // — un symbole doit toujours pouvoir gagner face à un nom.
+        return self::bestFuzzyMatch($target, $companies);
+    }
+
+    /**
+     * Meilleure correspondance par similarité textuelle (nom complet OU
+     * symbole) parmi $companies, avec garde-fou anti-égalité : si le
+     * meilleur score est partagé par au moins deux entreprises différentes
+     * (ex: "BIIC" à 75% aussi bien de BICB - Bénin - que de BICC - Côte
+     * d'Ivoire), on ne rattache à aucune plutôt que de deviner selon l'ordre
+     * d'itération, arbitraire et non reproductible côté métier.
+     */
+    private static function bestFuzzyMatch(string $target, array $companies): ?array {
+        $bestCompanyId = null;
+        $bestScore = 0;
+        $tiedCompanyIds = [];
+
+        foreach ($companies as $c) {
+            $candidateName = self::normalizeForMatch($c['full_name'] ?: $c['name']);
+            $symbol = self::normalizeForMatch($c['symbol']);
+
+            $companyBest = 0;
+            if ($candidateName !== '') {
+                similar_text($target, $candidateName, $pct);
+                $companyBest = max($companyBest, $pct);
+            }
+            if ($symbol !== '') {
+                similar_text($target, $symbol, $pct);
+                $companyBest = max($companyBest, $pct);
+            }
+
+            if (abs($companyBest - $bestScore) < 0.01) {
+                $tiedCompanyIds[] = (int) $c['id'];
+            } elseif ($companyBest > $bestScore) {
+                $bestScore = $companyBest;
+                $bestCompanyId = (int) $c['id'];
+                $tiedCompanyIds = [(int) $c['id']];
+            }
+        }
+
+        if (count(array_unique($tiedCompanyIds)) > 1) {
+            return null;
+        }
+
+        if ($bestCompanyId !== null && $bestScore >= 75) {
+            return ['company_id' => $bestCompanyId, 'confidence' => 'fuzzy', 'score' => (int) round($bestScore)];
+        }
+
+        return null;
     }
 }

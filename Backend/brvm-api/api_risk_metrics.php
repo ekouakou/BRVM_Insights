@@ -144,6 +144,32 @@ class RiskMetricsAPI {
             }
         }
 
+        // Rendement net de BRVM-COMPOSITE sur la même période (même calcul
+        // que net_return_percent par entreprise : première vs dernière
+        // clôture connue dans l'intervalle) — jusqu'ici le bêta utilisait
+        // déjà les rendements quotidiens de l'indice en interne, mais sa
+        // propre performance sur la période n'était jamais renvoyée : le
+        // texte de méthodologie IA mentionne BRVM-COMPOSITE sans qu'aucune
+        // valeur concrète ne soit affichée nulle part à côté du bêta.
+        $indexCloseSql = "
+            SELECT iv.trading_date, iv.close_value
+            FROM index_values iv
+            INNER JOIN market_indices mi ON mi.id = iv.index_id
+            WHERE mi.code = 'BRVM-COMPOSITE'
+            AND iv.trading_date >= ? AND iv.trading_date <= ?
+            ORDER BY iv.trading_date ASC
+        ";
+        $indexCloseRows = $this->crud->executeCustomQuery($indexCloseSql, [$startDate, $endDate]) ?: [];
+        $benchmarkReturn = null;
+        if (count($indexCloseRows) >= 2) {
+            $firstIndexClose = (float) $indexCloseRows[0]['close_value'];
+            $lastIndexRow = end($indexCloseRows);
+            $lastIndexClose = (float) $lastIndexRow['close_value'];
+            if ($firstIndexClose > 0) {
+                $benchmarkReturn = round((($lastIndexClose - $firstIndexClose) / $firstIndexClose) * 100, 2);
+            }
+        }
+
         $result = [];
         foreach ($byCompany as $companyId => $data) {
             $closes = $data['closes'];
@@ -226,6 +252,10 @@ class RiskMetricsAPI {
                 'excess_kurtosis' => $kurtosis !== null ? round($kurtosis, 3) : null,
                 'beta' => $beta !== null ? round($beta, 3) : null,
                 'beta_common_days' => count($assetReturns),
+                // Rendement net de l'indice BRVM-COMPOSITE sur la même période
+                // (identique pour toutes les entreprises de la sélection) — la
+                // valeur concrète face à laquelle le bêta se lit.
+                'benchmark_return_percent' => $benchmarkReturn,
             ];
         }
 
