@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext'
 const NAV_ITEMS = [
   { to: '/', label: 'Vue d’ensemble', end: true },
   { to: '/quotes', label: 'Cotations' },
-  { to: '/volume-ranking', label: 'Classement volume' },
+  { to: '/volume-ranking', label: 'Classements' },
   { to: '/sync', label: 'Synchronisation' },
   { to: '/reports', label: 'Rapports' },
   { to: '/bulletins', label: 'Bulletins' },
@@ -15,6 +15,10 @@ const NAV_ITEMS = [
   { to: '/market-health', label: 'Santé & secteurs' },
   { to: '/statistics', label: 'Statistiques' },
   { to: '/price-alerts', label: 'Alertes de prix' },
+  { to: '/screener', label: 'Screener' },
+  { to: '/fundamentals', label: 'Fondamentaux' },
+  { to: '/backtest', label: 'Backtesting' },
+  { to: '/corporate-actions', label: 'Opérations sur titres' },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {

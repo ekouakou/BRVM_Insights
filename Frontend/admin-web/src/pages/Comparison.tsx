@@ -15,7 +15,7 @@ import {
 } from 'recharts'
 import { callApi } from '../lib/apiClient'
 import type { Company, CompanyPriceSeries, CompanyWithReports, ComparisonResult, ShareTurnover } from '../lib/types'
-import { Button, Card, ErrorState, Input, LoadingState, Select, StarRating } from '../components/ui'
+import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, Select, StarRating, Tabs } from '../components/ui'
 import { IconButton, TrashIcon } from '../components/icons'
 import { colorForCompany, groupCompaniesBySector } from '../lib/companyGroups'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
@@ -171,6 +171,7 @@ export function Comparison() {
   // qui est "comparaison entre entreprises" vit ici, plus dans la page
   // Cotations (qui reste dédiée à une entreprise à la fois).
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState<'price' | 'volume' | 'turnover' | 'reports'>('price')
   const [selected, setSelected] = useState<number[]>([])
   const [historyOverride, setHistoryOverride] = useState<ComparisonResult | null>(null)
   const [compareMode, setCompareMode] = useState(false)
@@ -426,6 +427,39 @@ export function Comparison() {
         <p className="text-sm text-gray-400 dark:text-gray-500">Sélectionne une ou plusieurs entreprises ci-dessus pour commencer.</p>
       )}
 
+      <Tabs
+        tabs={[
+          { id: 'price', label: 'Cours' },
+          { id: 'volume', label: 'Volumes' },
+          { id: 'turnover', label: 'Rotation du flottant' },
+          { id: 'reports', label: 'Rapports (IA)' },
+        ]}
+        active={activeTab}
+        onChange={(id) => setActiveTab(id as 'price' | 'volume' | 'turnover' | 'reports')}
+      />
+
+      {activeTab === 'price' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Superposer les cours de plusieurs entreprises sur un même
+              graphe pour comparer leurs trajectoires — repérer laquelle a le mieux performé, ou si elles évoluent
+              en phase ou non.
+            </p>
+            <p>
+              <strong>Mode « Variation en % » (recommandé, activé par défaut).</strong> Chaque courbe est recalée à
+              0% au premier jour de la période affichée : ça permet de comparer des entreprises dont le cours brut
+              est à des échelles totalement différentes (ex : 70 FCFA vs 38 900 FCFA) sur un même graphe lisible.
+              Décoche la case pour voir les cours bruts en FCFA à la place — utile pour connaître le niveau de prix
+              réel, mais rend la comparaison de trajectoires plus difficile entre titres d'échelles différentes.
+            </p>
+            <p>
+              <strong>Granularité.</strong> « Clôtures quotidiennes » trace un point par jour de bourse ; «
+              Intrajournalier » trace un point par relevé (~toutes les 10 min en séance) pour une même journée ou une
+              plage courte — utile pour observer un mouvement en cours de séance plutôt que sa clôture.
+            </p>
+          </InfoPanel>
+
       {selected.length > 0 && (
         <Card title="Cours comparés">
           <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
@@ -512,6 +546,29 @@ export function Comparison() {
           )}
         </Card>
       )}
+        </>
+      )}
+
+      {activeTab === 'volume' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Comparer l'activité de négociation intrajournalière de
+              plusieurs entreprises sur une même échelle de temps — repérer à quel moment de la séance chacune
+              s'échange le plus, et laquelle est la plus active.
+            </p>
+            <p>
+              <strong>Comment lire le graphe.</strong> Un point par relevé intrajournalier (~toutes les 10 min
+              pendant la séance) et par entreprise, montrant le volume échangé à ce moment précis — pas un cumul sur
+              la journée. Sur plusieurs jours, chaque journée de marché apparaît côte à côte sur l'axe du temps.
+            </p>
+            <p>
+              <strong>À retenir.</strong> Un pic isolé peut correspondre à une transaction ponctuelle sur un titre
+              peu liquide (qui déplace fortement la mesure sans refléter une tendance) plutôt qu'à un vrai regain
+              d'intérêt du marché — croise avec l'onglet « Rotation du flottant » ou l'écran Classements pour une
+              vue sur une période plus large.
+            </p>
+          </InfoPanel>
 
       {selected.length > 0 && (
         <Card title="Volumes intrajournaliers">
@@ -569,6 +626,35 @@ export function Comparison() {
           )}
         </Card>
       )}
+        </>
+      )}
+
+      {activeTab === 'turnover' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Situer le volume échangé de chaque entreprise par rapport à la
+              taille de son capital — un volume brut de 10 000 actions n'a pas le même sens pour une entreprise qui
+              en a émis 1 million que pour une qui en a émis 500 millions. Cet onglet remet le volume à l'échelle.
+            </p>
+            <p>
+              <strong>« Actions en circulation » — attention au terme.</strong> C'est le total des actions déjà
+              émises par l'entreprise, détenues par quelqu'un (fondateurs, État, public…) depuis son introduction en
+              bourse. Ce n'est <strong>pas</strong> un stock « en attente de vente » — il n'existe pas de carnet
+              d'ordres public à la BRVM, donc pas de notion réelle de volume « à vendre ».
+            </p>
+            <p>
+              <strong>Les 4 graphes, dans l'ordre.</strong> (1) Actions en circulation vs volume échangé, sur deux
+              axes séparés pour donner l'ordre de grandeur de chaque entreprise. (2) Taux de rotation (volume ÷
+              actions en circulation, en %) — la mesure directement comparable entre entreprises de tailles
+              différentes ; un taux proche de 0% signifie un flottant peu actif, pas une entreprise en difficulté.
+              (3) Actions non retradées (estimation basse) — l'inverse du taux de rotation en nombre d'actions ;
+              « estimation basse » car un même titre peut être retradé plusieurs fois dans la période, donc le vrai
+              nombre d'actions jamais touchées peut être plus élevé. (4) Flottant réel (donnée BRVM) — part de la
+              capitalisation réellement disponible au marché, hors participations stratégiques verrouillées ; la
+              lecture la plus proche d'« actions réellement disponibles à l'achat ».
+            </p>
+          </InfoPanel>
 
       {selected.length > 0 && (
         <Card title="Rotation du flottant">
@@ -703,11 +789,36 @@ export function Comparison() {
           )}
         </Card>
       )}
+        </>
+      )}
 
-      <div>
-        <h3 className="text-lg font-semibold">Comparaison de rapports (IA)</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Tendance dans le temps et/ou entre entreprises</p>
-      </div>
+      {activeTab === 'reports' && (
+        <>
+      <InfoPanel>
+        <p>
+          <strong>À quoi sert cet onglet.</strong> Générer une analyse comparative rédigée par IA à partir des
+          rapports financiers déjà publiés par les entreprises sélectionnées (annuels, semestriels, trimestriels…) —
+          utile pour une synthèse en langage clair plutôt que de lire chaque rapport un par un.
+        </p>
+        <p>
+          <strong>Pré-requis.</strong> Seules les entreprises ayant au moins un rapport avec texte déjà extrait sont
+          incluses dans l'analyse IA (repérables au « · » à côté de leur nom dans la liste de sélection en haut de
+          page) — les autres restent utilisables pour les onglets Cours/Volumes/Rotation, mais sont exclues d'ici.
+        </p>
+        <p>
+          <strong>Contenu du résultat.</strong> Résumé comparatif, classement entre entreprises si pertinent,
+          tendance financière par entreprise (chiffre d'affaires, résultat net), corrélation entre cours de bourse
+          et fondamentaux, évolution des risques identifiés, et points d'appui à la décision (arguments haussiers et
+          baissiers) — le tout généré à partir du texte des rapports, <strong>pas un conseil en investissement</strong>{' '}
+          (voir la mention en bas de résultat).
+        </p>
+        <p>
+          <strong>Historique et comparaison A/B.</strong> Chaque analyse déjà générée reste consultable dans
+          l'historique ci-dessous (filtré par sélection d'entreprises + période + type de rapport). Avec 2 analyses
+          ou plus dans l'historique, la case « Comparer 2 analyses côte à côte » permet de visualiser deux résultats
+          en parallèle (ex. avant/après un nouveau rapport publié).
+        </p>
+      </InfoPanel>
 
       <Card>
         <div className="flex flex-wrap items-end gap-4">
@@ -824,6 +935,8 @@ export function Comparison() {
         </div>
       ) : (
         result && <ComparisonResultView result={result} onRate={(id, rating) => rateMutation.mutate({ id, rating })} onDelete={(id) => deleteMutation.mutate(id)} />
+      )}
+        </>
       )}
     </div>
   )

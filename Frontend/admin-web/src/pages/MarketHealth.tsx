@@ -15,7 +15,7 @@ import {
 } from 'recharts'
 import { callApi } from '../lib/apiClient'
 import type { MarketBreadthPoint, MissingDaysIssue, PriceJumpIssue, ReconciliationIssue, SectorPerformanceSeries } from '../lib/types'
-import { Card, ErrorState, Input, LoadingState } from '../components/ui'
+import { Card, ErrorState, InfoPanel, Input, LoadingState, Tabs } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function todayIso() {
@@ -42,6 +42,7 @@ function priceJumpKey(p: PriceJumpIssue): string {
 }
 
 export function MarketHealth() {
+  const [activeTab, setActiveTab] = useState<'sector' | 'breadth' | 'quality'>('sector')
   const [startDate, setStartDate] = useState(daysAgoIso(90))
   const [endDate, setEndDate] = useState(todayIso())
 
@@ -115,14 +116,6 @@ export function MarketHealth() {
         </p>
       </div>
 
-      <div>
-        <h3 className="text-lg font-semibold">Performance par secteur</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Indice équipondéré (moyenne des entreprises du secteur, base 100 au début de la période) — compare des secteurs
-          entiers plutôt que des entreprises individuelles.
-        </p>
-      </div>
-
       <Card>
         <div className="flex flex-wrap items-end gap-4">
           <label className="w-40">
@@ -139,93 +132,162 @@ export function MarketHealth() {
         </div>
       </Card>
 
-      {sectorQuery.isLoading && <LoadingState label="Chargement de la performance sectorielle…" />}
-      {sectorQuery.error && <ErrorState message={(sectorQuery.error as Error).message} />}
+      <Tabs
+        tabs={[
+          { id: 'sector', label: 'Performance par secteur' },
+          { id: 'breadth', label: 'Largeur de marché' },
+          { id: 'quality', label: 'Contrôle qualité des données' },
+        ]}
+        active={activeTab}
+        onChange={(id) => setActiveTab(id as 'sector' | 'breadth' | 'quality')}
+      />
 
-      {sectorChartData.length > 0 && (
-        <Card title="Variation par secteur depuis le début de la période">
-          <ResponsiveContainer width="100%" height={360}>
-            <LineChart data={sectorChartData}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
-              <YAxis
-                domain={['auto', 'auto']}
-                tick={{ fontSize: 11 }}
-                width={60}
-                tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+      {activeTab === 'sector' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Il compare la santé de secteurs d'activité entiers (finance,
+              agroalimentaire, industrie…) plutôt que des entreprises individuelles — utile pour repérer si une
+              tendance de marché est propre à un secteur ou partagée par toute la cote.
+            </p>
+            <p>
+              <strong>Comment lire le graphe.</strong> Chaque secteur est ramené à un indice base 100 au premier
+              jour de la période (moyenne, non pondérée par capitalisation, des indices base-100 de chaque
+              entreprise active du secteur). L'axe affiche l'écart en % par rapport à ce point de départ : une
+              courbe à +15% signifie que le secteur a progressé de 15% en moyenne depuis le début de la période
+              choisie.
+            </p>
+            <p>
+              <strong>Point important.</strong> Chaque entreprise pèse le même poids dans son secteur, quelle que
+              soit sa taille — une petite capitalisation compte autant qu'une grande. Ce choix évite qu'un seul
+              mastodonte du secteur ne masque la tendance des autres, mais signifie que l'indice ne reflète pas la
+              performance « pondérée par la taille du marché » d'un investisseur type.
+            </p>
+          </InfoPanel>
+
+          {sectorQuery.isLoading && <LoadingState label="Chargement de la performance sectorielle…" />}
+          {sectorQuery.error && <ErrorState message={(sectorQuery.error as Error).message} />}
+
+          {sectorChartData.length > 0 && (
+            <Card title="Variation par secteur depuis le début de la période">
+              <ResponsiveContainer width="100%" height={360}>
+                <LineChart data={sectorChartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+                  <YAxis
+                    domain={['auto', 'auto']}
+                    tick={{ fontSize: 11 }}
+                    width={60}
+                    tickFormatter={(v: number) => `${v.toFixed(1)}%`}
+                  />
+                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                  <Tooltip
+                    formatter={(value, name) => [`${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`, name]}
+                  />
+                  <Legend />
+                  {sectorSeries.map((serie) => (
+                    <Line
+                      key={serie.sector_id}
+                      type="monotone"
+                      dataKey={serie.sector_name}
+                      stroke={colorForSector(serie.sector_id)}
+                      dot={false}
+                      strokeWidth={2}
+                      connectNulls
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+
+              <ChartAiAnalysis
+                chartType="sector_performance"
+                parameters={{ start_date: startDate, end_date: endDate }}
+                data={sectorSeries}
               />
-              <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
-              <Tooltip
-                formatter={(value, name) => [`${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`, name]}
-              />
-              <Legend />
-              {sectorSeries.map((serie) => (
-                <Line
-                  key={serie.sector_id}
-                  type="monotone"
-                  dataKey={serie.sector_name}
-                  stroke={colorForSector(serie.sector_id)}
-                  dot={false}
-                  strokeWidth={2}
-                  connectNulls
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+            </Card>
+          )}
 
-          <ChartAiAnalysis
-            chartType="sector_performance"
-            parameters={{ start_date: startDate, end_date: endDate }}
-            data={sectorSeries}
-          />
-        </Card>
+          {sectorQuery.data && sectorChartData.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Aucune donnée pour cette période.</p>
+          )}
+        </>
       )}
 
-      {sectorQuery.data && sectorChartData.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Aucune donnée pour cette période.</p>
+      {activeTab === 'breadth' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Il répond à la question « une hausse (ou une baisse) du
+              marché est-elle largement partagée, ou portée par une poignée de titres ? » — un indice qui monte n'a
+              pas le même sens selon la réponse.
+            </p>
+            <p>
+              <strong>Comment lire le graphe.</strong> Pour chaque jour des 30 derniers jours, la barre empilée
+              montre la part d'entreprises actives en hausse (vert), en baisse (rouge) et inchangées (gris) par
+              rapport à leur clôture de la veille.
+            </p>
+            <p>
+              <strong>Pourquoi c'est important.</strong> Un marché qui monte porté par seulement 3-4 grosses valeurs
+              pendant que la majorité des titres baisse est un mouvement plus fragile — susceptible de s'inverser
+              rapidement si ces quelques titres se retournent. À l'inverse, une hausse partagée par la majorité des
+              titres cotés est un signal plus « sain », plus robuste dans le temps. C'est un indicateur classique
+              d'analyse de marché (« market breadth »), complémentaire à un indice global qui, lui, peut être tiré
+              par une minorité de grosses capitalisations.
+            </p>
+          </InfoPanel>
+
+          {breadthQuery.isLoading && <LoadingState label="Chargement de la largeur de marché…" />}
+          {breadthQuery.error && <ErrorState message={(breadthQuery.error as Error).message} />}
+
+          {breadthQuery.data && breadthQuery.data.length > 0 && (
+            <Card title="Hausses / baisses / inchangées par jour">
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={breadthQuery.data}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+                  <YAxis tick={{ fontSize: 11 }} width={40} />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="gainers" name="Hausses" stackId="breadth" fill="#1baf7a" />
+                  <Bar dataKey="unchanged" name="Inchangées" stackId="breadth" fill="#9ca3af" />
+                  <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="#e34948" />
+                </BarChart>
+              </ResponsiveContainer>
+
+              <ChartAiAnalysis chartType="market_breadth" parameters={{ end_date: endDate, days: 30 }} data={breadthQuery.data} />
+            </Card>
+          )}
+
+          {breadthQuery.data && breadthQuery.data.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">Aucune donnée pour cette période.</p>
+          )}
+        </>
       )}
 
-      <div>
-        <h3 className="text-lg font-semibold">Largeur de marché</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Part de titres en hausse/baisse chaque jour (30 derniers jours) — un marché qui monte porté par 3 titres
-          seulement n'a pas le même sens qu'une hausse partagée par 30.
-        </p>
-      </div>
-
-      {breadthQuery.isLoading && <LoadingState label="Chargement de la largeur de marché…" />}
-      {breadthQuery.error && <ErrorState message={(breadthQuery.error as Error).message} />}
-
-      {breadthQuery.data && breadthQuery.data.length > 0 && (
-        <Card title="Hausses / baisses / inchangées par jour">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={breadthQuery.data}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
-              <YAxis tick={{ fontSize: 11 }} width={40} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="gainers" name="Hausses" stackId="breadth" fill="#1baf7a" />
-              <Bar dataKey="unchanged" name="Inchangées" stackId="breadth" fill="#9ca3af" />
-              <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="#e34948" />
-            </BarChart>
-          </ResponsiveContainer>
-
-          <ChartAiAnalysis chartType="market_breadth" parameters={{ end_date: endDate, days: 30 }} data={breadthQuery.data} />
-        </Card>
-      )}
-
-      {breadthQuery.data && breadthQuery.data.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Aucune donnée pour cette période.</p>
-      )}
-
-      <div>
-        <h3 className="text-lg font-semibold">Contrôle qualité des données</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Détection automatique d'anomalies dans les données synchronisées — à vérifier, pas forcément des erreurs (un
-          titre illiquide peut légitimement bondir sur un seul échange).
-        </p>
-      </div>
+      {activeTab === 'quality' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Contrairement aux deux précédents (qui analysent le marché),
+              celui-ci contrôle la fiabilité des données elles-mêmes, synchronisées automatiquement depuis brvm.org.
+              Il regroupe 3 vérifications indépendantes.
+            </p>
+            <p>
+              <strong>Principe commun aux 3 tableaux : une ligne signalée n'est pas forcément une erreur</strong>,
+              c'est un cas à vérifier manuellement. Un titre peu liquide peut légitimement bondir de plus de 15% sur
+              un seul échange (personne d'autre pour équilibrer le prix), ou manquer de cotation certains jours sans
+              que ce soit un problème de synchronisation. À l'inverse, un écart répété ou une valeur aberrante mérite
+              d'être creusé — voir le détail de chaque contrôle dans les tableaux ci-dessous.
+            </p>
+            <p>
+              <strong>Réconciliation des variations</strong> recalcule la variation en % à partir des cours stockés
+              et la compare à celle publiée par brvm.org. <strong>Sauts de prix intrajournaliers</strong> repère les
+              mouvements brusques entre deux relevés rapprochés dans la même séance. <strong>Jours de clôture
+              manquants</strong> compare, entreprise par entreprise, les jours où une cotation a été enregistrée par
+              rapport au reste du marché — un écart important pour une seule entreprise pointe vers une synchro
+              ratée spécifiquement pour elle, pas une panne générale.
+            </p>
+          </InfoPanel>
 
       <Card title="Réconciliation des variations (30 derniers jours)">
         <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
@@ -486,6 +548,8 @@ export function MarketHealth() {
           </>
         )}
       </Card>
+        </>
+      )}
     </div>
   )
 }

@@ -27,28 +27,48 @@ export function ChartAiAnalysis({
   data,
   disabled,
   disabledReason,
+  companyIdsForReports,
 }: {
   chartType: string
   parameters: Record<string, unknown>
   data: unknown
   disabled?: boolean
   disabledReason?: string
+  /**
+   * IDs des entreprises actuellement sélectionnées, pour lesquelles on peut
+   * proposer d'inclure leurs rapports financiers déjà traités comme contexte
+   * additionnel de l'analyse IA (voir la case "Inclure les résultats
+   * financiers" ci-dessous). Prop omise = fonctionnalité masquée (tous les
+   * graphes n'ont pas de notion d'entreprise sélectionnée) ; tableau vide =
+   * affichée mais désactivée (aucune entreprise à qui rattacher un rapport).
+   */
+  companyIdsForReports?: number[]
 }) {
   const queryClient = useQueryClient()
   const [provider, setProvider] = useState<'gemini' | 'anthropic' | 'grok'>('gemini')
   const [model, setModel] = useState('')
   const [selectedResult, setSelectedResult] = useState<ChartAnalysisResult | null>(null)
+  const [includeReportContext, setIncludeReportContext] = useState(false)
+
+  const reportsAvailable = (companyIdsForReports ?? []).length > 0
+  const applyReportContext = includeReportContext && reportsAvailable
+  // La case à cocher doit changer le hash de requête côté backend (voir
+  // ChartAnalysisService::hashRequest()) pour que le cache/historique
+  // distinguent une analyse "avec rapports" d'une analyse "sans" — le plus
+  // simple est de la traiter comme n'importe quel autre paramètre de
+  // sélection plutôt que d'ajouter un mécanisme de cache séparé.
+  const effectiveParameters = applyReportContext ? { ...parameters, include_report_context: true } : parameters
 
   const historyQuery = useQuery({
-    queryKey: ['chart-analysis-history', chartType, parameters],
-    queryFn: () => callApi<ChartAnalysisResult[]>('api_chart_analysis.php', 'history', { chart_type: chartType, parameters }),
+    queryKey: ['chart-analysis-history', chartType, effectiveParameters],
+    queryFn: () => callApi<ChartAnalysisResult[]>('api_chart_analysis.php', 'history', { chart_type: chartType, parameters: effectiveParameters }),
   })
 
   const analyzeMutation = useMutation({
     mutationFn: (forceRefresh: boolean) =>
       callApi<ChartAnalysisResult>('api_chart_analysis.php', 'analyze', {
         chart_type: chartType,
-        parameters,
+        parameters: effectiveParameters,
         data,
         provider,
         model: model || undefined,
@@ -56,7 +76,7 @@ export function ChartAiAnalysis({
       }),
     onSuccess: (result) => {
       setSelectedResult(result)
-      queryClient.invalidateQueries({ queryKey: ['chart-analysis-history', chartType, parameters] })
+      queryClient.invalidateQueries({ queryKey: ['chart-analysis-history', chartType, effectiveParameters] })
     },
   })
 
@@ -64,7 +84,7 @@ export function ChartAiAnalysis({
     mutationFn: ({ id, rating }: { id: number; rating: number }) =>
       callApi<ChartAnalysisResult>('api_chart_analysis.php', 'rate', { id, rating }),
     onSuccess: (updated) => {
-      queryClient.invalidateQueries({ queryKey: ['chart-analysis-history', chartType, parameters] })
+      queryClient.invalidateQueries({ queryKey: ['chart-analysis-history', chartType, effectiveParameters] })
       setSelectedResult((prev) => (prev && prev.id === updated.id ? updated : prev))
     },
   })
@@ -72,7 +92,7 @@ export function ChartAiAnalysis({
   const deleteMutation = useMutation({
     mutationFn: (id: number) => callApi<null>('api_chart_analysis.php', 'delete', { id }),
     onSuccess: (_data, id) => {
-      queryClient.invalidateQueries({ queryKey: ['chart-analysis-history', chartType, parameters] })
+      queryClient.invalidateQueries({ queryKey: ['chart-analysis-history', chartType, effectiveParameters] })
       setSelectedResult((prev) => (prev && prev.id === id ? null : prev))
     },
   })
@@ -139,6 +159,25 @@ export function ChartAiAnalysis({
         )}
       </div>
 
+      {companyIdsForReports !== undefined && (
+        <label
+          className={`mt-3 flex items-start gap-2 text-xs ${reportsAvailable ? 'text-gray-600 dark:text-gray-300' : 'text-gray-400 dark:text-gray-600'}`}
+        >
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={includeReportContext}
+            disabled={!reportsAvailable}
+            onChange={(e) => setIncludeReportContext(e.target.checked)}
+          />
+          <span>
+            Inclure les résultats financiers (rapports déjà traités, priorité au texte reformaté en Markdown sur le
+            texte brut extrait) — l'IA croisera alors le mouvement de cours avec les fondamentaux publiés.
+            {!reportsAvailable && ' Sélectionne au moins une entreprise ci-dessus pour activer cette option.'}
+          </span>
+        </label>
+      )}
+
       {analyzeMutation.isError && (
         <div className="mt-3">
           <ErrorState message={(analyzeMutation.error as Error).message} />
@@ -153,6 +192,16 @@ export function ChartAiAnalysis({
 
       {shown && shown.status === 'success' && (
         <div className="mt-4 flex flex-col gap-3 text-sm">
+          {shown.period && (
+            <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+              Période analysée : {shown.period}
+            </p>
+          )}
+          {shown.parameters.include_report_context === true && (
+            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              Inclut les résultats financiers (rapports déjà traités) en plus du mouvement de cours.
+            </p>
+          )}
           <div>
             <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
               Résumé

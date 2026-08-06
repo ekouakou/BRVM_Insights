@@ -188,6 +188,72 @@ export function StarRating({
   )
 }
 
+/** Barre d'onglets simple (soulignement de l'onglet actif) — bascule entre plusieurs vues au sein d'une même page, sans changer de route. */
+export function Tabs({
+  tabs,
+  active,
+  onChange,
+}: {
+  tabs: { id: string; label: string }[]
+  active: string
+  onChange: (id: string) => void
+}) {
+  return (
+    <div role="tablist" className="flex gap-1 border-b border-gray-200 dark:border-gray-800">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={active === tab.id}
+          onClick={() => onChange(tab.id)}
+          className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+            active === tab.id
+              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * Bloc d'explication repliable — "à quoi sert cet écran / comment lire ces
+ * résultats", affiché sous les onglets. Replié par défaut pour ne pas
+ * regonfler la page (l'intérêt des onglets est justement de gagner de la
+ * place) ; ouvert au clic pour l'utilisateur qui a besoin du contexte.
+ * `<details>` natif : accessible et sans état React à gérer.
+ */
+export function InfoPanel({ title = 'Comment lire cet écran ?', children }: { title?: string; children: ReactNode }) {
+  return (
+    <details className="group rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 marker:content-none dark:text-gray-300">
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-300 text-[10px] font-bold text-white dark:bg-gray-600">
+          ?
+        </span>
+        {title}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="ml-auto h-4 w-4 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </summary>
+      <div className="flex flex-col gap-2 border-t border-gray-200 px-4 py-3 text-sm leading-relaxed text-gray-600 dark:border-gray-800 dark:text-gray-300">
+        {children}
+      </div>
+    </details>
+  )
+}
+
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select

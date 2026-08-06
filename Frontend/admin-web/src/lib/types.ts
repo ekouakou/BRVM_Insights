@@ -34,6 +34,19 @@ export interface VolumeRankingRow {
   fully_rotated: boolean
 }
 
+/** Classement par performance de cours sur une période (api_quotes.php, action performance_ranking). */
+export interface PerformanceRankingRow {
+  company_id: number
+  symbol: string
+  name: string
+  sector: string | null
+  first_close_price: number | null
+  last_close_price: number | null
+  /** (last_close_price - first_close_price) / first_close_price × 100. Null si aucune cotation sur la période. */
+  variation_percent: number | null
+  trading_days: number
+}
+
 export interface MarketOverview {
   date: string
   statistics: {
@@ -113,6 +126,18 @@ export interface TechnicalIndicatorPoint {
   bb_middle: string | number | null
   bb_lower: string | number | null
   atr_14: string | number | null
+  /** Average Directional Index 14j (0-100) — force de la tendance, ne dit pas dans quel sens. Null tant que l'historique est trop court (besoin d'~29 jours). */
+  adx_14: string | number | null
+  /** Oscillateur stochastique %K (14j) — momentum, 0-100. Null tant que l'historique est trop court (besoin de 14 jours). */
+  stoch_k: string | number | null
+  /** Oscillateur stochastique %D (moyenne mobile 3j de %K). */
+  stoch_d: string | number | null
+  /** Rate of Change 12j (%) — momentum simple. Null tant que l'historique est trop court (besoin de 13 jours). */
+  roc_12: string | number | null
+  /** On-Balance Volume cumulatif — valeur absolue arbitraire (dépend du point de départ), seule la tendance de la courbe a un sens. */
+  obv: string | number | null
+  /** Volume Weighted Average Price du jour (intraday_quotes, se réinitialise chaque jour). Null si aucun relevé intrajournalier pour ce jour. */
+  vwap: string | number | null
 }
 
 /** Variation totale (churn intrajournalier) par entreprise (api_quotes.php, action total_variation). */
@@ -153,6 +178,40 @@ export interface RiskAdjustedResult {
   net_return_percent: number | null
   total_volatility_percent: number | null
   risk_adjusted_ratio: number | null
+}
+
+/**
+ * Métriques de risque/performance avancées (api_risk_metrics.php, action
+ * 'compute') — Sharpe/Sortino réels, Maximum Drawdown, Calmar, VaR/CVaR
+ * historique, skewness/kurtosis, bêta vs indice. À distinguer de
+ * `RiskAdjustedResult` (ratio simplifié existant, volatilité = churn
+ * intrajournalier plutôt qu'un écart-type de rendements).
+ */
+export interface RiskMetricsRow {
+  company_id: number
+  symbol: string
+  name: string
+  trading_days: number
+  daily_returns_count: number
+  /** true si moins de 20 rendements quotidiens disponibles — toutes les métriques sauf net_return_percent sont alors null plutôt que calculées sur un échantillon trop court. */
+  insufficient_history: boolean
+  net_return_percent: number | null
+  cagr_percent: number | null
+  annualized_volatility_percent: number | null
+  sharpe_ratio: number | null
+  sortino_ratio: number | null
+  max_drawdown_percent: number | null
+  max_drawdown_peak_date: string | null
+  max_drawdown_trough_date: string | null
+  calmar_ratio: number | null
+  var_percent: number | null
+  cvar_percent: number | null
+  skewness: number | null
+  excess_kurtosis: number | null
+  beta: number | null
+  beta_common_days: number
+  /** Rendement net de l'indice BRVM-COMPOSITE sur la même période (identique pour toutes les entreprises de la sélection) — la valeur concrète face à laquelle le bêta se lit. */
+  benchmark_return_percent: number | null
 }
 
 /** Force relative vs indice BRVM-COMPOSITE (api_quotes.php, action relative_strength). */
@@ -210,6 +269,8 @@ export interface ChartAnalysisResult {
   error_message: string | null
   rating: number | null
   notes: string | null
+  /** Période couverte par la sélection, calculée côté backend à partir de `parameters` (pas par l'IA) — null si aucun indice de période (dates/days) n'est présent dans la sélection. */
+  period: string | null
   summary: string | null
   methodology_explained: string | null
   key_observations: string[]
@@ -301,6 +362,156 @@ export interface CompanySignal {
   label: string
   indicators_used: number
   details: Record<string, { value?: number; signal: number; reason: string }>
+  /** Score à la date de début choisie (api_signals.php, action 'list' avec start_date) — null si aucune date de début fournie ou pas de donnée à cette date. */
+  score_start?: number | null
+  label_start?: string | null
+  /** score - score_start. Null si l'un des deux est indisponible. */
+  score_change?: number | null
+  /** Classement de liquidité déjà croisé côté backend (voir api_signals.php::getLiquidityByCompany()). */
+  liquidity?: 'Illiquide' | 'Faible' | 'Moyenne' | 'Élevée' | null
+  /** true si le score a été plafonné de ±2 à ±1 car le titre est illiquide (voir buildSignal()). */
+  confidence_penalized_by_liquidity?: boolean
+  atr_14?: number | null
+  /** atr_14 / close_price × 100 — agitation récente du titre en % de son cours, contexte pour nuancer le signal. */
+  atr_relative_percent?: number | null
+}
+
+/** Croisement de moyennes mobiles détecté (api_signals.php, action 'crossovers'). */
+export interface MaCrossoverEvent {
+  date: string
+  pair: '10/20' | '20/50'
+  /** golden = SMA rapide passe au-dessus de la lente (signal haussier classique), death = l'inverse */
+  type: 'golden' | 'death'
+  fast_value: number
+  slow_value: number
+}
+
+/** Divergence cours/RSI détectée (api_signals.php, action 'divergence'). */
+export interface RsiDivergenceEvent {
+  date: string
+  /** bearish = sommet de prix plus haut mais RSI plus bas (essoufflement haussier), bullish = l'inverse */
+  type: 'bearish' | 'bullish'
+  previous_date: string
+  price: number
+  previous_price: number
+  rsi: number
+  previous_rsi: number
+}
+
+/** Ligne du screener multi-critères (api_screener.php, action 'screen'). */
+export interface ScreenerRow {
+  company_id: number
+  symbol: string
+  name: string
+  sector_id: number | null
+  sector: string | null
+  trading_date: string
+  close_price: string | number | null
+  variation_percent: string | number | null
+  volume: string | number | null
+  rsi_14: string | number | null
+  score: number | null
+  label: string
+  liquidity: 'Illiquide' | 'Faible' | 'Moyenne' | 'Élevée' | null
+  /** Performance de cours sur la période sélectionnée (première vs dernière clôture). */
+  period_performance_percent: number | null
+  /** Rang de l'entreprise au sein de son secteur par period_performance_percent (1 = meilleure performance). Null si pas de cotation sur la période. */
+  sector_rank: number | null
+  sector_size: number | null
+}
+
+/**
+ * Ratios fondamentaux extraits par IA du dernier rapport financier traité
+ * avec succès (api_fundamentals.php, action 'list') — pas un calcul
+ * déterministe : dépend de ce que le rapport source a divulgué. Chaque
+ * champ peut être null si le rapport source ne le mentionnait pas.
+ * `source_publish_date` doit toujours être affiché à côté des chiffres
+ * (fiabilité liée à la fraîcheur du rapport, pas garantie "temps réel").
+ */
+export interface FundamentalsRow {
+  company_id: number
+  symbol: string
+  name: string
+  sector_id: number | null
+  sector: string | null
+  source_report_id: number
+  source_report_type: string
+  source_report_title: string
+  source_publish_date: string | null
+  currency: string | null
+  revenue: number | null
+  revenue_prior_year: number | null
+  revenue_growth_percent: number | null
+  net_income: number | null
+  net_income_prior_year: number | null
+  net_margin_percent: number | null
+  gross_margin_percent: number | null
+  operating_margin_percent: number | null
+  ebitda_margin_percent: number | null
+  roe_percent: number | null
+  roa_percent: number | null
+  debt_to_equity: number | null
+  debt_to_ebitda: number | null
+  current_ratio: number | null
+  free_cash_flow: number | null
+  dividend_per_share: number | null
+  shares_outstanding: number | null
+  eps: number | null
+  book_value_per_share: number | null
+  pe_ratio: number | null
+  /** PER ÷ croissance du CA (%) — absent du schéma d'extraction IA existant, calculé ici. */
+  peg_ratio: number | null
+  price_to_book: number | null
+  ev_to_ebitda: number | null
+  dividend_yield_percent: number | null
+  payout_ratio_percent: number | null
+  valuation_verdict: string | null
+  valuation_rationale: string | null
+}
+
+/** Une position ouverte/fermée simulée par le backtest. */
+export interface BacktestTrade {
+  entry_date: string
+  entry_price: number
+  exit_date: string
+  exit_price: number
+  return_percent: number
+}
+
+/** Un point de la courbe d'équity, base 100 au premier jour simulé. */
+export interface BacktestEquityPoint {
+  date: string
+  strategy_equity_base100: number
+  buy_hold_equity_base100: number
+}
+
+/**
+ * Résultat d'une simulation de backtest (api_backtest.php, action 'run')
+ * — synthèse mécanique d'une règle simple sur l'historique déjà persisté,
+ * jamais un conseil en investissement. `insufficient_history` doit
+ * toujours conditionner l'affichage d'un avertissement : sous 60 jours de
+ * bourse simulés, le résultat n'a quasiment aucune valeur statistique.
+ */
+export interface BacktestResult {
+  company_id: number
+  symbol: string
+  name: string
+  rule: 'signal_score' | 'golden_cross'
+  rule_params: Record<string, string | number>
+  start_date: string
+  end_date: string
+  trading_days: number
+  insufficient_history: boolean
+  min_trading_days_for_reliability: number
+  equity_curve: BacktestEquityPoint[]
+  trades: BacktestTrade[]
+  total_trades: number
+  winning_trades: number
+  win_rate_percent: number | null
+  avg_trade_return_percent: number | null
+  strategy_return_percent: number | null
+  buy_hold_return_percent: number | null
+  open_position: { entry_date: string; entry_price: number } | null
 }
 
 export interface SyncLog {
@@ -608,6 +819,57 @@ export interface BulletinComparisonResult {
   skipped_bulletins: { bulletin_id: number; reason: string }[]
   disclaimer: string
   cached: boolean
+}
+
+/**
+ * Une opération sur titres extraite par IA d'un bulletin (api_bulletin_corporate_actions.php).
+ * `company_id` peut être null si le nom mentionné dans le bulletin n'a pas
+ * pu être rapproché avec confiance suffisante — dans ce cas se fier à
+ * `company_name_raw` (texte brut du bulletin).
+ */
+export interface CorporateAction {
+  id: number
+  bulletin_id: number
+  company_id: number | null
+  company_symbol: string | null
+  company_name: string | null
+  company_name_raw: string
+  match_confidence: 'exact' | 'fuzzy' | null
+  action_type: 'dividende' | 'augmentation_capital' | 'admission' | 'assemblee_generale' | 'autre'
+  event_date: string | null
+  amount: number | string | null
+  currency: string
+  description: string | null
+  source_section: string | null
+  bulletin_publish_date?: string
+  bulletin_title?: string
+}
+
+/** Bulletin dont le texte est disponible mais pas encore extrait pour les opérations sur titres. */
+export interface PendingCorporateActionsBulletin {
+  id: number
+  title: string
+  publish_date: string
+}
+
+/** api_bulletin_corporate_actions.php, action 'list'. */
+export interface CorporateActionsListResult {
+  actions: CorporateAction[]
+  count: number
+  pending_bulletins: PendingCorporateActionsBulletin[]
+  pending_count: number
+}
+
+/** api_bulletin_corporate_actions.php, action 'extract'/'get'. */
+export interface CorporateActionsExtractResult {
+  bulletin: { id: number; title: string; publish_date: string }
+  status: 'success' | 'error' | null
+  error_message: string | null
+  provider: string | null
+  model: string | null
+  actions: CorporateAction[]
+  cached: boolean
+  updated_at: string | null
 }
 
 export interface CombinedAnalysisResult {

@@ -16,6 +16,10 @@ import { MarketHealth } from './pages/MarketHealth'
 import { Statistics } from './pages/Statistics'
 import { PriceAlerts } from './pages/PriceAlerts'
 import { VolumeRanking } from './pages/VolumeRanking'
+import { Screener } from './pages/Screener'
+import { Fundamentals } from './pages/Fundamentals'
+import { Backtest } from './pages/Backtest'
+import { CorporateActions } from './pages/CorporateActions'
 
 function Protected({ children }: { children: ReactNode }) {
   return (
@@ -42,6 +46,10 @@ export default function App() {
         <Route path="/market-health" element={<Protected><MarketHealth /></Protected>} />
         <Route path="/statistics" element={<Protected><Statistics /></Protected>} />
         <Route path="/price-alerts" element={<Protected><PriceAlerts /></Protected>} />
+        <Route path="/screener" element={<Protected><Screener /></Protected>} />
+        <Route path="/fundamentals" element={<Protected><Fundamentals /></Protected>} />
+        <Route path="/backtest" element={<Protected><Backtest /></Protected>} />
+        <Route path="/corporate-actions" element={<Protected><CorporateActions /></Protected>} />
       </Routes>
     </AuthProvider>
   )
