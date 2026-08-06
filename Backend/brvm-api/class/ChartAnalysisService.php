@@ -307,6 +307,7 @@ class ChartAnalysisService {
                 'key_observations' => $d['key_observations'] ?? [],
                 'notable_points' => $d['notable_points'] ?? [],
                 'suggested_charts' => $d['suggested_charts'] ?? [],
+                'suggested_table' => $d['suggested_table'] ?? null,
             ], JSON_UNESCAPED_UNICODE);
             $row['status'] = 'success';
             $row['error_message'] = null;
@@ -579,6 +580,22 @@ place du nom technique (jamais le nom de clé JSON brut du type
 techniques, seulement tes libellés) : "x_label" pour l'axe X, "label" pour
 chaque série (avec l'unité si pertinent, ex: "Rendement net (%)").
 
+En plus des graphes, tu peux proposer UN tableau de synthèse
+("suggested_table") si — et seulement si — ton analyse dégage une
+sélection ou un classement qui apporte un angle nouveau par rapport au(x)
+tableau(x) déjà affiché(s) (ex: "titres à surveiller en priorité" croisant
+plusieurs colonnes des données fournies, avec ta propre justification par
+ligne). Contrairement à "suggested_charts" (qui ne fait que retracer des
+champs déjà présents dans les données), "suggested_table" peut inclure des
+colonnes que TU synthétises toi-même à partir de ton analyse (ex: une
+colonne "raison" expliquant pourquoi cette ligne a été retenue) — mais
+chaque ligne doit obligatoirement correspondre à une entité réellement
+présente dans les données fournies (même symbole/nom exact), jamais une
+entreprise inventée ou absente de la sélection. Si aucune sélection/
+synthèse n'apporte de valeur ajoutée réelle par rapport aux données déjà
+affichées, renvoie null plutôt que de dupliquer inutilement un tableau
+déjà visible à l'écran.
+
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte (aucun texte
 avant/après, pas de balises markdown) :
 
@@ -598,14 +615,28 @@ avant/après, pas de balises markdown) :
         {"field": "nom exact du champ numérique", "label": "libellé humain en français, avec unité si pertinent"}
       ]
     }
-  ]
+  ],
+  "suggested_table": {
+    "title": "titre court du tableau proposé",
+    "description": "pourquoi cette sélection/ce classement apporte un angle différent de ce qui est déjà affiché",
+    "columns": [
+      {"key": "symbol", "label": "Symbole"},
+      {"key": "raison", "label": "Pourquoi"}
+    ],
+    "rows": [
+      {"symbol": "SYMBOLE_EXACT_DES_DONNEES_FOURNIES", "raison": "justification courte basée sur ton analyse"}
+    ]
+  }
 }
+
+Si "suggested_table" n'apporte rien, renvoie null pour ce champ (pas un objet avec des tableaux vides).
 
 Règles impératives :
 - N'invente aucun chiffre : base-toi uniquement sur les données fournies ci-dessus.
 - Reste factuel et neutre : jamais de recommandation d'achat/vente explicite.
 - Si les données sont insuffisantes pour une observation pertinente, dis-le plutôt que d'inventer.
 - N'invente aucun nom de champ dans "suggested_charts" — uniquement des clés réellement présentes dans les données fournies. Dans le doute, renvoie un tableau vide.
+- Dans "suggested_table", chaque ligne doit correspondre à une entité réellement présente dans les données fournies (symbole/nom exact) — jamais une entreprise inventée.
 - N'affiche jamais un nom de clé JSON brut comme libellé — toujours un "label"/"x_label" humain et compréhensible.
 - Si un contexte financier (rapports) a été fourni ci-dessus, précise dans "summary" et/ou "key_observations" quand une observation s'appuie sur ce contexte plutôt que sur les données de marché, et signale explicitement si un rapport manque pour une entreprise sélectionnée plutôt que de rester silencieux dessus.
 - Réponds uniquement avec le JSON.
@@ -616,7 +647,7 @@ PROMPT;
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['summary', 'methodology_explained', 'key_observations', 'notable_points', 'suggested_charts'],
+            'required' => ['summary', 'methodology_explained', 'key_observations', 'notable_points', 'suggested_charts', 'suggested_table'],
             'properties' => [
                 'summary' => ['type' => 'string'],
                 'methodology_explained' => ['type' => 'string'],
@@ -649,6 +680,31 @@ PROMPT;
                         ],
                     ],
                 ],
+                'suggested_table' => [
+                    'type' => ['object', 'null'],
+                    'additionalProperties' => false,
+                    'required' => ['title', 'description', 'columns', 'rows'],
+                    'properties' => [
+                        'title' => ['type' => 'string'],
+                        'description' => ['type' => 'string'],
+                        'columns' => [
+                            'type' => 'array',
+                            'items' => [
+                                'type' => 'object',
+                                'additionalProperties' => false,
+                                'required' => ['key', 'label'],
+                                'properties' => [
+                                    'key' => ['type' => 'string'],
+                                    'label' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
+                        'rows' => [
+                            'type' => 'array',
+                            'items' => ['type' => 'object'],
+                        ],
+                    ],
+                ],
             ],
         ];
     }
@@ -673,6 +729,7 @@ PROMPT;
             'key_observations' => $details['key_observations'] ?? [],
             'notable_points' => $details['notable_points'] ?? [],
             'suggested_charts' => $details['suggested_charts'] ?? [],
+            'suggested_table' => $details['suggested_table'] ?? null,
             'disclaimer' => self::DISCLAIMER,
             'cached' => $cached,
             'created_at' => $row['created_at'] ?? null,

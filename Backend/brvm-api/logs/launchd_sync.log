@@ -406,3 +406,10 @@ Stack trace:
 [2026-08-06 16:35:14][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-08-06 16:35:14][INFO] Lock supprimé
 [2026-08-06 16:35:14] === Fin run_daily_sync.sh (code 0) ===
+[2026-08-06 22:40:35] === Démarrage run_daily_sync.sh ===
+[2026-08-06 22:40:35] MySQL injoignable sur 127.0.0.1:3306, démarrage de MAMP...
+[2026-08-06 22:40:39] MySQL prêt après 2s
+[2026-08-06 22:40:51][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-06 22:40:51][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-08-06 22:40:51][INFO] Lock supprimé
+[2026-08-06 22:40:51] === Fin run_daily_sync.sh (code 1) ===

@@ -175,3 +175,6 @@
 [2026-08-06 16:35:14][INFO] Anciens logs supprimés
 [2026-08-06 16:35:14][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-08-06 16:35:14][INFO] Lock supprimé
+[2026-08-06 22:40:51][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-06 22:40:51][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-08-06 22:40:51][INFO] Lock supprimé

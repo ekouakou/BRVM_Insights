@@ -276,6 +276,7 @@ export interface ChartAnalysisResult {
   key_observations: string[]
   notable_points: string[]
   suggested_charts: SuggestedChart[]
+  suggested_table: SuggestedTable | null
   disclaimer: string
   cached: boolean
   created_at: string | null
@@ -297,6 +298,23 @@ export interface SuggestedChart {
   x_field: string
   x_label: string
   series: { field: string; label: string }[]
+}
+
+/**
+ * Tableau de synthèse proposé par l'IA (voir ChartAnalysisService::buildPrompt())
+ * — contrairement à `SuggestedChart` (qui ne fait que retracer des champs
+ * déjà présents dans les données), les colonnes ici peuvent être
+ * synthétisées par l'IA elle-même (ex: une colonne "raison" justifiant une
+ * sélection/un classement). `null` si l'IA n'a rien jugé utile d'ajouter.
+ * `label` de chaque colonne = libellé humain fourni par l'IA ; `key` = clé
+ * technique à utiliser pour lire chaque ligne de `rows`, jamais à afficher
+ * telle quelle.
+ */
+export interface SuggestedTable {
+  title: string
+  description: string
+  columns: { key: string; label: string }[]
+  rows: Record<string, string | number | null>[]
 }
 
 /** Indice base 100 par secteur (api_quotes.php, action sector_performance). */

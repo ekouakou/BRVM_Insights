@@ -1,6 +1,6 @@
 # Analyse IA des graphes de comparaison
 
-## ✅ Implémentation complète (06/08/2026, neuf tranches)
+## ✅ Implémentation complète (06/08/2026, dix tranches)
 
 Infrastructure générique + intégration sur tous les chart_type du
 périmètre + retrofit multi-fournisseurs des 3 systèmes d'analyse IA
@@ -10,7 +10,40 @@ côte-à-côte + enrichissement du prompt de Comparaison + les 3 graphes de
 flottant) + notation par étoiles et affichage d'historique redesigné +
 relancer/supprimer une analyse + 3ème fournisseur IA (Grok/xAI) + choix du
 modèle à l'écran + graphes complémentaires proposés par l'IA + période
-d'analyse explicite (voir 4ème à 9ème tranches ci-dessous).
+d'analyse explicite + tableau de synthèse proposé par l'IA (voir 4ème à
+10ème tranches ci-dessous).
+
+**10ème tranche (sur demande, à propos de l'écran Screener)** : en plus des
+graphes complémentaires (8ème tranche), l'IA peut désormais proposer UN
+tableau de synthèse (`suggested_table`) dérivé de sa propre analyse —
+utile en particulier sur le Screener, dont le but est justement de
+resélectionner/classer des entreprises selon plusieurs critères à la fois.
+- Différence clé avec `suggested_charts` : ce dernier ne fait que retracer
+  des champs déjà présents dans les données (x_field/series doivent exister
+  tels quels) ; `suggested_table` autorise l'IA à synthétiser ses PROPRES
+  colonnes (ex: une colonne "raison" justifiant pourquoi une ligne a été
+  retenue) — à condition que chaque ligne corresponde à une entité
+  réellement présente dans les données fournies (même symbole/nom exact,
+  jamais une entreprise inventée), contrainte rappelée deux fois dans le
+  prompt (règles impératives + description du champ).
+- `ChartAnalysisService::buildPrompt()`/`responseSchema()` — nouveau champ
+  nullable `suggested_table: {title, description, columns: [{key, label}],
+  rows: [{...}]} | null`. Renvoie `null` (pas un objet avec des tableaux
+  vides) si aucune sélection/synthèse n'apporte de valeur ajoutée réelle.
+- Frontend : `lib/types.ts::SuggestedTable` + rendu directement dans
+  `ChartAiAnalysis.tsx` (pas de composant dédié comme
+  `SuggestedChartRenderer` — un tableau HTML simple suffit, pas de
+  validation de champs numériques nécessaire puisque les valeurs sont déjà
+  du texte/nombres bruts fournis par l'IA sous les clés qu'elle a
+  elle-même déclarées dans `columns`).
+- Testé avec un vrai appel IA (Gemini, provider par défaut) sur le
+  `chart_type` `screener` : tableau reçu avec une colonne "raison"
+  correctement synthétisée par entreprise, uniquement sur les 3 symboles
+  du jeu de données de test (aucune entreprise inventée).
+- Portée générique (tous les `chart_type` de `ChartAnalysisService`, pas
+  seulement `screener`) — cohérent avec `suggested_charts`, qui est déjà
+  générique et où l'IA choisit elle-même 0 à N propositions selon la
+  pertinence plutôt que d'être limitée à un seul écran.
 
 **9ème tranche (sur demande)** : l'analyse IA doit mentionner explicitement
 la période couverte par la sélection — jusqu'ici `ChartAnalysisService`

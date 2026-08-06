@@ -255,6 +255,37 @@ export function ChartAiAnalysis({
             </div>
           )}
 
+          {shown.suggested_table && (
+            <div>
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                {shown.suggested_table.title}
+              </h4>
+              <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">{shown.suggested_table.description}</p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      {shown.suggested_table.columns.map((col) => (
+                        <th key={col.key} className="pb-2 pr-3">{col.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.suggested_table.rows.map((row, i) => (
+                      <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                        {shown.suggested_table!.columns.map((col) => (
+                          <td key={col.key} className="py-2 pr-3 text-gray-700 dark:text-gray-300">
+                            {row[col.key] ?? '—'}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs italic text-gray-400 dark:text-gray-500">
               {shown.provider}/{shown.model} — {shown.created_at}
