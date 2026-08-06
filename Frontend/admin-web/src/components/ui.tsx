@@ -147,6 +147,47 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   )
 }
 
+/**
+ * Notation par étoiles (1-5), utilisée sur l'historique des analyses IA.
+ * `onChange` absent = lecture seule (étoiles non cliquables) ; sinon chaque
+ * étoile déclenche immédiatement `onChange` (pas de bouton "valider" séparé).
+ */
+export function StarRating({
+  value,
+  onChange,
+  size = 'sm',
+}: {
+  value: number | null
+  onChange?: (rating: number) => void
+  size?: 'sm' | 'md'
+}) {
+  const textSize = size === 'md' ? 'text-lg' : 'text-sm'
+  return (
+    <div className="flex items-center gap-0.5" role={onChange ? 'radiogroup' : undefined} aria-label="Note">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          disabled={!onChange}
+          onClick={(e) => {
+            e.stopPropagation()
+            onChange?.(star)
+          }}
+          aria-label={`${star} étoile${star > 1 ? 's' : ''}`}
+          aria-pressed={value !== null && star <= value}
+          className={`leading-none ${textSize} ${onChange ? 'cursor-pointer' : 'cursor-default'} ${
+            value !== null && star <= value
+              ? 'text-amber-400'
+              : 'text-gray-300 dark:text-gray-700' + (onChange ? ' hover:text-amber-300' : '')
+          }`}
+        >
+          ★
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select

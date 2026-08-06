@@ -24,6 +24,7 @@ AuthGuard::requireAuth();
 require_once 'class/AiClientInterface.php';
 require_once 'class/GeminiClient.php';
 require_once 'class/AnthropicClient.php';
+require_once 'class/GrokClient.php';
 require_once 'class/MarketBulletinAnalysisService.php';
 require_once 'class/BulletinComparisonService.php';
 

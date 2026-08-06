@@ -1,14 +1,163 @@
 # Analyse IA des graphes de comparaison
 
-## ✅ Implémentation complète (05/08/2026, quatre tranches)
+## ✅ Implémentation complète (06/08/2026, huit tranches)
 
 Infrastructure générique + intégration sur tous les chart_type du
 périmètre + retrofit multi-fournisseurs des 3 systèmes d'analyse IA
 préexistants du projet + granularité de sélection par ligne + vue
 côte-à-côte + enrichissement du prompt de Comparaison + les 3 graphes de
 `Comparison.tsx` (Cours comparés, Volumes intrajournaliers, Rotation du
-flottant) + notation par étoiles et affichage d'historique redesigné (voir
-4ème tranche ci-dessous).
+flottant) + notation par étoiles et affichage d'historique redesigné +
+relancer/supprimer une analyse + 3ème fournisseur IA (Grok/xAI) + choix du
+modèle à l'écran + graphes complémentaires proposés par l'IA (voir 4ème à
+8ème tranches ci-dessous).
+
+**8ème tranche (sur demande)** : l'IA propose elle-même, en plus de son
+analyse texte, jusqu'à 3 graphes complémentaires calculés à partir des
+mêmes données déjà envoyées — implémenté uniquement sur
+`ChartAnalysisService`/`ChartAiAnalysis.tsx` (les 15 chart_type), pas sur
+les 3 autres systèmes (rapport/comparaison/combinée) où la notion de
+"graphe complémentaire" est moins naturelle.
+- `ChartAnalysisService::buildPrompt()`/`responseSchema()` — nouveau champ
+  `suggested_charts: [{title, description, chart_type: line|bar, x_field,
+  series[]}]`. Contrainte stricte donnée à l'IA dans le prompt :
+  `x_field`/`series` doivent être des noms de champs **réellement
+  présents** dans les données JSON déjà fournies, structurées comme une
+  liste plate d'enregistrements — sinon renvoyer un tableau vide plutôt
+  que de forcer une proposition inadaptée (beaucoup des 15 chart_type
+  envoient des données imbriquées par entreprise, ou un objet unique comme
+  la matrice de `correlation` — pas exploitables par ce schéma générique).
+- Frontend : `lib/types.ts::SuggestedChart` + nouveau
+  `components/SuggestedChartRenderer.tsx` — reconstruit dynamiquement un
+  `<LineChart>`/`<BarChart>` Recharts à partir du spec IA, mais **valide
+  d'abord** que `x_field` et au moins un `series` existent réellement (et
+  sont numériques) dans les données envoyées ; si rien ne correspond,
+  n'affiche rien silencieusement plutôt qu'un graphe vide/cassé — seule
+  autorité réelle sur ce qui s'affiche, le prompt ne fait que réduire le
+  risque côté IA, il ne le supprime pas.
+- Limite connue et assumée : pour les analyses affichées depuis
+  l'historique (pas la dernière lancée), le graphe re-rendu utilise les
+  données *actuellement* sélectionnées à l'écran, pas un instantané des
+  données au moment de cette analyse passée (jamais stockées telles
+  quelles en base, seul `data_points_count` l'est, pour rester léger) — la
+  validation des noms de champs continue de fonctionner, seules les
+  valeurs peuvent différer si la sélection a changé depuis.
+- **Correctif le jour même** : la 1ère version affichait les noms de clé JSON
+  bruts (`net_return_percent`) comme libellés de légende/tooltip —
+  incompréhensible pour l'utilisateur. Corrigé en demandant aussi à l'IA
+  un libellé humain en français pour chaque champ (`x_label` pour l'axe X,
+  `label` par série, ex: "Rendement net (%)"), passé au `name` des
+  `<Bar>`/`<Line>` Recharts. `series` est passé de `string[]` à
+  `{field, label}[]` (backend + `lib/types.ts` + `SuggestedChartRenderer`
+  mis à jour en cohérence). Revérifié avec un vrai appel IA : libellés
+  humains corrects ("Rendement net (%)", "Volatilité cumulée (%)", "Ratio
+  ajusté du risque").
+- **2ème correctif le jour même** : ce changement de schéma ("series"
+  string[] → {field,label}[]) a cassé l'affichage des entrées d'historique
+  déjà enregistrées avant le changement — `s.field` valait `undefined`
+  pour ces anciennes lignes (stockées avec l'ancien format), donc tous les
+  champs étaient filtrés comme invalides et le graphe entier disparaissait
+  silencieusement en cliquant sur une entrée d'historique ancienne (le
+  bug remonté par l'utilisateur). `SuggestedChartRenderer` normalise
+  maintenant `series` pour accepter les deux formats (`normalizeSeries()`
+  — une entrée `string` devient `{field: s, label: s}`, dégradation
+  propre : le nom technique sert de libellé pour les anciennes entrées qui
+  n'en avaient pas d'autre) et retombe sur `x_field` si `x_label` est
+  absent. Vérifié contre une vraie ligne de la table `chart_analyses`
+  encore au format `series: string[]` (id=14) : s'affiche maintenant
+  correctement.
+- Testé avec 2 vrais appels IA (Gemini) : données plates (`risk_adjusted`)
+  → 2 graphes proposés avec des noms de champs réels et exploitables ;
+  données non plates (matrice `correlation`) → tableau vide comme
+  demandé, conformément à la consigne du prompt.
+
+**7ème tranche (sur demande)** : sélection du **modèle** IA à utiliser,
+pas seulement du fournisseur, sur les 4 écrans qui ont un sélecteur de
+fournisseur (`ChartAiAnalysis.tsx`, `Analysis.tsx`, `Comparison.tsx`,
+`Combined.tsx`) :
+- `lib/aiModels.ts` (nouveau) — catalogue de modèles connus par
+  fournisseur (`AI_MODELS`), à titre de suggestions seulement : le champ
+  reste un texte libre (via `<input list="...">` + `<datalist>`, pas un
+  `<Select>` fermé) pour ne jamais bloquer un nom de modèle légitime que
+  cette liste n'aurait pas encore. Vide = le backend garde son modèle par
+  défaut pour le fournisseur choisi (comportement déjà existant, inchangé).
+  Changer de fournisseur réinitialise le modèle choisi (un nom de modèle
+  Anthropic n'a pas de sens une fois basculé sur Gemini/Grok).
+- `ChartAiAnalysis.tsx` et `Combined.tsx` n'avaient aucun champ modèle du
+  tout (ajouté) ; `Analysis.tsx`/`Comparison.tsx` avaient déjà un champ
+  texte libre sans suggestions (converti en `<datalist>`). Aucun
+  changement backend nécessaire : `model` en paramètre optionnel était
+  déjà supporté partout.
+- `id` du `<datalist>` généré via `useId()` (React) plutôt qu'une chaîne
+  statique — `ChartAiAnalysis.tsx` est instancié plusieurs fois sur une
+  même page (ex: 5 fois sur `MarketHealth.tsx`), un id statique aurait
+  créé des doublons invalides et fait pointer `list=` vers le mauvais
+  datalist.
+
+**6ème tranche (sur demande)** : ajout de **Grok (xAI)** comme 3ème
+fournisseur IA disponible, à côté de Gemini et Anthropic, sur l'ensemble
+des systèmes d'analyse IA du projet (pas seulement ceux de ce document) :
+- `class/GrokClient.php` (nouveau) — implémente `AiClientInterface`, même
+  approche curl direct que `GeminiClient`/`AnthropicClient` (pas de SDK).
+  API Chat Completions compatible OpenAI (`https://api.x.ai/v1/chat/completions`,
+  auth `Authorization: Bearer`), mode JSON forcé via
+  `response_format: json_object` (comme Gemini : pas de validation
+  structurelle du schéma côté client, le prompt décrit le schéma attendu).
+  Modèle par défaut `grok-4-fast-reasoning` — **à vérifier/ajuster** si ce
+  nom de modèle a changé côté xAI d'ici que ce soit utilisé en prod
+  (surchargeable via le paramètre `model`, comme les 2 autres fournisseurs).
+  Gère les deux formes d'erreur observées côté xAI (`error` en chaîne simple
+  pour les erreurs de facturation/permissions, `error.message` en objet pour
+  les erreurs de validation).
+- `'grok' => ['class' => 'GrokClient', 'default_model' => 'grok-4-fast-reasoning']`
+  ajouté au registre `PROVIDERS` des **6 services d'analyse IA du projet** :
+  `ChartAnalysisService`, `ReportAnalysisService`, `ReportComparisonService`,
+  `CombinedAnalysisService`, `MarketBulletinAnalysisService`,
+  `BulletinComparisonService` — + `require_once 'class/GrokClient.php'`
+  sur leurs 6 contrôleurs `api_*.php` respectifs. Les 2 services de mise en
+  forme markdown (`ReportMarkdownFormatterService`,
+  `BulletinMarkdownFormatterService`) sont volontairement laissés de côté :
+  ce sont des utilitaires de reformatage, pas de l'"analyse".
+- Frontend : option "Grok" ajoutée aux sélecteurs de fournisseur existants
+  (`ChartAiAnalysis.tsx`, `Analysis.tsx`, `Comparison.tsx`) ; `Combined.tsx`
+  n'avait **aucun** sélecteur (fournisseur `'gemini'` codé en dur) — un
+  sélecteur complet a été ajouté pour que Grok (et Anthropic) y soient
+  aussi utilisables. `Bulletins.tsx` reste hors scope : le fournisseur y
+  est codé en dur `'gemini'` sur 4+ points d'appel sans aucun sélecteur
+  existant à étendre — ajouter un sélecteur là-bas serait un chantier
+  séparé, pas un simple ajout d'option à un menu déroulant existant.
+- Testé avec un vrai appel à l'API xAI (clé ajoutée dans `.env` par
+  l'utilisateur) : la connexion, l'authentification et le parsing
+  d'erreur fonctionnent correctement — seul un compte xAI sans crédit/
+  licence bloque l'appel réel pour l'instant (erreur 403 côté xAI,
+  correctement remontée avec un message clair, rien à corriger côté code).
+
+**5ème tranche (sur demande)** : bouton "Relancer (remplacer)" et bouton
+"Supprimer" sur chaque analyse enregistrée, sur les 4 systèmes :
+- Relancer : `ChartAiAnalysis.tsx` n'avait pas de bouton `force_refresh`
+  (contrairement aux 3 pages préexistantes, qui l'avaient déjà) — ajouté,
+  réutilise le mécanisme `force_refresh` déjà géré par
+  `ChartAnalysisService::analyze()` (UPDATE de la ligne existante plutôt
+  qu'un INSERT, `rating`/`notes` non touchés puisqu'absents du tableau de
+  colonnes mises à jour). Aucun changement backend nécessaire pour ce
+  point, uniquement le bouton côté frontend.
+- Supprimer : nouvelle méthode `remove(int $id): void` sur les 4 services
+  (`ChartAnalysisService`, `ReportAnalysisService`,
+  `ReportComparisonService`, `CombinedAnalysisService` — `$crud->remove()`
+  sur la table concernée, lève une exception si l'id n'existe pas) +
+  nouvelle action `delete` sur les 4 contrôleurs. Aucune migration
+  nécessaire (suppression d'une ligne existante par PK). Testé contre
+  données réelles (lignes de test jetables insérées puis supprimées) sur
+  les 4 services, y compris le cas d'erreur id inexistant.
+- Frontend : nouvelle icône `TrashIcon` (`components/icons.tsx`), bouton
+  supprimer (`IconButton tone="danger"`) ajouté dans
+  `AnalysisHistoryList.tsx` (prop `onDelete` optionnelle — nouveau champ à
+  côté des étoiles) ainsi que sur le panneau de résultat couramment
+  affiché des 4 systèmes, avec confirmation (`window.confirm`) avant
+  suppression (action irréversible). Supprimer l'analyse actuellement
+  affichée la fait disparaître de l'affichage (réinitialisation de
+  `historyOverride`/de la mutation, et des sélections A/B en mode
+  côte-à-côte si elles pointaient sur l'entrée supprimée).
 
 **4ème tranche (sur demande)** : notation (1-5 étoiles) et commentaire
 libre sur chaque entrée d'historique, + refonte visuelle de l'affichage de

@@ -13,6 +13,7 @@ class BulletinComparisonService {
     private const PROVIDERS = [
         'anthropic' => ['class' => 'AnthropicClient', 'default_model' => 'claude-opus-5'],
         'gemini' => ['class' => 'GeminiClient', 'default_model' => 'gemini-flash-lite-latest'],
+        'grok' => ['class' => 'GrokClient', 'default_model' => 'grok-4-fast-reasoning'],
     ];
     private const DEFAULT_PROVIDER = 'gemini';
     private const DISCLAIMER = "Analyse générée automatiquement à titre informatif, "

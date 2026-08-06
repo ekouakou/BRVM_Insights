@@ -14,6 +14,26 @@ export interface CompanyQuoteRow {
   turnover: string | number
 }
 
+/** Classement par volume total sur une période (api_quotes.php, action volume_ranking). */
+export interface VolumeRankingRow {
+  company_id: number
+  symbol: string
+  name: string
+  sector: string | null
+  /** Actions en circulation (émises) — PAS un stock "à vendre", aucun carnet d'ordres public à la BRVM. Null si non renseigné. */
+  shares_outstanding: number | null
+  /** "Vendu" — volume total échangé sur la période. */
+  total_volume: number
+  total_turnover: number
+  trading_days: number
+  /** total_volume / shares_outstanding × 100. Null si shares_outstanding inconnu. */
+  turnover_percent: number | null
+  /** "Restant" — estimation basse (shares_outstanding - total_volume, plafonnée à 0). Null si shares_outstanding inconnu. */
+  shares_remaining_estimate: number | null
+  /** true si le volume échangé dépasse les actions en circulation (capital retradé au moins 1x en moyenne sur la période). */
+  fully_rotated: boolean
+}
+
 export interface MarketOverview {
   date: string
   statistics: {
@@ -177,6 +197,45 @@ export interface PriceAlertCheckResult {
   }[]
   checked_count: number
   triggered_count: number
+}
+
+/** Résultat d'analyse IA d'un graphe/tableau (api_chart_analysis.php). */
+export interface ChartAnalysisResult {
+  id: number
+  chart_type: string
+  parameters: Record<string, unknown>
+  provider: string
+  model: string
+  status: 'success' | 'failed'
+  error_message: string | null
+  rating: number | null
+  notes: string | null
+  summary: string | null
+  methodology_explained: string | null
+  key_observations: string[]
+  notable_points: string[]
+  suggested_charts: SuggestedChart[]
+  disclaimer: string
+  cached: boolean
+  created_at: string | null
+}
+
+/**
+ * Graphe complémentaire proposé par l'IA à partir des données déjà
+ * envoyées (voir ChartAnalysisService::buildPrompt()) — pas de garantie
+ * que x_field/series existent réellement dans les données : à valider
+ * avant rendu (voir components/SuggestedChartRenderer.tsx). `label`/
+ * `x_label` sont les libellés humains fournis par l'IA — `field`/`x_field`
+ * ne doivent jamais être affichés tels quels (ce sont des noms de clé
+ * JSON bruts, ex: "net_return_percent").
+ */
+export interface SuggestedChart {
+  title: string
+  description: string
+  chart_type: 'line' | 'bar'
+  x_field: string
+  x_label: string
+  series: { field: string; label: string }[]
 }
 
 /** Indice base 100 par secteur (api_quotes.php, action sector_performance). */
@@ -363,6 +422,7 @@ export interface ValuationAssessment {
 }
 
 export interface ReportAnalysis {
+  id: number
   report: { id: number; title: string; report_type: string; publish_date: string | null }
   company: { id: number; symbol: string; name: string }
   provider: string
@@ -370,6 +430,8 @@ export interface ReportAnalysis {
   market_context_date: string | null
   status: 'success' | 'failed'
   error_message: string | null
+  rating: number | null
+  notes: string | null
   analysis: {
     executive_summary: string
     company_overview?: string | null
@@ -396,6 +458,7 @@ export interface ReportAnalysis {
 }
 
 export interface ComparisonResult {
+  id: number
   company_ids: number[]
   report_ids: number[]
   start_date: string
@@ -405,6 +468,8 @@ export interface ComparisonResult {
   model: string
   status: 'success' | 'failed'
   error_message: string | null
+  rating: number | null
+  notes: string | null
   analysis: {
     comparative_summary: string
     trend_analysis?: { company_symbol: string; company_name: string; narrative: string; revenue_trend_percent: number | null; net_income_trend_percent: number | null }[]
@@ -420,6 +485,7 @@ export interface ComparisonResult {
   } | null
   disclaimer: string
   cached: boolean
+  created_at: string | null
 }
 
 export interface BulletinSummary {
@@ -545,12 +611,15 @@ export interface BulletinComparisonResult {
 }
 
 export interface CombinedAnalysisResult {
+  id: number
   report_ids: number[]
   bulletin_ids: number[]
   provider: string
   model: string
   status: 'success' | 'failed'
   error_message: string | null
+  rating: number | null
+  notes: string | null
   analysis: {
     combined_overview: string
     company_performance_notes: { company_symbol: string; company_name: string; narrative: string }[]
@@ -572,4 +641,5 @@ export interface CombinedAnalysisResult {
   skipped_bulletins: { bulletin_id: number; reason: string }[]
   disclaimer: string
   cached: boolean
+  created_at: string | null
 }

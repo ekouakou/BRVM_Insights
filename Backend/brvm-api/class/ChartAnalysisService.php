@@ -18,6 +18,7 @@ class ChartAnalysisService {
     private const PROVIDERS = [
         'anthropic' => ['class' => 'AnthropicClient', 'default_model' => 'claude-opus-5'],
         'gemini' => ['class' => 'GeminiClient', 'default_model' => 'gemini-flash-lite-latest'],
+        'grok' => ['class' => 'GrokClient', 'default_model' => 'grok-4-fast-reasoning'],
     ];
     private const DEFAULT_PROVIDER = 'gemini';
     private const DISCLAIMER = "Analyse générée automatiquement à titre informatif, "
@@ -125,6 +126,20 @@ class ChartAnalysisService {
             "période). 'Flottant réel' = capitalisation flottante ÷ capitalisation totale (donnée BRVM) : une " .
             "valeur faible signifie qu'une grande part du capital est verrouillée chez un actionnaire de " .
             "contrôle et n'est jamais mise en vente, indépendamment du nombre total d'actions émises.",
+        'volume_ranking' =>
+            "Classement de toutes les entreprises actives par volume total d'actions échangées sur la période " .
+            "sélectionnée (somme du volume quotidien sur chaque séance de la plage de dates, api_quotes.php, " .
+            "action 'volume_ranking'). Une entreprise sans transaction sur la période apparaît quand même, à 0, " .
+            "plutôt que d'être exclue du classement. Un volume total élevé traduit une forte activité de " .
+            "négociation cumulée sur la période, pas nécessairement un mouvement de prix — à croiser avec le " .
+            "nombre de jours de cotation (une entreprise peu suivie peut avoir peu de séances avec transaction) " .
+            "pour interpréter le classement. Inclut aussi, quand la donnée est disponible (companies." .
+            "shares_outstanding, scrapée ponctuellement, pas à chaque synchro) : le nombre total d'actions en " .
+            "circulation (émises, PAS un stock 'à vendre' — la BRVM ne publie pas de carnet d'ordres public), " .
+            "le taux de rotation (volume échangé ÷ actions en circulation, en %), et une estimation basse du " .
+            "nombre d'actions n'ayant pas retrouvé d'acheteur sur la période (actions en circulation - volume " .
+            "échangé, plafonnée à 0 — les mêmes titres peuvent être retradés plusieurs fois, donc cette " .
+            "estimation ne veut pas dire que ces actions précises sont restées immobiles).",
     ];
 
     private $crud;
@@ -164,7 +179,7 @@ class ChartAnalysisService {
             return $this->formatResult($existingRow, true);
         }
 
-        $prompt = $this->buildPrompt($chartType, $data);
+        $prompt = $this->buildPrompt($chartType, $parameters, $data);
         $client = $this->createClient($provider);
         $aiResult = $client->generateContent($prompt, $model, $this->responseSchema());
 
@@ -184,6 +199,7 @@ class ChartAnalysisService {
                 'methodology_explained' => $d['methodology_explained'] ?? null,
                 'key_observations' => $d['key_observations'] ?? [],
                 'notable_points' => $d['notable_points'] ?? [],
+                'suggested_charts' => $d['suggested_charts'] ?? [],
             ], JSON_UNESCAPED_UNICODE);
             $row['status'] = 'success';
             $row['error_message'] = null;
@@ -234,6 +250,19 @@ class ChartAnalysisService {
     }
 
     /**
+     * Supprime une analyse enregistrée — libère le (request_hash, provider,
+     * model) correspondant, un nouveau clic sur "Analyser" redéclenchera un
+     * appel IA plutôt que de retomber sur une ligne déjà supprimée.
+     */
+    public function remove(int $id): void {
+        $row = $this->crud->findById('chart_analyses', $id);
+        if (!$row) {
+            throw new Exception("Analyse non trouvée (id=$id)");
+        }
+        $this->crud->remove('chart_analyses', ['id' => $id]);
+    }
+
+    /**
      * Note (1-5 étoiles) et/ou commentaire libre sur une analyse déjà
      * enregistrée — $rating à null efface la note, $notes à null (et non
      * absent) efface le commentaire ; seuls les champs explicitement
@@ -279,9 +308,49 @@ class ChartAnalysisService {
         return new $class();
     }
 
-    private function buildPrompt(string $chartType, array $data): string {
+    /**
+     * Formule en français la période couverte par les paramètres de
+     * sélection (start_date/end_date/date/days — les combinaisons varient
+     * selon le chart_type, voir les usages de <ChartAiAnalysis> côté
+     * frontend) — calculée ici, jamais laissée à la charge de l'IA, pour
+     * que la période affichée soit toujours exacte plutôt que déduite/
+     * devinée à partir des seules données. Retourne null si aucun indice
+     * de période n'est présent dans les paramètres (rare, mais possible).
+     */
+    private function formatPeriod(array $parameters): ?string {
+        $start = $parameters['start_date'] ?? null;
+        $end = $parameters['end_date'] ?? null;
+        $date = $parameters['date'] ?? null;
+        $days = $parameters['days'] ?? null;
+
+        if ($start && $end) {
+            return $start === $end ? "le $start" : "du $start au $end";
+        }
+        if ($date) {
+            return "le $date";
+        }
+        if ($days && $end) {
+            return "les $days derniers jours (jusqu'au $end)";
+        }
+        if ($days) {
+            return "les $days derniers jours";
+        }
+        if ($start) {
+            return "depuis le $start";
+        }
+        if ($end) {
+            return "jusqu'au $end";
+        }
+        return null;
+    }
+
+    private function buildPrompt(string $chartType, array $parameters, array $data): string {
         $methodology = self::METHODOLOGY[$chartType];
         $dataJson = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $period = $this->formatPeriod($parameters);
+        $periodBlock = $period
+            ? "Période couverte par ces données : $period. Mentionne explicitement cette période dans ton résumé (\"summary\") — ne la déduis jamais toi-même à partir des données, utilise exactement celle donnée ici."
+            : "Aucune période explicite n'a été fournie pour cette sélection — ne mentionne pas de période si tu ne peux pas la déduire avec certitude des données elles-mêmes.";
 
         return <<<PROMPT
 Tu es un analyste financier senior spécialisé sur les marchés actions
@@ -294,8 +363,34 @@ restituer en langage clair dans ta réponse, pas seulement à utiliser en
 silence) :
 $methodology
 
+$periodBlock
+
 Données à analyser (JSON) :
 $dataJson
+
+En plus de ton analyse, propose entre 0 et 3 graphes complémentaires
+("suggested_charts") qui aideraient à mieux comprendre CES MÊMES données
+sous un autre angle (ex: isoler un sous-ensemble, changer la métrique
+affichée, comparer deux séries entre elles) — pas un graphe qui
+nécessiterait des données que tu n'as pas reçues ci-dessus.
+
+Contrainte stricte sur "suggested_charts" : chaque graphe proposé doit
+être directement calculable à partir du JSON fourni ci-dessus, structuré
+comme une liste d'enregistrements (objets avec les mêmes clés). "x_field"
+doit être le nom exact d'une clé de ces enregistrements à utiliser en axe
+X (souvent une date), et chaque entrée de "series" doit référencer le nom
+exact d'une clé numérique de ces enregistrements à tracer en Y. N'invente
+jamais un nom de champ absent des données. Si les données fournies ne sont
+PAS structurées comme une liste plate d'enregistrements exploitable ainsi
+(ex: une matrice, un objet unique imbriqué), renvoie un tableau vide pour
+"suggested_charts" plutôt que de forcer une proposition inadaptée.
+
+Chaque champ technique (x_field, et le "field" de chaque série) doit être
+accompagné d'un libellé humain, clair et en français, à afficher à la
+place du nom technique (jamais le nom de clé JSON brut du type
+"net_return_percent" — l'utilisateur final ne doit jamais voir ces noms
+techniques, seulement tes libellés) : "x_label" pour l'axe X, "label" pour
+chaque série (avec l'unité si pertinent, ex: "Rendement net (%)").
 
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte (aucun texte
 avant/après, pas de balises markdown) :
@@ -304,13 +399,27 @@ avant/après, pas de balises markdown) :
   "summary": "résumé général en 2-4 phrases de ce que montrent ces données",
   "methodology_explained": "explication en langage clair et accessible de comment ces chiffres ont été calculés, reformulée à partir de la méthode fournie ci-dessus pour quelqu'un qui ne connaît pas le jargon technique",
   "key_observations": ["observation factuelle 1 sur les données", "observation factuelle 2", "..."],
-  "notable_points": ["point notable 1 (valeur extrême, divergence, anomalie...) s'il y en a — sinon tableau vide", "..."]
+  "notable_points": ["point notable 1 (valeur extrême, divergence, anomalie...) s'il y en a — sinon tableau vide", "..."],
+  "suggested_charts": [
+    {
+      "title": "titre court du graphe proposé",
+      "description": "pourquoi ce graphe apporte un angle différent de celui déjà affiché",
+      "chart_type": "line ou bar",
+      "x_field": "nom exact du champ à utiliser en axe X",
+      "x_label": "libellé humain en français pour l'axe X, ex: \"Entreprise\" ou \"Date\"",
+      "series": [
+        {"field": "nom exact du champ numérique", "label": "libellé humain en français, avec unité si pertinent"}
+      ]
+    }
+  ]
 }
 
 Règles impératives :
 - N'invente aucun chiffre : base-toi uniquement sur les données fournies ci-dessus.
 - Reste factuel et neutre : jamais de recommandation d'achat/vente explicite.
 - Si les données sont insuffisantes pour une observation pertinente, dis-le plutôt que d'inventer.
+- N'invente aucun nom de champ dans "suggested_charts" — uniquement des clés réellement présentes dans les données fournies. Dans le doute, renvoie un tableau vide.
+- N'affiche jamais un nom de clé JSON brut comme libellé — toujours un "label"/"x_label" humain et compréhensible.
 - Réponds uniquement avec le JSON.
 PROMPT;
     }
@@ -319,23 +428,52 @@ PROMPT;
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['summary', 'methodology_explained', 'key_observations', 'notable_points'],
+            'required' => ['summary', 'methodology_explained', 'key_observations', 'notable_points', 'suggested_charts'],
             'properties' => [
                 'summary' => ['type' => 'string'],
                 'methodology_explained' => ['type' => 'string'],
                 'key_observations' => ['type' => 'array', 'items' => ['type' => 'string']],
                 'notable_points' => ['type' => 'array', 'items' => ['type' => 'string']],
+                'suggested_charts' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'required' => ['title', 'description', 'chart_type', 'x_field', 'x_label', 'series'],
+                        'properties' => [
+                            'title' => ['type' => 'string'],
+                            'description' => ['type' => 'string'],
+                            'chart_type' => ['enum' => ['line', 'bar']],
+                            'x_field' => ['type' => 'string'],
+                            'x_label' => ['type' => 'string'],
+                            'series' => [
+                                'type' => 'array',
+                                'items' => [
+                                    'type' => 'object',
+                                    'additionalProperties' => false,
+                                    'required' => ['field', 'label'],
+                                    'properties' => [
+                                        'field' => ['type' => 'string'],
+                                        'label' => ['type' => 'string'],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
             ],
         ];
     }
 
     private function formatResult(array $row, bool $cached): array {
         $details = json_decode($row['details'] ?? 'null', true) ?: [];
+        $parameters = json_decode($row['parameters'], true) ?: [];
 
         return [
             'id' => (int) $row['id'],
             'chart_type' => $row['chart_type'],
-            'parameters' => json_decode($row['parameters'], true),
+            'parameters' => $parameters,
+            'period' => $this->formatPeriod($parameters),
             'provider' => $row['provider'],
             'model' => $row['model'],
             'status' => $row['status'],
@@ -346,6 +484,7 @@ PROMPT;
             'methodology_explained' => $details['methodology_explained'] ?? null,
             'key_observations' => $details['key_observations'] ?? [],
             'notable_points' => $details['notable_points'] ?? [],
+            'suggested_charts' => $details['suggested_charts'] ?? [],
             'disclaimer' => self::DISCLAIMER,
             'cached' => $cached,
             'created_at' => $row['created_at'] ?? null,

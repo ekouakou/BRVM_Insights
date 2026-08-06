@@ -15,6 +15,7 @@ import { callApi } from '../lib/apiClient'
 import type { Company, CorrelationResult, RelativeStrengthSeries, RiskAdjustedResult, TotalVariationSeries } from '../lib/types'
 import { Card, ErrorState, Input, LoadingState } from '../components/ui'
 import { colorForCompany, groupCompaniesBySector } from '../lib/companyGroups'
+import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -33,6 +34,14 @@ export function Statistics() {
   const [startDate, setStartDate] = useState(daysAgoIso(30))
   const [endDate, setEndDate] = useState(todayIso())
   const [displayMode, setDisplayMode] = useState<DisplayMode>('total')
+
+  // Sous-sélection propre à chaque tableau, indépendante de `selected` (qui
+  // pilote aussi les 3 autres graphes de cette page) — permet d'analyser un
+  // sous-ensemble des entreprises déjà comparées sans changer la sélection
+  // globale. Toujours un sous-ensemble de `selected` en pratique (ces
+  // tableaux n'affichent que les entreprises cochées ci-dessus).
+  const [correlationSelected, setCorrelationSelected] = useState<string[]>([])
+  const [riskAdjustedSelected, setRiskAdjustedSelected] = useState<number[]>([])
 
   const companiesQuery = useQuery({
     queryKey: ['companies-list'],
@@ -89,6 +98,13 @@ export function Statistics() {
 
   function toggleSelected(id: number) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  function toggleCorrelationRow(symbol: string) {
+    setCorrelationSelected((prev) => (prev.includes(symbol) ? prev.filter((s) => s !== symbol) : [...prev, symbol]))
+  }
+  function toggleRiskAdjustedRow(id: number) {
+    setRiskAdjustedSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
   // Un point par jour (agrégat quotidien par construction, pas de vue
@@ -323,6 +339,12 @@ export function Statistics() {
               ))}
             </LineChart>
           </ResponsiveContainer>
+
+          <ChartAiAnalysis
+            chartType="total_variation"
+            parameters={{ company_ids: [...selected].sort((a, b) => a - b), start_date: startDate, end_date: endDate, display_mode: displayMode }}
+            data={series}
+          />
         </Card>
       )}
 
@@ -354,6 +376,17 @@ export function Statistics() {
             <table className="text-sm">
               <thead>
                 <tr>
+                  <th className="pb-2 pr-3">
+                    <input
+                      type="checkbox"
+                      checked={correlationSelected.length === correlationQuery.data.symbols.length}
+                      onChange={() =>
+                        setCorrelationSelected(
+                          correlationSelected.length === correlationQuery.data!.symbols.length ? [] : [...correlationQuery.data!.symbols]
+                        )
+                      }
+                    />
+                  </th>
                   <th className="pb-2 pr-3"></th>
                   {correlationQuery.data.symbols.map((s) => (
                     <th key={s} className="px-2 pb-2 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
@@ -365,6 +398,13 @@ export function Statistics() {
               <tbody>
                 {correlationQuery.data.symbols.map((rowSymbol) => (
                   <tr key={rowSymbol}>
+                    <td className="pr-3">
+                      <input
+                        type="checkbox"
+                        checked={correlationSelected.includes(rowSymbol)}
+                        onChange={() => toggleCorrelationRow(rowSymbol)}
+                      />
+                    </td>
                     <td className="pr-3 text-xs font-semibold text-gray-500 dark:text-gray-400">{rowSymbol}</td>
                     {correlationQuery.data!.symbols.map((colSymbol) => {
                       const value = correlationQuery.data!.matrix[rowSymbol]?.[colSymbol] ?? null
@@ -385,6 +425,29 @@ export function Statistics() {
               </tbody>
             </table>
           </div>
+
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {correlationSelected.length > 0
+              ? `${correlationSelected.length} entreprise(s) cochée(s) — l'analyse IA portera sur ce sous-ensemble.`
+              : "Coche des entreprises ci-dessus pour restreindre l'analyse IA à un sous-ensemble (par défaut : tout le tableau)."}
+          </p>
+          <ChartAiAnalysis
+            chartType="correlation"
+            parameters={{
+              company_ids: [...selected].sort((a, b) => a - b),
+              end_date: endDate,
+              days: 90,
+              selected_symbols: correlationSelected.length > 0 ? [...correlationSelected].sort() : [...correlationQuery.data.symbols].sort(),
+            }}
+            data={
+              correlationSelected.length === 0
+                ? correlationQuery.data
+                : {
+                    ...correlationQuery.data,
+                    symbols: correlationQuery.data.symbols.filter((s) => correlationSelected.includes(s)),
+                  }
+            }
+          />
         </Card>
       )}
 
@@ -405,6 +468,17 @@ export function Statistics() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="pb-2 pr-3">
+                    <input
+                      type="checkbox"
+                      checked={riskAdjustedSelected.length === riskAdjustedQuery.data.length}
+                      onChange={() =>
+                        setRiskAdjustedSelected(
+                          riskAdjustedSelected.length === riskAdjustedQuery.data!.length ? [] : riskAdjustedQuery.data!.map((r) => r.company_id)
+                        )
+                      }
+                    />
+                  </th>
                   <th className="pb-2 pr-3">Symbole</th>
                   <th className="pb-2 pr-3">Entreprise</th>
                   <th className="pb-2 pr-3 text-right" title="(dernier cours - premier cours) / premier cours sur la période">
@@ -424,6 +498,13 @@ export function Statistics() {
               <tbody>
                 {riskAdjustedQuery.data.map((r) => (
                   <tr key={r.company_id} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="py-2 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={riskAdjustedSelected.includes(r.company_id)}
+                        onChange={() => toggleRiskAdjustedRow(r.company_id)}
+                      />
+                    </td>
                     <td className="py-2 pr-3 font-medium">{r.symbol}</td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{r.name}</td>
                     <td
@@ -448,6 +529,25 @@ export function Statistics() {
               </tbody>
             </table>
           </div>
+
+          <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {riskAdjustedSelected.length > 0
+              ? `${riskAdjustedSelected.length} entreprise(s) cochée(s) — l'analyse IA portera sur ce sous-ensemble.`
+              : "Coche des lignes ci-dessus pour restreindre l'analyse IA à un sous-ensemble (par défaut : tout le tableau)."}
+          </p>
+          <ChartAiAnalysis
+            chartType="risk_adjusted"
+            parameters={{
+              company_ids: [...selected].sort((a, b) => a - b),
+              start_date: startDate,
+              end_date: endDate,
+              selected_company_ids:
+                riskAdjustedSelected.length > 0
+                  ? [...riskAdjustedSelected].sort((a, b) => a - b)
+                  : riskAdjustedQuery.data.map((r) => r.company_id).sort((a, b) => a - b),
+            }}
+            data={riskAdjustedSelected.length === 0 ? riskAdjustedQuery.data : riskAdjustedQuery.data.filter((r) => riskAdjustedSelected.includes(r.company_id))}
+          />
         </Card>
       )}
 
@@ -489,6 +589,12 @@ export function Statistics() {
               ))}
             </LineChart>
           </ResponsiveContainer>
+
+          <ChartAiAnalysis
+            chartType="relative_strength"
+            parameters={{ company_ids: [...selected].sort((a, b) => a - b), start_date: startDate, end_date: endDate }}
+            data={relativeStrengthSeries}
+          />
         </Card>
       )}
 

@@ -29,6 +29,7 @@ AuthGuard::requireAuth();
 require_once 'class/AiClientInterface.php';
 require_once 'class/GeminiClient.php';
 require_once 'class/AnthropicClient.php';
+require_once 'class/GrokClient.php';
 require_once 'class/ReportAnalysisService.php';
 require_once 'class/ReportComparisonService.php';
 
@@ -56,6 +57,9 @@ class ReportComparisonAPI {
 
                 case 'rate':
                     return $this->rate($input);
+
+                case 'delete':
+                    return $this->delete($input);
 
                 default:
                     throw new Exception("Action non reconnue: $action");
@@ -169,6 +173,21 @@ class ReportComparisonAPI {
         $result = $service->rate($id, $rating, $notes, $ratingProvided, $notesProvided);
 
         return ['success' => true, 'data' => $result];
+    }
+
+    /**
+     * Supprime une comparaison enregistrée.
+     */
+    private function delete($input) {
+        $id = (int) ($input['id'] ?? 0);
+        if (!$id) {
+            throw new Exception("id requis");
+        }
+
+        $service = new ReportComparisonService($this->crud);
+        $service->remove($id);
+
+        return ['success' => true];
     }
 
     /**

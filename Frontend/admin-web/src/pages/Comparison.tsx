@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useId, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BarChart,
   Bar,
@@ -15,8 +15,12 @@ import {
 } from 'recharts'
 import { callApi } from '../lib/apiClient'
 import type { Company, CompanyPriceSeries, CompanyWithReports, ComparisonResult, ShareTurnover } from '../lib/types'
-import { Button, Card, ErrorState, Input, LoadingState, Select } from '../components/ui'
+import { Button, Card, ErrorState, Input, LoadingState, Select, StarRating } from '../components/ui'
+import { IconButton, TrashIcon } from '../components/icons'
 import { colorForCompany, groupCompaniesBySector } from '../lib/companyGroups'
+import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
+import { AnalysisHistoryList } from '../components/AnalysisHistoryList'
+import { AI_MODELS, type AiProvider } from '../lib/aiModels'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -28,18 +32,157 @@ function daysAgoIso(n: number) {
   return d.toISOString().slice(0, 10)
 }
 
+/**
+ * Rendu du résultat d'une comparaison — extrait en composant pour
+ * l'instancier deux fois côte à côte en mode "Comparer 2 fournisseurs".
+ */
+function ComparisonResultView({
+  result,
+  onRate,
+  onDelete,
+}: {
+  result: ComparisonResult
+  onRate?: (id: number, rating: number) => void
+  onDelete?: (id: number) => void
+}) {
+  if (!result.analysis) return null
+
+  return (
+    <div className="flex flex-col gap-6">
+      <Card>
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <span>
+            {result.companies.map((c) => c.symbol).join(', ')} · {result.start_date} → {result.end_date} · {result.provider}/{result.model}
+            {result.cached && ' · depuis le cache'}
+          </span>
+          <span className="flex items-center gap-2">
+            {onRate && <StarRating value={result.rating} onChange={(rating) => onRate(result.id, rating)} />}
+            {onDelete && (
+              <IconButton
+                title="Supprimer cette comparaison"
+                tone="danger"
+                onClick={() => {
+                  if (window.confirm('Supprimer définitivement cette comparaison ? Cette action est irréversible.')) {
+                    onDelete(result.id)
+                  }
+                }}
+              >
+                <TrashIcon />
+              </IconButton>
+            )}
+          </span>
+        </div>
+        <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">{result.analysis.comparative_summary}</p>
+      </Card>
+
+      {result.analysis.cross_company_ranking && (
+        <Card title="Classement comparatif">
+          <p className="text-sm text-gray-800 dark:text-gray-200">{result.analysis.cross_company_ranking}</p>
+        </Card>
+      )}
+
+      {result.analysis.trend_analysis && result.analysis.trend_analysis.length > 0 && (
+        <Card title="Tendance par entreprise">
+          <div className="flex flex-col gap-4">
+            {result.analysis.trend_analysis.map((t) => (
+              <div key={t.company_symbol}>
+                <div className="text-sm font-semibold">{t.company_symbol} — {t.company_name}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  CA: {t.revenue_trend_percent ?? '—'}% · Résultat net: {t.net_income_trend_percent ?? '—'}%
+                </div>
+                <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{t.narrative}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {result.analysis.price_correlation_note && (
+          <Card title="Corrélation cours / fondamentaux">
+            <p className="text-sm text-gray-800 dark:text-gray-200">{result.analysis.price_correlation_note}</p>
+          </Card>
+        )}
+        {result.analysis.risks_evolution && (
+          <Card title="Évolution des risques">
+            <p className="text-sm text-gray-800 dark:text-gray-200">{result.analysis.risks_evolution}</p>
+          </Card>
+        )}
+      </div>
+
+      {result.analysis.decision_support_notes && result.analysis.decision_support_notes.length > 0 && (
+        <Card title="Points d’appui à la décision">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {result.analysis.decision_support_notes.map((d) => (
+              <div key={d.company_symbol} className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
+                <div className="mb-1 text-sm font-semibold">{d.company_symbol}</div>
+                <div className="mb-1 text-sm"><span className="font-medium text-emerald-600 dark:text-emerald-400">Bull:</span> {d.bull_case}</div>
+                <div className="mb-1 text-sm"><span className="font-medium text-red-600 dark:text-red-400">Bear:</span> {d.bear_case}</div>
+                <ul className="mt-1 list-disc pl-4 text-xs text-gray-600 dark:text-gray-400">
+                  {d.key_watch_points.map((p, i) => <li key={i}>{p}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {result.chart_data?.price_series.map((serie) => (
+        serie.data.length >= 2 && (
+          <Card key={serie.company_id} title={`Cours — ${serie.symbol}`}>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={serie.data}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
+                <Tooltip />
+                <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </Card>
+        )
+      ))}
+
+      {result.chart_data?.financials_series.map((serie) => (
+        serie.data.length > 0 && (
+          <Card key={serie.company_id} title={`Chiffres clés dans le temps — ${serie.symbol}`}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={serie.data}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} width={80} />
+                <Tooltip />
+                <Bar dataKey="revenue" fill="#4f46e5" name="Chiffre d'affaires" />
+                <Bar dataKey="net_income" fill="#a5b4fc" name="Résultat net" />
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        )
+      ))}
+
+      <p className="text-xs italic text-gray-400">{result.disclaimer}</p>
+    </div>
+  )
+}
+
 export function Comparison() {
   // Sélection d'entreprises unique, partagée par toutes les comparaisons de
   // cette page (rapports IA, cours, volumes, rotation du flottant) — tout ce
   // qui est "comparaison entre entreprises" vit ici, plus dans la page
   // Cotations (qui reste dédiée à une entreprise à la fois).
+  const queryClient = useQueryClient()
   const [selected, setSelected] = useState<number[]>([])
+  const [historyOverride, setHistoryOverride] = useState<ComparisonResult | null>(null)
+  const [compareMode, setCompareMode] = useState(false)
+  const [compareLeftId, setCompareLeftId] = useState<number | null>(null)
+  const [compareRightId, setCompareRightId] = useState<number | null>(null)
 
   const [startDate, setStartDate] = useState('2023-01-01')
   const [endDate, setEndDate] = useState(todayIso())
   const [reportType, setReportType] = useState('')
-  const [provider, setProvider] = useState('gemini')
+  const [provider, setProvider] = useState<AiProvider>('gemini')
   const [model, setModel] = useState('')
+  const modelListId = useId()
 
   const [priceGranularity, setPriceGranularity] = useState<'daily' | 'intraday'>('daily')
   const [priceStartDate, setPriceStartDate] = useState(daysAgoIso(180))
@@ -80,6 +223,41 @@ export function Comparison() {
         model: model || undefined,
         force_refresh: forceRefresh,
       }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-comparison-history', aiReadySelected, startDate, endDate, reportType] })
+    },
+  })
+
+  const historyQuery = useQuery({
+    queryKey: ['report-comparison-history', aiReadySelected, startDate, endDate, reportType],
+    queryFn: () =>
+      callApi<ComparisonResult[]>('api_report_comparison.php', 'history', {
+        company_ids: aiReadySelected,
+        start_date: startDate,
+        end_date: endDate,
+        report_type: reportType || undefined,
+      }),
+    enabled: aiReadySelected.length > 0,
+  })
+
+  const rateMutation = useMutation({
+    mutationFn: ({ id, rating }: { id: number; rating: number }) =>
+      callApi<ComparisonResult>('api_report_comparison.php', 'rate', { id, rating }),
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ['report-comparison-history', aiReadySelected, startDate, endDate, reportType] })
+      setHistoryOverride((prev) => (prev && prev.id === updated.id ? updated : prev))
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => callApi<null>('api_report_comparison.php', 'delete', { id }),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['report-comparison-history', aiReadySelected, startDate, endDate, reportType] })
+      setHistoryOverride((prev) => (prev && prev.id === id ? null : prev))
+      if (compareMutation.data?.id === id) compareMutation.reset()
+      if (compareLeftId === id) setCompareLeftId(null)
+      if (compareRightId === id) setCompareRightId(null)
+    },
   })
 
   // Cours comparés (clôtures quotidiennes ou relevés intrajournaliers) —
@@ -134,7 +312,10 @@ export function Comparison() {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
   }
 
-  const result = compareMutation.data
+  const result = historyOverride ?? compareMutation.data
+  const history = historyQuery.data ?? []
+  const compareLeft = history.find((h) => h.id === compareLeftId) ?? null
+  const compareRight = history.find((h) => h.id === compareRightId) ?? null
   const companies = companiesQuery.data ?? []
   const { sectors, unclassified } = useMemo(() => groupCompaniesBySector(companies), [companies])
 
@@ -315,6 +496,20 @@ export function Comparison() {
               </LineChart>
             </ResponsiveContainer>
           )}
+
+          {priceChartData.length > 0 && (
+            <ChartAiAnalysis
+              chartType="quotes_comparison"
+              parameters={{
+                company_ids: [...selected].sort((a, b) => a - b),
+                granularity: priceGranularity,
+                start_date: priceStartDate,
+                end_date: priceEndDate,
+                display_mode: showPercent ? 'percent' : 'raw',
+              }}
+              data={priceSeries}
+            />
+          )}
         </Card>
       )}
 
@@ -363,6 +558,14 @@ export function Comparison() {
                 ))}
               </LineChart>
             </ResponsiveContainer>
+          )}
+
+          {volumeChartData.length > 0 && (
+            <ChartAiAnalysis
+              chartType="intraday_volume"
+              parameters={{ company_ids: [...selected].sort((a, b) => a - b), start_date: volumeStartDate, end_date: volumeEndDate }}
+              data={volumeSeries}
+            />
           )}
         </Card>
       )}
@@ -490,6 +693,12 @@ export function Comparison() {
                   n'a pas encore été exécuté pour elles) — métriques non calculables dans ce cas.
                 </p>
               )}
+
+              <ChartAiAnalysis
+                chartType="share_turnover"
+                parameters={{ company_ids: [...selected].sort((a, b) => a - b), start_date: startDate, end_date: endDate }}
+                data={turnoverQuery.data}
+              />
             </div>
           )}
         </Card>
@@ -523,20 +732,26 @@ export function Comparison() {
           </label>
           <label className="w-36">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Fournisseur</span>
-            <Select value={provider} onChange={(e) => setProvider(e.target.value)}>
+            <Select value={provider} onChange={(e) => { setProvider(e.target.value as AiProvider); setModel('') }}>
               <option value="gemini">Gemini</option>
               <option value="anthropic">Anthropic</option>
+              <option value="grok">Grok</option>
             </Select>
           </label>
-          <label className="w-44">
+          <label className="w-56">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Modèle (optionnel)</span>
-            <Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="défaut du fournisseur" />
+            <Input list={modelListId} value={model} onChange={(e) => setModel(e.target.value)} placeholder="défaut du fournisseur" />
+            <datalist id={modelListId}>
+              {AI_MODELS[provider].map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </datalist>
           </label>
 
-          <Button onClick={() => compareMutation.mutate(false)} disabled={aiReadySelected.length === 0 || compareMutation.isPending}>
+          <Button onClick={() => { setHistoryOverride(null); compareMutation.mutate(false) }} disabled={aiReadySelected.length === 0 || compareMutation.isPending}>
             {compareMutation.isPending ? 'Comparaison…' : 'Comparer'}
           </Button>
-          <Button variant="secondary" onClick={() => compareMutation.mutate(true)} disabled={aiReadySelected.length === 0 || compareMutation.isPending}>
+          <Button variant="secondary" onClick={() => { setHistoryOverride(null); compareMutation.mutate(true) }} disabled={aiReadySelected.length === 0 || compareMutation.isPending}>
             Forcer
           </Button>
         </div>
@@ -547,108 +762,68 @@ export function Comparison() {
             {companies.filter((c) => notReadySelected.includes(c.company_id)).map((c) => c.symbol).join(', ')}
           </p>
         )}
+
+        <AnalysisHistoryList
+          items={history}
+          selectedId={result?.id ?? null}
+          onSelect={setHistoryOverride}
+          onRate={(id, rating) => rateMutation.mutate({ id, rating })}
+          onDelete={(id) => deleteMutation.mutate(id)}
+          preview={(h) => h.analysis?.comparative_summary}
+          title="Historique des comparaisons"
+        />
+
+        {history.length >= 2 && (
+          <div className="mt-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={compareMode}
+                onChange={(e) => {
+                  setCompareMode(e.target.checked)
+                  if (e.target.checked && history.length >= 2) {
+                    setCompareLeftId((prev) => prev ?? history[0].id)
+                    setCompareRightId((prev) => prev ?? history[1].id)
+                  }
+                }}
+              />
+              Comparer 2 analyses de l'historique côte à côte
+            </label>
+
+            {compareMode && (
+              <div className="mt-2 flex flex-wrap gap-4">
+                <label className="min-w-[220px] flex-1">
+                  <span className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Analyse A</span>
+                  <Select value={compareLeftId ?? ''} onChange={(e) => setCompareLeftId(e.target.value ? Number(e.target.value) : null)}>
+                    {history.map((h) => (
+                      <option key={h.id} value={h.id}>{h.provider}/{h.model}</option>
+                    ))}
+                  </Select>
+                </label>
+                <label className="min-w-[220px] flex-1">
+                  <span className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">Analyse B</span>
+                  <Select value={compareRightId ?? ''} onChange={(e) => setCompareRightId(e.target.value ? Number(e.target.value) : null)}>
+                    {history.map((h) => (
+                      <option key={h.id} value={h.id}>{h.provider}/{h.model}</option>
+                    ))}
+                  </Select>
+                </label>
+              </div>
+            )}
+          </div>
+        )}
       </Card>
 
       {compareMutation.isPending && <LoadingState label="Analyse comparative en cours (peut prendre du temps si des rapports n’ont pas encore été analysés individuellement)…" />}
       {compareMutation.isError && <ErrorState message={(compareMutation.error as Error).message} />}
 
-      {result && result.analysis && (
-        <div className="flex flex-col gap-6">
-          <Card>
-            <div className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-              {result.companies.map((c) => c.symbol).join(', ')} · {result.start_date} → {result.end_date} · {result.provider}/{result.model}
-              {result.cached && ' · depuis le cache'}
-            </div>
-            <p className="text-sm leading-relaxed text-gray-800 dark:text-gray-200">{result.analysis.comparative_summary}</p>
-          </Card>
-
-          {result.analysis.cross_company_ranking && (
-            <Card title="Classement comparatif">
-              <p className="text-sm text-gray-800 dark:text-gray-200">{result.analysis.cross_company_ranking}</p>
-            </Card>
-          )}
-
-          {result.analysis.trend_analysis && result.analysis.trend_analysis.length > 0 && (
-            <Card title="Tendance par entreprise">
-              <div className="flex flex-col gap-4">
-                {result.analysis.trend_analysis.map((t) => (
-                  <div key={t.company_symbol}>
-                    <div className="text-sm font-semibold">{t.company_symbol} — {t.company_name}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      CA: {t.revenue_trend_percent ?? '—'}% · Résultat net: {t.net_income_trend_percent ?? '—'}%
-                    </div>
-                    <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{t.narrative}</p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            {result.analysis.price_correlation_note && (
-              <Card title="Corrélation cours / fondamentaux">
-                <p className="text-sm text-gray-800 dark:text-gray-200">{result.analysis.price_correlation_note}</p>
-              </Card>
-            )}
-            {result.analysis.risks_evolution && (
-              <Card title="Évolution des risques">
-                <p className="text-sm text-gray-800 dark:text-gray-200">{result.analysis.risks_evolution}</p>
-              </Card>
-            )}
-          </div>
-
-          {result.analysis.decision_support_notes && result.analysis.decision_support_notes.length > 0 && (
-            <Card title="Points d’appui à la décision">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {result.analysis.decision_support_notes.map((d) => (
-                  <div key={d.company_symbol} className="rounded-md border border-gray-200 p-3 dark:border-gray-800">
-                    <div className="mb-1 text-sm font-semibold">{d.company_symbol}</div>
-                    <div className="mb-1 text-sm"><span className="font-medium text-emerald-600 dark:text-emerald-400">Bull:</span> {d.bull_case}</div>
-                    <div className="mb-1 text-sm"><span className="font-medium text-red-600 dark:text-red-400">Bear:</span> {d.bear_case}</div>
-                    <ul className="mt-1 list-disc pl-4 text-xs text-gray-600 dark:text-gray-400">
-                      {d.key_watch_points.map((p, i) => <li key={i}>{p}</li>)}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {result.chart_data?.price_series.map((serie) => (
-            serie.data.length >= 2 && (
-              <Card key={serie.company_id} title={`Cours — ${serie.symbol}`}>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={serie.data}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
-                    <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </Card>
-            )
-          ))}
-
-          {result.chart_data?.financials_series.map((serie) => (
-            serie.data.length > 0 && (
-              <Card key={serie.company_id} title={`Chiffres clés dans le temps — ${serie.symbol}`}>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={serie.data}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
-                    <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} />
-                    <YAxis tick={{ fontSize: 11 }} width={80} />
-                    <Tooltip />
-                    <Bar dataKey="revenue" fill="#4f46e5" name="Chiffre d'affaires" />
-                    <Bar dataKey="net_income" fill="#a5b4fc" name="Résultat net" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
-            )
-          ))}
-
-          <p className="text-xs italic text-gray-400">{result.disclaimer}</p>
+      {compareMode ? (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <div>{compareLeft ? <ComparisonResultView result={compareLeft} onRate={(id, rating) => rateMutation.mutate({ id, rating })} onDelete={(id) => deleteMutation.mutate(id)} /> : <p className="text-sm text-gray-400">Choisis une analyse A.</p>}</div>
+          <div>{compareRight ? <ComparisonResultView result={compareRight} onRate={(id, rating) => rateMutation.mutate({ id, rating })} onDelete={(id) => deleteMutation.mutate(id)} /> : <p className="text-sm text-gray-400">Choisis une analyse B.</p>}</div>
         </div>
+      ) : (
+        result && <ComparisonResultView result={result} onRate={(id, rating) => rateMutation.mutate({ id, rating })} onDelete={(id) => deleteMutation.mutate(id)} />
       )}
     </div>
   )

@@ -20,6 +20,7 @@ class ReportAnalysisService {
     private const PROVIDERS = [
         'anthropic' => ['class' => 'AnthropicClient', 'default_model' => 'claude-opus-5'],
         'gemini' => ['class' => 'GeminiClient', 'default_model' => 'gemini-flash-lite-latest'],
+        'grok' => ['class' => 'GrokClient', 'default_model' => 'grok-4-fast-reasoning'],
     ];
     private const DEFAULT_PROVIDER = 'gemini';
 
@@ -245,6 +246,17 @@ class ReportAnalysisService {
         $report = $this->crud->findById('company_reports', $updatedRow['report_id']);
         $company = $this->crud->findById('companies', $report['company_id']);
         return $this->formatResult($updatedRow, $report, $company, true);
+    }
+
+    /**
+     * Supprime une analyse enregistrée.
+     */
+    public function remove(int $id): void {
+        $row = $this->crud->findById('company_report_analyses', $id);
+        if (!$row) {
+            throw new Exception("Analyse non trouvée (id=$id)");
+        }
+        $this->crud->remove('company_report_analyses', ['id' => $id]);
     }
 
     private function createClient(string $provider): AiClientInterface {

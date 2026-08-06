@@ -23,6 +23,7 @@ import type {
   TechnicalIndicatorPoint,
 } from '../lib/types'
 import { Card, ErrorState, Input, LoadingState, Select } from '../components/ui'
+import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 /** Couleur badge par score de signal composite (-2 à +2, voir api_signals.php). */
 function signalBadgeClass(score: number | null) {
@@ -58,6 +59,7 @@ export function Quotes() {
   const [intradayDate, setIntradayDate] = useState(todayIso())
 
   const [showSma, setShowSma] = useState({ sma_10: true, sma_20: true, sma_50: false })
+  const [signalsSelected, setSignalsSelected] = useState<number[]>([])
 
   const companiesQuery = useQuery({
     queryKey: ['companies-list'],
@@ -302,6 +304,12 @@ export function Quotes() {
                 )}
               </LineChart>
             </ResponsiveContainer>
+
+            <ChartAiAnalysis
+              chartType="quotes_close_sma"
+              parameters={{ company_id: companyId, days, sma: showSma }}
+              data={priceWithSma}
+            />
           </Card>
 
           <Card title="Volume">
@@ -338,10 +346,27 @@ export function Quotes() {
 
       {signalsListQuery.data && signalsListQuery.data.length > 0 && (
         <Card>
+          <div className="mb-3 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+            <span>{signalsSelected.length} sélectionnée(s)</span>
+            <button
+              type="button"
+              onClick={() =>
+                setSignalsSelected(
+                  signalsSelected.length === signalsListQuery.data!.length
+                    ? []
+                    : signalsListQuery.data!.map((s) => s.company_id),
+                )
+              }
+              className="underline hover:text-gray-700 dark:hover:text-gray-200"
+            >
+              {signalsSelected.length === signalsListQuery.data.length ? 'Tout décocher' : 'Tout sélectionner'}
+            </button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="pb-2 pr-3"></th>
                   <th className="pb-2 pr-3" title="Code de cotation à la BRVM">
                     Symbole
                   </th>
@@ -374,6 +399,17 @@ export function Quotes() {
                   const liquidity = liquidityByCompany.get(s.company_id)
                   return (
                   <tr key={s.company_id} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="py-2 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={signalsSelected.includes(s.company_id)}
+                        onChange={() =>
+                          setSignalsSelected((prev) =>
+                            prev.includes(s.company_id) ? prev.filter((id) => id !== s.company_id) : [...prev, s.company_id],
+                          )
+                        }
+                      />
+                    </td>
                     <td className="py-2 pr-3 font-medium">{s.symbol}</td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{s.name}</td>
                     <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{s.sector ?? '—'}</td>
@@ -412,6 +448,27 @@ export function Quotes() {
               </tbody>
             </table>
           </div>
+
+          <ChartAiAnalysis
+            chartType="quotes_signals"
+            parameters={{ selected_company_ids: [...signalsSelected].sort((a, b) => a - b), date: todayIso() }}
+            data={signalsListQuery.data
+              .filter((s) => signalsSelected.includes(s.company_id))
+              .map((s) => ({
+                symbol: s.symbol,
+                name: s.name,
+                sector: s.sector,
+                close_price: s.close_price,
+                variation_percent: s.variation_percent,
+                score: s.score,
+                label: s.label,
+                indicators_used: s.indicators_used,
+                details: s.details,
+                liquidity: liquidityByCompany.get(s.company_id)?.liquidity ?? null,
+              }))}
+            disabled={signalsSelected.length === 0}
+            disabledReason="Coche au moins une entreprise pour l'analyser."
+          />
         </Card>
       )}
     </div>

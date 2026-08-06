@@ -76,6 +76,12 @@ class QuotesAPI {
                 case 'share_turnover':
                     return $this->getShareTurnover($input);
 
+                case 'volume_ranking':
+                    return $this->getVolumeRanking($input);
+
+                case 'performance_ranking':
+                    return $this->getPerformanceRanking($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -1206,6 +1212,86 @@ class QuotesAPI {
         return [
             'success' => true,
             'data' => $result,
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ];
+    }
+
+    /**
+     * Classement de toutes les entreprises actives par volume total échangé
+     * sur une période — contrairement à `latest` (seulement la dernière
+     * séance connue de chaque entreprise), agrège ici toutes les séances de
+     * la plage donnée. LEFT JOIN comme dans getShareTurnover() pour que les
+     * entreprises sans transaction sur la période apparaissent quand même à
+     * 0 plutôt que d'être silencieusement exclues du classement.
+     *
+     * Reprend aussi la logique de getShareTurnover() pour situer le volume
+     * échangé par rapport au capital total de l'entreprise (companies.
+     * shares_outstanding) : "vendu" = volume échangé sur la période,
+     * "restant" = actions en circulation - volume échangé (estimation basse,
+     * voir la note détaillée sur getShareTurnover). Il n'existe PAS de
+     * notion "à vendre" au sens carnet d'ordres (BRVM ne publie pas les
+     * volumes achat/vente en attente) — "actions en circulation" est le
+     * pool total déjà détenu par quelqu'un dès l'introduction en bourse,
+     * pas un stock disponible à l'achat.
+     */
+    private function getVolumeRanking($input) {
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                c.symbol,
+                c.name,
+                s.name AS sector,
+                c.shares_outstanding,
+                COALESCE(SUM(sq.volume), 0) AS total_volume,
+                COALESCE(SUM(sq.turnover), 0) AS total_turnover,
+                COUNT(sq.trading_date) AS trading_days
+            FROM companies c
+            LEFT JOIN sectors s ON c.sector_id = s.id
+            LEFT JOIN stock_quotes sq
+                ON sq.company_id = c.id
+                AND sq.trading_date >= ? AND sq.trading_date <= ?
+            WHERE c.active = 1
+            GROUP BY c.id, c.symbol, c.name, s.name, c.shares_outstanding
+            ORDER BY total_volume DESC
+        ";
+
+        $rows = $this->crud->executeCustomQuery($sql, [$startDate, $endDate]) ?: [];
+
+        $result = array_map(function ($row) {
+            $sharesOutstanding = $row['shares_outstanding'] !== null ? (float) $row['shares_outstanding'] : null;
+            $totalVolume = (float) $row['total_volume'];
+
+            $turnoverPercent = ($sharesOutstanding && $sharesOutstanding > 0)
+                ? round(($totalVolume / $sharesOutstanding) * 100, 2)
+                : null;
+            $fullyRotated = $sharesOutstanding !== null && $totalVolume > $sharesOutstanding;
+            $sharesRemainingEstimate = $sharesOutstanding !== null
+                ? max(0, $sharesOutstanding - $totalVolume)
+                : null;
+
+            return [
+                'company_id' => (int) $row['company_id'],
+                'symbol' => $row['symbol'],
+                'name' => $row['name'],
+                'sector' => $row['sector'],
+                'shares_outstanding' => $sharesOutstanding,
+                'total_volume' => $totalVolume,
+                'total_turnover' => (float) $row['total_turnover'],
+                'trading_days' => (int) $row['trading_days'],
+                'turnover_percent' => $turnoverPercent,
+                'shares_remaining_estimate' => $sharesRemainingEstimate,
+                'fully_rotated' => $fullyRotated
+            ];
+        }, $rows);
+
+        return [
+            'success' => true,
+            'data' => $result,
+            'count' => count($result),
             'start_date' => $startDate,
             'end_date' => $endDate
         ];

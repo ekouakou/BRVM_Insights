@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 const NAV_ITEMS = [
   { to: '/', label: 'Vue d’ensemble', end: true },
   { to: '/quotes', label: 'Cotations' },
+  { to: '/volume-ranking', label: 'Classement volume' },
   { to: '/sync', label: 'Synchronisation' },
   { to: '/reports', label: 'Rapports' },
   { to: '/bulletins', label: 'Bulletins' },
@@ -43,7 +44,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-gray-200 bg-white px-6 py-3 dark:border-gray-800 dark:bg-gray-900">
           <span className="text-sm text-gray-500 dark:text-gray-400">
             Connecté en tant que <strong>{username}</strong>
@@ -56,7 +57,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
         </header>
 
-        <main className="flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-6">{children}</main>
       </div>
     </div>
   )

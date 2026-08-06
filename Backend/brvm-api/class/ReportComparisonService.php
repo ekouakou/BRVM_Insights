@@ -11,6 +11,7 @@ class ReportComparisonService {
     private const PROVIDERS = [
         'anthropic' => ['class' => 'AnthropicClient', 'default_model' => 'claude-opus-5'],
         'gemini' => ['class' => 'GeminiClient', 'default_model' => 'gemini-flash-lite-latest'],
+        'grok' => ['class' => 'GrokClient', 'default_model' => 'grok-4-fast-reasoning'],
     ];
     private const DEFAULT_PROVIDER = 'gemini';
     private const DISCLAIMER = "Analyse générée automatiquement à titre informatif, "
@@ -235,6 +236,17 @@ class ReportComparisonService {
 
         $updatedRow = $this->crud->findById('company_report_comparisons', $id);
         return $this->formatResult($updatedRow, true);
+    }
+
+    /**
+     * Supprime une comparaison enregistrée.
+     */
+    public function remove(int $id): void {
+        $row = $this->crud->findById('company_report_comparisons', $id);
+        if (!$row) {
+            throw new Exception("Comparaison non trouvée (id=$id)");
+        }
+        $this->crud->remove('company_report_comparisons', ['id' => $id]);
     }
 
     /**

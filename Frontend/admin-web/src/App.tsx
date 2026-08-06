@@ -15,6 +15,7 @@ import { Combined } from './pages/Combined'
 import { MarketHealth } from './pages/MarketHealth'
 import { Statistics } from './pages/Statistics'
 import { PriceAlerts } from './pages/PriceAlerts'
+import { VolumeRanking } from './pages/VolumeRanking'
 
 function Protected({ children }: { children: ReactNode }) {
   return (
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Protected><Overview /></Protected>} />
         <Route path="/quotes" element={<Protected><Quotes /></Protected>} />
+        <Route path="/volume-ranking" element={<Protected><VolumeRanking /></Protected>} />
         <Route path="/sync" element={<Protected><Sync /></Protected>} />
         <Route path="/reports" element={<Protected><Reports /></Protected>} />
         <Route path="/bulletins" element={<Protected><Bulletins /></Protected>} />

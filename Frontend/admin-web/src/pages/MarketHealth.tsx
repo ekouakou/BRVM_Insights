@@ -16,6 +16,7 @@ import {
 import { callApi } from '../lib/apiClient'
 import type { MarketBreadthPoint, MissingDaysIssue, PriceJumpIssue, ReconciliationIssue, SectorPerformanceSeries } from '../lib/types'
 import { Card, ErrorState, Input, LoadingState } from '../components/ui'
+import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -33,9 +34,20 @@ function colorForSector(sectorId: number) {
   return SECTOR_PALETTE[sectorId % SECTOR_PALETTE.length]
 }
 
+function reconciliationKey(r: ReconciliationIssue): string {
+  return `${r.symbol}|${r.trading_date}`
+}
+function priceJumpKey(p: PriceJumpIssue): string {
+  return `${p.symbol}|${p.quote_datetime}`
+}
+
 export function MarketHealth() {
   const [startDate, setStartDate] = useState(daysAgoIso(90))
   const [endDate, setEndDate] = useState(todayIso())
+
+  const [reconciliationSelected, setReconciliationSelected] = useState<string[]>([])
+  const [priceJumpsSelected, setPriceJumpsSelected] = useState<string[]>([])
+  const [missingDaysSelected, setMissingDaysSelected] = useState<number[]>([])
 
   const sectorQuery = useQuery({
     queryKey: ['sector-performance', startDate, endDate],
@@ -66,6 +78,16 @@ export function MarketHealth() {
     queryKey: ['data-quality-missing-days'],
     queryFn: () => callApi<MissingDaysIssue[]>('api_data_quality.php', 'missing_days', { days: 30 }),
   })
+
+  function toggleReconciliation(key: string) {
+    setReconciliationSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
+  }
+  function togglePriceJump(key: string) {
+    setPriceJumpsSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]))
+  }
+  function toggleMissingDay(id: number) {
+    setMissingDaysSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
 
   const sectorSeries = sectorQuery.data ?? []
 
@@ -150,6 +172,12 @@ export function MarketHealth() {
               ))}
             </LineChart>
           </ResponsiveContainer>
+
+          <ChartAiAnalysis
+            chartType="sector_performance"
+            parameters={{ start_date: startDate, end_date: endDate }}
+            data={sectorSeries}
+          />
         </Card>
       )}
 
@@ -182,6 +210,8 @@ export function MarketHealth() {
               <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="#e34948" />
             </BarChart>
           </ResponsiveContainer>
+
+          <ChartAiAnalysis chartType="market_breadth" parameters={{ end_date: endDate, days: 30 }} data={breadthQuery.data} />
         </Card>
       )}
 
@@ -212,6 +242,19 @@ export function MarketHealth() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="pb-2 pr-3">
+                    <input
+                      type="checkbox"
+                      checked={reconciliationSelected.length === reconciliationQuery.data.length}
+                      onChange={() =>
+                        setReconciliationSelected(
+                          reconciliationSelected.length === reconciliationQuery.data!.length
+                            ? []
+                            : reconciliationQuery.data!.map(reconciliationKey)
+                        )
+                      }
+                    />
+                  </th>
                   <th className="pb-2 pr-3" title="Code de cotation à la BRVM">
                     Symbole
                   </th>
@@ -236,21 +279,39 @@ export function MarketHealth() {
                 </tr>
               </thead>
               <tbody>
-                {reconciliationQuery.data.map((r, i) => (
-                  <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="py-2 pr-3 font-medium">{r.symbol}</td>
-                    <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{r.trading_date}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{r.close_price}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{r.previous_close}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{Number(r.stored_variation).toFixed(2)}%</td>
-                    <td className="py-2 text-right tabular-nums text-red-600 dark:text-red-400">
-                      {Number(r.computed_variation).toFixed(2)}%
-                    </td>
-                  </tr>
-                ))}
+                {reconciliationQuery.data.map((r, i) => {
+                  const key = reconciliationKey(r)
+                  return (
+                    <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                      <td className="py-2 pr-3">
+                        <input type="checkbox" checked={reconciliationSelected.includes(key)} onChange={() => toggleReconciliation(key)} />
+                      </td>
+                      <td className="py-2 pr-3 font-medium">{r.symbol}</td>
+                      <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{r.trading_date}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{r.close_price}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{r.previous_close}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{Number(r.stored_variation).toFixed(2)}%</td>
+                      <td className="py-2 text-right tabular-nums text-red-600 dark:text-red-400">
+                        {Number(r.computed_variation).toFixed(2)}%
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
+        )}
+        {reconciliationQuery.data && reconciliationQuery.data.length > 0 && (
+          <>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{reconciliationSelected.length} ligne(s) sélectionnée(s)</p>
+            <ChartAiAnalysis
+              chartType="data_quality_reconciliation"
+              parameters={{ days: 30, selected_rows: [...reconciliationSelected].sort() }}
+              data={reconciliationQuery.data.filter((r) => reconciliationSelected.includes(reconciliationKey(r)))}
+              disabled={reconciliationSelected.length === 0}
+              disabledReason="Coche au moins une ligne à analyser."
+            />
+          </>
         )}
       </Card>
 
@@ -269,6 +330,17 @@ export function MarketHealth() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="pb-2 pr-3">
+                    <input
+                      type="checkbox"
+                      checked={priceJumpsSelected.length === priceJumpsQuery.data.length}
+                      onChange={() =>
+                        setPriceJumpsSelected(
+                          priceJumpsSelected.length === priceJumpsQuery.data!.length ? [] : priceJumpsQuery.data!.map(priceJumpKey)
+                        )
+                      }
+                    />
+                  </th>
                   <th className="pb-2 pr-3" title="Code de cotation à la BRVM">
                     Symbole
                   </th>
@@ -293,22 +365,40 @@ export function MarketHealth() {
                 </tr>
               </thead>
               <tbody>
-                {priceJumpsQuery.data.map((p, i) => (
-                  <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="py-2 pr-3 font-medium">{p.symbol}</td>
-                    <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{p.previous_datetime}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{p.previous_price}</td>
-                    <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{p.quote_datetime}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{p.price}</td>
-                    <td className="py-2 text-right tabular-nums text-red-600 dark:text-red-400">
-                      {Number(p.jump_percent) > 0 ? '+' : ''}
-                      {Number(p.jump_percent).toFixed(2)}%
-                    </td>
-                  </tr>
-                ))}
+                {priceJumpsQuery.data.map((p, i) => {
+                  const key = priceJumpKey(p)
+                  return (
+                    <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                      <td className="py-2 pr-3">
+                        <input type="checkbox" checked={priceJumpsSelected.includes(key)} onChange={() => togglePriceJump(key)} />
+                      </td>
+                      <td className="py-2 pr-3 font-medium">{p.symbol}</td>
+                      <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{p.previous_datetime}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{p.previous_price}</td>
+                      <td className="py-2 pr-3 text-gray-500 dark:text-gray-400">{p.quote_datetime}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{p.price}</td>
+                      <td className="py-2 text-right tabular-nums text-red-600 dark:text-red-400">
+                        {Number(p.jump_percent) > 0 ? '+' : ''}
+                        {Number(p.jump_percent).toFixed(2)}%
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
+        )}
+        {priceJumpsQuery.data && priceJumpsQuery.data.length > 0 && (
+          <>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{priceJumpsSelected.length} ligne(s) sélectionnée(s)</p>
+            <ChartAiAnalysis
+              chartType="data_quality_price_jumps"
+              parameters={{ days: 7, selected_rows: [...priceJumpsSelected].sort() }}
+              data={priceJumpsQuery.data.filter((p) => priceJumpsSelected.includes(priceJumpKey(p)))}
+              disabled={priceJumpsSelected.length === 0}
+              disabledReason="Coche au moins une ligne à analyser."
+            />
+          </>
         )}
       </Card>
 
@@ -328,6 +418,19 @@ export function MarketHealth() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  <th className="pb-2 pr-3">
+                    <input
+                      type="checkbox"
+                      checked={missingDaysSelected.length === missingDaysQuery.data.length}
+                      onChange={() =>
+                        setMissingDaysSelected(
+                          missingDaysSelected.length === missingDaysQuery.data!.length
+                            ? []
+                            : missingDaysQuery.data!.map((m) => m.company_id)
+                        )
+                      }
+                    />
+                  </th>
                   <th className="pb-2 pr-3" title="Code de cotation à la BRVM">
                     Symbole
                   </th>
@@ -352,6 +455,13 @@ export function MarketHealth() {
               <tbody>
                 {missingDaysQuery.data.map((m) => (
                   <tr key={m.company_id} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="py-2 pr-3">
+                      <input
+                        type="checkbox"
+                        checked={missingDaysSelected.includes(m.company_id)}
+                        onChange={() => toggleMissingDay(m.company_id)}
+                      />
+                    </td>
                     <td className="py-2 pr-3 font-medium">{m.symbol}</td>
                     <td className="py-2 pr-3 text-gray-600 dark:text-gray-300">{m.name}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{m.expected_days}</td>
@@ -362,6 +472,18 @@ export function MarketHealth() {
               </tbody>
             </table>
           </div>
+        )}
+        {missingDaysQuery.data && missingDaysQuery.data.length > 0 && (
+          <>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{missingDaysSelected.length} ligne(s) sélectionnée(s)</p>
+            <ChartAiAnalysis
+              chartType="data_quality_missing_days"
+              parameters={{ days: 30, selected_company_ids: [...missingDaysSelected].sort((a, b) => a - b) }}
+              data={missingDaysQuery.data.filter((m) => missingDaysSelected.includes(m.company_id))}
+              disabled={missingDaysSelected.length === 0}
+              disabledReason="Coche au moins une ligne à analyser."
+            />
+          </>
         )}
       </Card>
     </div>
