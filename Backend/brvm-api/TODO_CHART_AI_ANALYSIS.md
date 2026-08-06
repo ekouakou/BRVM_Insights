@@ -1,6 +1,6 @@
 # Analyse IA des graphes de comparaison
 
-## ✅ Implémentation complète (06/08/2026, huit tranches)
+## ✅ Implémentation complète (06/08/2026, neuf tranches)
 
 Infrastructure générique + intégration sur tous les chart_type du
 périmètre + retrofit multi-fournisseurs des 3 systèmes d'analyse IA
@@ -9,8 +9,38 @@ côte-à-côte + enrichissement du prompt de Comparaison + les 3 graphes de
 `Comparison.tsx` (Cours comparés, Volumes intrajournaliers, Rotation du
 flottant) + notation par étoiles et affichage d'historique redesigné +
 relancer/supprimer une analyse + 3ème fournisseur IA (Grok/xAI) + choix du
-modèle à l'écran + graphes complémentaires proposés par l'IA (voir 4ème à
-8ème tranches ci-dessous).
+modèle à l'écran + graphes complémentaires proposés par l'IA + période
+d'analyse explicite (voir 4ème à 9ème tranches ci-dessous).
+
+**9ème tranche (sur demande)** : l'analyse IA doit mentionner explicitement
+la période couverte par la sélection — jusqu'ici `ChartAnalysisService`
+n'envoyait jamais `parameters` (donc jamais start_date/end_date/date/days)
+à l'IA dans `buildPrompt()`, seulement les données brutes : l'IA ne
+connaissait donc pas la période réelle et ne pouvait que la deviner (mal,
+ou pas du tout) à partir des données.
+- Nouvelle méthode `ChartAnalysisService::formatPeriod(array $parameters):
+  ?string` — déduit un texte français ("du X au Y", "le X", "les N
+  derniers jours (jusqu'au Y)"...) à partir des clés usuelles
+  (`start_date`/`end_date`/`date`/`days`, qui varient selon le
+  `chart_type` — voir les usages de `<ChartAiAnalysis>` par page). Calculé
+  **côté backend, jamais par l'IA** — l'IA ne fait que le restituer dans
+  son texte, elle ne le devine ni ne le recalcule, pour qu'il soit toujours
+  exact.
+- `buildPrompt()` reçoit maintenant `$parameters` et injecte la période
+  calculée avec la consigne explicite de la mentionner dans `"summary"`.
+- `formatResult()` expose un nouveau champ déterministe `period: string |
+  null` (recalculé à chaque fois depuis les `parameters` déjà stockés en
+  base, pas persisté séparément) — affiché tel quel côté frontend
+  (`ChartAiAnalysis.tsx`, ligne "Période analysée : ...") plutôt que de
+  dépendre uniquement du texte libre de l'IA pour la garantie d'affichage.
+- Testé avec un vrai appel IA (Gemini) : champ déterministe correct ("du
+  2026-07-01 au 2026-08-06") et le résumé généré par l'IA le restitue
+  fidèlement dans son texte.
+- Portée volontairement limitée à `ChartAnalysisService`/
+  `ChartAiAnalysis.tsx` (comme la 8ème tranche) — `ReportComparisonService`
+  affiche déjà nativement `start_date`/`end_date` dans son résultat
+  structuré (pas le même bug), et `CombinedAnalysisService` n'a pas de
+  plage de dates en paramètre (sélection par `report_ids`/`bulletin_ids`).
 
 **8ème tranche (sur demande)** : l'IA propose elle-même, en plus de son
 analyse texte, jusqu'à 3 graphes complémentaires calculés à partir des

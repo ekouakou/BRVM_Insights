@@ -24,6 +24,14 @@ class ChartAnalysisService {
     private const DISCLAIMER = "Analyse générée automatiquement à titre informatif, "
         . "ne constitue pas un conseil en investissement.";
 
+    // Bornes du contexte "rapports financiers" optionnel (voir
+    // buildReportContext()) — un prompt IA a une taille limitée, et le coût
+    // d'un appel augmente avec le nombre de tokens envoyés : mieux vaut
+    // tronquer proprement (avec un marqueur explicite) que de risquer un
+    // prompt trop volumineux pour une sélection large d'entreprises.
+    private const MAX_REPORT_COMPANIES = 15;
+    private const MAX_REPORT_CHARS_PER_COMPANY = 15000;
+
     /**
      * Méthode de calcul par chart_type, en français — envoyée telle quelle
      * à l'IA (qui doit la restituer en langage clair dans sa réponse, voir
@@ -140,6 +148,14 @@ class ChartAnalysisService {
             "nombre d'actions n'ayant pas retrouvé d'acheteur sur la période (actions en circulation - volume " .
             "échangé, plafonnée à 0 — les mêmes titres peuvent être retradés plusieurs fois, donc cette " .
             "estimation ne veut pas dire que ces actions précises sont restées immobiles).",
+        'performance_ranking' =>
+            "Classement de toutes les entreprises actives par performance de cours sur la période sélectionnée " .
+            "= (dernière clôture de la période - première clôture de la période) / première clôture, en % " .
+            "(api_quotes.php, action 'performance_ranking') — même calcul que le rendement net de " .
+            "'risk_adjusted', mais sur l'univers complet plutôt qu'une sélection, et sans le volet volatilité. " .
+            "Une entreprise active sans aucune cotation sur la période apparaît avec une performance manquante " .
+            "(pas 0%, qui suggérerait à tort une stabilité observée) — à distinguer d'une entreprise vraiment " .
+            "stable sur la période.",
     ];
 
     private $crud;
@@ -179,7 +195,18 @@ class ChartAnalysisService {
             return $this->formatResult($existingRow, true);
         }
 
-        $prompt = $this->buildPrompt($chartType, $parameters, $data);
+        // "include_report_context" est un paramètre de sélection comme un
+        // autre (au même titre que company_ids/dates) — envoyé par le
+        // frontend dans $parameters, donc déjà pris en compte par le hash de
+        // cache ci-dessus : une analyse "avec rapports" et "sans rapports"
+        // sur la même sélection sont mises en cache séparément.
+        $reportContext = '';
+        if (!empty($parameters['include_report_context'])) {
+            $companyIds = $parameters['selected_company_ids'] ?? $parameters['company_ids'] ?? [];
+            $reportContext = $this->buildReportContext(is_array($companyIds) ? $companyIds : []);
+        }
+
+        $prompt = $this->buildPrompt($chartType, $parameters, $data, $reportContext);
         $client = $this->createClient($provider);
         $aiResult = $client->generateContent($prompt, $model, $this->responseSchema());
 
@@ -344,13 +371,92 @@ class ChartAnalysisService {
         return null;
     }
 
-    private function buildPrompt(string $chartType, array $parameters, array $data): string {
+    /**
+     * Contexte financier optionnel injecté dans le prompt (voir analyze()) —
+     * un bloc de texte par entreprise sélectionnée, tiré de son rapport déjà
+     * traité le plus récent (company_reports/company_report_contents).
+     * Priorise le markdown reformaté (tableaux propres, voir
+     * ReportMarkdownFormatterService) sur le texte brut extrait quand
+     * disponible, comme ReportAnalysisService::analyzeReport() le fait déjà
+     * pour l'analyse d'un rapport individuel — même logique, réutilisée ici
+     * pour plusieurs entreprises à la fois plutôt qu'une seule.
+     */
+    private function buildReportContext(array $companyIds): string {
+        $companyIds = array_slice(array_unique(array_map('intval', $companyIds)), 0, self::MAX_REPORT_COMPANIES);
+        if (empty($companyIds)) {
+            return '';
+        }
+
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+        $companies = $this->crud->executeCustomQuery(
+            "SELECT id, symbol, name FROM companies WHERE id IN ($placeholders)",
+            $companyIds
+        ) ?: [];
+        $companyById = [];
+        foreach ($companies as $c) {
+            $companyById[(int) $c['id']] = $c;
+        }
+
+        $blocks = [];
+        foreach ($companyIds as $companyId) {
+            $company = $companyById[$companyId] ?? null;
+            $label = $company ? "{$company['symbol']} — {$company['name']}" : "Entreprise #$companyId";
+
+            $reports = $this->crud->executeCustomQuery(
+                "SELECT id, report_type, publish_date FROM company_reports
+                 WHERE company_id = ? AND text_extracted = 1
+                 ORDER BY publish_date DESC LIMIT 1",
+                [$companyId]
+            );
+            $report = $reports[0] ?? null;
+
+            if (!$report) {
+                $blocks[] = "### $label\nAucun rapport traité disponible pour cette entreprise.";
+                continue;
+            }
+
+            $contents = $this->crud->find('company_report_contents', ['report_id' => $report['id']]);
+            $content = $contents[0] ?? null;
+            $usingMarkdown = !empty($content['formatted_markdown']) && ($content['markdown_status'] ?? null) === 'success';
+            $text = $usingMarkdown ? $content['formatted_markdown'] : ($content['extracted_text'] ?? null);
+
+            if (empty($text)) {
+                $blocks[] = "### $label\nRapport {$report['report_type']} du {$report['publish_date']} référencé, " .
+                    "mais texte pas encore extrait.";
+                continue;
+            }
+
+            $text = $this->truncateReportText($text, self::MAX_REPORT_CHARS_PER_COMPANY);
+            $sourceNote = $usingMarkdown ? '' : ' (texte brut extrait, pas encore reformaté en Markdown)';
+            $blocks[] = "### $label — rapport {$report['report_type']} du {$report['publish_date']}$sourceNote\n\n$text";
+        }
+
+        return implode("\n\n---\n\n", $blocks);
+    }
+
+    private function truncateReportText(string $text, int $maxChars): string {
+        if (mb_strlen($text) <= $maxChars) {
+            return $text;
+        }
+        return mb_substr($text, 0, $maxChars) . "\n\n[...texte tronqué...]";
+    }
+
+    private function buildPrompt(string $chartType, array $parameters, array $data, string $reportContext = ''): string {
         $methodology = self::METHODOLOGY[$chartType];
         $dataJson = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         $period = $this->formatPeriod($parameters);
         $periodBlock = $period
             ? "Période couverte par ces données : $period. Mentionne explicitement cette période dans ton résumé (\"summary\") — ne la déduis jamais toi-même à partir des données, utilise exactement celle donnée ici."
             : "Aucune période explicite n'a été fournie pour cette sélection — ne mentionne pas de période si tu ne peux pas la déduire avec certitude des données elles-mêmes.";
+
+        $reportContextBlock = $reportContext !== ''
+            ? "Contexte financier complémentaire (extraits des rapports déjà traités par l'application pour les " .
+              "entreprises sélectionnées — le texte reformaté en Markdown est utilisé en priorité sur le texte brut " .
+              "extrait quand disponible). Utilise-le pour enrichir ton analyse avec les fondamentaux de chaque " .
+              "entreprise (chiffre d'affaires, résultat net, tendances, risques...) EN PLUS du mouvement de cours ci-" .
+              "dessous — ne mélange jamais un chiffre issu d'un rapport avec une donnée de marché sans préciser sa " .
+              "source :\n\n$reportContext\n"
+            : '';
 
         return <<<PROMPT
 Tu es un analyste financier senior spécialisé sur les marchés actions
@@ -365,6 +471,7 @@ $methodology
 
 $periodBlock
 
+$reportContextBlock
 Données à analyser (JSON) :
 $dataJson
 
@@ -420,6 +527,7 @@ Règles impératives :
 - Si les données sont insuffisantes pour une observation pertinente, dis-le plutôt que d'inventer.
 - N'invente aucun nom de champ dans "suggested_charts" — uniquement des clés réellement présentes dans les données fournies. Dans le doute, renvoie un tableau vide.
 - N'affiche jamais un nom de clé JSON brut comme libellé — toujours un "label"/"x_label" humain et compréhensible.
+- Si un contexte financier (rapports) a été fourni ci-dessus, précise dans "summary" et/ou "key_observations" quand une observation s'appuie sur ce contexte plutôt que sur les données de marché, et signale explicitement si un rapport manque pour une entreprise sélectionnée plutôt que de rester silencieux dessus.
 - Réponds uniquement avec le JSON.
 PROMPT;
     }

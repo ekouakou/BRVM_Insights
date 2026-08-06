@@ -1296,6 +1296,84 @@ class QuotesAPI {
             'end_date' => $endDate
         ];
     }
+
+    /**
+     * Classement de toutes les entreprises actives par performance de cours
+     * sur une période — même calcul que getRiskAdjustedPerformance()
+     * (rendement net = (dernière clôture - première clôture) / première
+     * clôture sur la période, en %), mais sans filtre company_ids ni volet
+     * risque, pour classer l'univers complet plutôt qu'une sélection.
+     * Une entreprise active sans aucune cotation sur la période apparaît
+     * quand même, avec variation_percent à null (contrairement au volume,
+     * il n'y a pas de valeur "neutre" à donner à une performance sans
+     * donnée — 0% suggérerait à tort une stabilité observée).
+     */
+    private function getPerformanceRanking($input) {
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        $companies = $this->crud->executeCustomQuery(
+            "SELECT c.id AS company_id, c.symbol, c.name, s.name AS sector
+             FROM companies c
+             LEFT JOIN sectors s ON c.sector_id = s.id
+             WHERE c.active = 1"
+        ) ?: [];
+
+        $sql = "
+            SELECT sq.company_id, sq.trading_date, sq.close_price
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.trading_date >= ? AND sq.trading_date <= ?
+            AND c.active = 1
+            ORDER BY sq.company_id ASC, sq.trading_date ASC
+        ";
+        $rows = $this->crud->executeCustomQuery($sql, [$startDate, $endDate]) ?: [];
+
+        $firstPrice = [];
+        $lastPrice = [];
+        $tradingDays = [];
+        foreach ($rows as $row) {
+            $cid = $row['company_id'];
+            if (!isset($firstPrice[$cid])) {
+                $firstPrice[$cid] = (float) $row['close_price'];
+            }
+            $lastPrice[$cid] = (float) $row['close_price'];
+            $tradingDays[$cid] = ($tradingDays[$cid] ?? 0) + 1;
+        }
+
+        $result = array_map(function ($c) use ($firstPrice, $lastPrice, $tradingDays) {
+            $cid = $c['company_id'];
+            $first = $firstPrice[$cid] ?? null;
+            $last = $lastPrice[$cid] ?? null;
+            $variation = ($first !== null && $first > 0) ? round((($last - $first) / $first) * 100, 2) : null;
+
+            return [
+                'company_id' => (int) $cid,
+                'symbol' => $c['symbol'],
+                'name' => $c['name'],
+                'sector' => $c['sector'],
+                'first_close_price' => $first,
+                'last_close_price' => $last,
+                'variation_percent' => $variation,
+                'trading_days' => $tradingDays[$cid] ?? 0
+            ];
+        }, $companies);
+
+        usort($result, function ($a, $b) {
+            if ($a['variation_percent'] === null && $b['variation_percent'] === null) return 0;
+            if ($a['variation_percent'] === null) return 1;
+            if ($b['variation_percent'] === null) return -1;
+            return $b['variation_percent'] <=> $a['variation_percent'];
+        });
+
+        return [
+            'success' => true,
+            'data' => array_values($result),
+            'count' => count($result),
+            'start_date' => $startDate,
+            'end_date' => $endDate
+        ];
+    }
 }
 
 // Exécution

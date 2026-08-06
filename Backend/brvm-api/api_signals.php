@@ -58,10 +58,17 @@ class SignalsAPI {
     }
 
     /**
-     * Score composite pour toutes les entreprises actives, à la date la plus récente
+     * Score composite pour toutes les entreprises actives, à la date la plus
+     * récente (ou `date` fournie). Si `start_date` est aussi fourni, chaque
+     * entreprise reçoit en plus son score à cette date de début ET
+     * l'évolution entre les deux (score_change) — un signal reste une
+     * lecture à un instant donné (pas une série sur une période), donc
+     * "entre deux dates" se traduit ici par une comparaison de deux
+     * instantanés plutôt que par un calcul continu sur toute la plage.
      */
     private function listSignals($input) {
         $date = $input['date'] ?? $this->getLatestIndicatorsDate();
+        $startDate = $input['start_date'] ?? null;
 
         if (!$date) {
             return [
@@ -71,6 +78,73 @@ class SignalsAPI {
             ];
         }
 
+        $signals = $this->getSignalsAtDate($date);
+        $startDateHasData = null;
+
+        if ($startDate && $startDate !== $date) {
+            $startSignals = $this->getSignalsAtDate($startDate);
+            $startDateHasData = !empty($startSignals);
+
+            $startSignalsByCompany = [];
+            foreach ($startSignals as $s) {
+                $startSignalsByCompany[$s['company_id']] = $s;
+            }
+            foreach ($signals as &$signal) {
+                $startSignal = $startSignalsByCompany[$signal['company_id']] ?? null;
+                $signal['score_start'] = $startSignal['score'] ?? null;
+                $signal['label_start'] = $startSignal['label'] ?? null;
+                $signal['score_change'] = ($signal['score'] !== null && $signal['score_start'] !== null)
+                    ? $signal['score'] - $signal['score_start']
+                    : null;
+            }
+            unset($signal);
+        } else {
+            foreach ($signals as &$signal) {
+                $signal['score_start'] = null;
+                $signal['label_start'] = null;
+                $signal['score_change'] = null;
+            }
+            unset($signal);
+        }
+
+        // Les plus forts signaux (achat ou vente) en premier, à la date de fin
+        usort($signals, function ($a, $b) {
+            return abs($b['score'] ?? 0) <=> abs($a['score'] ?? 0);
+        });
+
+        // "Signal (2026-07-31)" toujours vide malgré un start_date valide ?
+        // Deux causes distinctes à ne pas confondre côté frontend : (1) la
+        // date de début est hors de la plage couverte par technical_indicators
+        // (ex: avant le tout premier jour de synchro de l'appli) — signalé
+        // ici via earliest_indicators_date pour que l'UI l'explique plutôt
+        // que d'afficher silencieusement des "—" ; (2) la date existe mais
+        // les indicateurs y sont tous NULL faute d'historique suffisant pour
+        // les calculer (RSI-14/SMA ont besoin de N jours de clôtures
+        // précédentes) — dans ce cas $startDateHasData est true mais les
+        // scores restent "Indéterminé", ce qui est correct, pas un bug.
+        $earliestIndicatorsDate = null;
+        if ($startDate && $startDateHasData === false) {
+            $earliest = $this->crud->executeCustomQuery("SELECT MIN(trading_date) as d FROM technical_indicators");
+            $earliestIndicatorsDate = $earliest[0]['d'] ?? null;
+        }
+
+        return [
+            'success' => true,
+            'date' => $date,
+            'start_date' => $startDate,
+            'start_date_has_data' => $startDateHasData,
+            'earliest_indicators_date' => $earliestIndicatorsDate,
+            'data' => $signals,
+            'count' => count($signals)
+        ];
+    }
+
+    /**
+     * Score composite de toutes les entreprises actives à une date précise —
+     * factorisé pour être appelé deux fois par listSignals() (date de début
+     * + date de fin) sans dupliquer la requête SQL.
+     */
+    private function getSignalsAtDate($date) {
         $sql = "
             SELECT
                 c.id AS company_id,
@@ -97,19 +171,7 @@ class SignalsAPI {
 
         $rows = $this->crud->executeCustomQuery($sql, [$date]) ?: [];
 
-        $signals = array_map([$this, 'buildSignal'], $rows);
-
-        // Les plus forts signaux (achat ou vente) en premier
-        usort($signals, function ($a, $b) {
-            return abs($b['score'] ?? 0) <=> abs($a['score'] ?? 0);
-        });
-
-        return [
-            'success' => true,
-            'date' => $date,
-            'data' => $signals,
-            'count' => count($signals)
-        ];
+        return array_map([$this, 'buildSignal'], $rows);
     }
 
     /**
