@@ -9,6 +9,24 @@ financier) : ajout de 6 chantiers identifiés en creusant les données
 réelles en base (pas de la spéculation — voir constats chiffrés dans
 chaque section).
 
+Mise à jour du 06/08/2026 : ajout des points 13 à 25, suite à un audit
+complet du code existant (grep systématique, pas de supposition) comparé à
+une liste de métriques boursières standard (technique, statistique, risque,
+fondamental, comparatif, signaux) fournie par l'utilisateur pour aider à la
+prise de décision. Constat principal de l'audit : `api_technical_indicators.php`
+contient déjà ~30 formules d'indicateurs (ADX, Ichimoku, Stochastique, OBV,
+VWAP, Williams %R, CCI, etc.), mais **seuls 6 sont persistés et seuls 3
+affichés** à l'utilisateur (SMA/RSI/MACD/Bollinger/ATR calculés à chaque
+synchro dans `technical_indicators`, mais seules les SMA10/20/50 sont
+tracées sur un graphe) — le premier chantier ci-dessous est donc surtout du
+branchement, pas du calcul nouveau. À l'inverse, toute la famille
+statistique/risque (Sharpe réel, Sortino, Max Drawdown, VaR, Calmar,
+skewness/kurtosis, rendements annualisés) est **totalement absente** :
+`risk_adjusted` existant est décrit dans son propre code comme "proche d'un
+Sharpe simplifié" (volatilité = churn intrajournalier cumulé, pas un
+écart-type de rendements, pas de taux sans risque) — utile mais à ne pas
+confondre avec les vraies métriques du même nom.
+
 ## ✅ Implémenté le 04/08/2026
 
 **Tout est fait sauf le point 12** (suivi des dividendes via les
@@ -152,6 +170,106 @@ est peuplé (migration 007) et `stock_quotes.variation_percent` existe déjà.
 - Frontend : nouvel écran ou section — barres ou courbes, un secteur par
   couleur, réutilise `groupCompaniesBySector`/`colorForCompany` de
   `companyGroups.ts`.
+
+### ✅ 13. Brancher les indicateurs déjà codés mais jamais persistés (ADX, Stochastique, ROC, OBV, VWAP) — FAIT le 06/08/2026
+
+**Constat** : `api_technical_indicators.php` contient déjà des actions
+ad-hoc complètes pour ADX (`adx`, ligne ~854), Stochastique (`stochastic`,
+~714), ROC (`roc`, ~1902), OBV (`obv`, ~1056) et VWAP (`vwap`, ~1620) —
+formules correctes, mais calculées à la volée puis jetées : aucune colonne
+dédiée dans `technical_indicators`, jamais appelées depuis
+`TechnicalIndicatorsCalculator::computeAndPersist()`, jamais affichées.
+**Bug à corriger au passage** : le VWAP actuel est cumulatif sans reset
+quotidien (le commentaire du code dit qu'il devrait l'être) — le corriger
+en persistant.
+
+**Nouvelle(s) colonne(s) nécessaire(s)** sur `technical_indicators` (le
+pattern de migration est déjà rodé — voir `class/TechnicalIndicatorsCalculator.php`,
+3 étapes : migration `ALTER TABLE`, méthode `computeX()` + entrée dans le
+tableau `$indicators`, la logique d'upsert existante gère le reste sans
+modification) : `adx_14`, `stoch_k`, `stoch_d`, `roc_12`, `obv`, `vwap`.
+
+**Fait le 06/08/2026** : `migrations/011_more_technical_indicators.sql`
+(6 colonnes ci-dessus) ; méthodes `computeADX()`/`computeStochastic()`/
+`computeROC()`/`computeOBV()`/`computeVWAP()` ajoutées à
+`TechnicalIndicatorsCalculator.php`, formules reprises de
+`api_technical_indicators.php` ; `scripts/backfill_new_indicators.php`
+(rejoue toutes les lignes `technical_indicators` déjà existantes, dans
+l'ordre chronologique par entreprise — l'OBV est incrémental, l'ordre
+compte). Frontend : VWAP en overlay optionnel sur "Cours de clôture"
+(`Quotes.tsx`), OBV en sous-graphe dédié, ADX/Stochastique/ROC regroupés
+dans une carte "Indicateurs avancés" (chacun avec message "historique
+insuffisant" tant que les données manquent, plutôt que masqué).
+
+**Décisions prises en implémentant** (à connaître avant de retoucher) :
+- **VWAP corrigé, pas juste porté** : l'implémentation ad-hoc buguée
+  (cumul sans reset) a été abandonnée plutôt que reproduite — le nouveau
+  `computeVWAP()` calcule un vrai VWAP quotidien à partir des relevés
+  `intraday_quotes` de CE jour précis (`DATE(quote_datetime) = ?`), donc se
+  réinitialise naturellement chaque jour. Conséquence : `vwap` est `null`
+  tant qu'aucun relevé intrajournalier n'existe pour le jour demandé (ex.
+  avant que le cron intrajournalier n'ait tourné ce jour-là).
+- **OBV rendu incrémental** (aujourd'hui = hier + volume signé du jour,
+  relit la valeur persistée la veille) plutôt que recalculé sur toute la
+  fenêtre d'historique à chaque appel comme le fait l'ad-hoc original — la
+  valeur absolue de l'OBV est arbitraire de toute façon (dépend du point de
+  départ), autant garder une continuité jour après jour. Implication pour
+  tout futur backfill/recalcul : toujours rejouer dans l'ordre
+  chronologique croissant par entreprise, jamais en parallèle ni dans le
+  désordre, sous peine d'OBV faux.
+- **Ichimoku non fait**, comme prévu (mis de côté sauf demande explicite).
+- **Constat après backfill (06/08/2026, 141 lignes recalculées)** : OBV et
+  VWAP se remplissent immédiatement (besoin d'1-2 jours seulement), mais
+  ADX/Stochastique/ROC restent `null` partout pour l'instant — l'historique
+  de `technical_indicators` ne couvre que 3 jours (04-06/08/2026), alors
+  qu'il en faut 13 à 29 selon l'indicateur. Comportement attendu, pas un
+  bug (même cause que les signaux "Indéterminé" déjà documentés côté
+  `Quotes.tsx`) — se résorbe automatiquement au fil des prochaines
+  synchronisations quotidiennes.
+
+### ✅ 14. Détection croisement de moyennes mobiles (golden cross / death cross) — FAIT le 06/08/2026
+
+**Fait** : nouvelle action `crossovers` dans `api_signals.php`
+(`getCrossovers()`) — compare SMA10/20 et SMA20/50 jour par jour sur la
+période demandée (SMA déjà persistées, point 1), détecte les changements de
+signe (golden = rapide passe au-dessus de la lente, death = l'inverse).
+Frontend (`Quotes.tsx`) : points verts/rouges (`ReferenceDot`) directement
+sur le graphe "Cours de clôture" aux dates détectées, plus une ligne
+récapitulative "Derniers croisements" sous le graphe. Les marqueurs restent
+visibles même si la SMA correspondante n'est pas cochée à l'affichage.
+Le croisement 50/200 (le plus cité classiquement) n'est pas encore possible
+faute d'historique suffisant — ajoutable sans changement de schéma une fois
+que `technical_indicators` couvrira plus de 200 jours.
+
+### ✅ 15. Détection de divergence RSI/prix — FAIT le 06/08/2026
+
+**Fait** : nouvelle action `divergence` dans `api_signals.php`
+(`getDivergence()`) — repère les pivots (sommets/creux locaux, fenêtre de 3
+jours de part et d'autre) du cours de clôture, compare deux pivots
+consécutifs de même type : sommet de prix plus haut mais RSI plus bas =
+divergence baissière ; creux de prix plus bas mais RSI plus haut =
+divergence haussière. Frontend : RSI maintenant affiché (jusqu'ici jamais
+tracé, malgré son usage dans le score composite) dans un nouveau
+sous-graphe de la carte "Indicateurs avancés", avec les divergences
+détectées marquées en points colorés + liste récapitulative, sur le même
+principe que les croisements de moyennes mobiles (point 14).
+
+### ✅ 16. Renforcer le score composite avec liquidité + ATR — FAIT le 06/08/2026
+
+**Fait** : `buildSignal()` (`api_signals.php`) reçoit maintenant le
+classement de liquidité déjà calculé (nouvelle méthode
+`getLiquidityByCompany()`, mêmes seuils que `api_quotes.php::getLiquidity()`
+— dupliqués intentionnellement plutôt que de coupler les deux fichiers) ;
+un score fort (±2) sur un titre "Illiquide" est automatiquement plafonné à
+±1, avec `confidence_penalized_by_liquidity=true` dans la réponse. `atr_14`
+et `atr_relative_percent` (ATR ÷ cours, en %) sont exposés en contexte
+(jamais utilisés dans le calcul du score lui-même). Frontend
+(`Quotes.tsx`) : icône ⚠︎ à côté du badge Signal quand le score a été
+plafonné, ATR relatif affiché au survol du badge, InfoPanel mis à jour.
+Testé directement sur les données réelles via réflexion PHP (contournement
+d'`AuthGuard` pour un test local, pas un endpoint exposé) : le classement
+de liquidité se calcule correctement (`ABJC` → "Élevée"), les nouveaux
+champs sont bien présents dans la réponse.
 
 ## Priorité moyenne
 
@@ -346,6 +464,84 @@ variation publiée de l'indice (autre angle de contrôle qualité, point 3).
 
 **Aucune nouvelle table** au-delà de peupler `index_composition` (point 0).
 
+### ✅ 17-22. Fondation quantitative + Sharpe/Sortino/Drawdown/Calmar/VaR/CVaR/skewness/kurtosis/bêta — FAIT le 06/08/2026
+
+**Implémentés ensemble** (plutôt que 6 endpoints quasi-identiques
+requêtant chacun la même série de cours, un seul passage par entreprise) :
+
+- `class/ReturnsCalculator.php` (point 17) : classe utilitaire sans
+  dépendance base de données — log-rendements quotidiens, moyenne/écart-
+  type, CAGR, volatilité annualisée (×√252), downside deviation, maximum
+  drawdown (+ dates pic/creux), VaR/CVaR historique (percentile empirique,
+  pas de Monte-Carlo), skewness, excès de kurtosis, covariance/bêta.
+- `api_risk_metrics.php`, action `compute` (points 18-22) : pour chaque
+  entreprise sélectionnée sur une période, calcule rendement net, CAGR,
+  volatilité annualisée, Sharpe, Sortino, Max Drawdown (+ dates), Calmar,
+  VaR/CVaR à 95%, skewness, excès de kurtosis, et bêta vs BRVM-COMPOSITE
+  (régression sur les rendements quotidiens des jours communs). Nouveau
+  `chart_type` `risk_metrics_advanced` enregistré dans
+  `ChartAnalysisService.php`.
+- Frontend : 5ᵉ onglet "Métriques de risque avancées" sur `Statistics.tsx`
+  (partage la sélection d'entreprises/dates des 4 autres onglets), tableau
+  scrollable horizontalement (14 colonnes), `InfoPanel` détaillé
+  expliquant chaque métrique en langage clair. Sélection de lignes +
+  analyse IA, avec l'option "Inclure les résultats financiers"
+  (`companyIdsForReports`, déjà construite pour l'écran Classements).
+
+**Décisions prises en implémentant** :
+- **Garde-fou "historique insuffisant"** (< 20 rendements journaliers,
+  seuil non prévu explicitement dans le plan initial mais nécessaire) :
+  toutes les métriques annualisées/statistiques restent à `null`
+  (`insufficient_history=true` dans la réponse) plutôt que de calculer un
+  Sharpe ou une volatilité "annualisée" sur 2-3 observations — testé
+  directement : sans ce garde-fou, une entreprise avec seulement 3 jours
+  d'historique affichait une volatilité annualisée de 158% et un Sharpe de
+  11.2, des chiffres arithmétiquement corrects mais statistiquement du
+  bruit. Seul le rendement net simple (2 points de cours suffisent)
+  échappe au garde-fou. Ce seuil de 20 jours signifie que ces métriques
+  resteront vides pour la plupart des entreprises tant que l'historique de
+  synchronisation (3 jours au 06/08/2026) n'aura pas suffisamment
+  progressé.
+- **Taux sans risque** : fixé à 0% par défaut comme prévu, toujours
+  renvoyé explicitement dans la réponse (`risk_free_rate_percent`) plutôt
+  que laissé implicite — configurable via le paramètre d'entrée
+  `risk_free_rate_percent` si une valeur UEMOA/BCEAO devient disponible un
+  jour.
+- **Graphe "underwater" pour le Max Drawdown non fait** (prévu en option
+  dans le plan initial) — seules les valeurs numériques (drawdown max +
+  dates pic/creux en tooltip) sont affichées pour l'instant, faute de
+  temps ; ajoutable plus tard sans changement de backend (les cours
+  historiques nécessaires sont déjà chargés côté serveur pour le calcul,
+  il suffirait de les renvoyer en série complète).
+- `risk_adjusted` (l'ancien ratio simplifié) n'a pas été renommé dans l'UI
+  comme envisagé — les deux onglets sont désormais côte à côte avec des
+  noms suffisamment distincts ("Performance ajustée au risque" vs
+  "Métriques de risque avancées") et l'`InfoPanel` du nouvel onglet
+  explique explicitement la différence.
+
+### 23. Classement sectoriel des entreprises + screener multi-critères
+
+**Constat** : `sector_performance` classe déjà les *secteurs* entre eux
+(moyenne), et `volume_ranking`/`performance_ranking` classent déjà les
+*entreprises* sur un seul critère à la fois — mais rien ne croise les deux
+(classement des entreprises *au sein de* leur secteur) ni ne permet de
+filtrer sur plusieurs critères en même temps (ex. "RSI &lt; 30 ET volume
+élevé ET secteur Finance").
+
+**Aucun changement de base de données nécessaire** (agrégation de données
+déjà exposées par les endpoints existants : `list` signaux, `volume_ranking`,
+`performance_ranking`, `liquidity`).
+
+**À faire** :
+- Backend : nouvelle action assemblant plusieurs sources déjà existantes
+  par `company_id` (signal, volume, performance, liquidité, secteur) en une
+  seule table filtrable côté serveur (seuils configurables par critère).
+- Frontend : nouvel écran "Screener" — filtres empilables (façon les
+  `Select`/`Input` déjà utilisés ailleurs) + tableau résultat triable,
+  potentiellement le plus utile des nouveaux écrans pour la prise de
+  décision rapide (« quelles entreprises correspondent à mes critères
+  maintenant ? ») mais aussi le plus gros morceau frontend de ce plan.
+
 ## Priorité basse / gros chantiers
 
 ### ✅ 11. Alertes de prix
@@ -400,11 +596,84 @@ ce point plus tard :
   `api_bulletins.php`, qui fait `AuthGuard::requireAuth()` en tête de
   fichier, incompatible CLI).
 
+### 24. Fondamentaux calculés depuis des données structurées (PER, P/B, ROE, ROA, marges, FCF yield, dividend yield, payout, PEG)
+
+**Constat important — deux filières séparées existent déjà, à ne pas
+confondre** :
+- La table `companies` n'a **aucune colonne fondamentale** (ni EPS, ni
+  valeur comptable, ni dette, ni dividende) — impossible de calculer un
+  PER/P-B/ROE depuis la base relationnelle aujourd'hui.
+- En revanche, `company_report_analyses` contient déjà des ratios
+  équivalents **extraits par IA** depuis le texte des rapports PDF
+  (`key_financials`/`valuation_assessment` dans le schéma
+  `class/AnthropicClient.php` — revenue, marges, ROE/ROA, PER, P/B,
+  EV/EBITDA, dividend yield, payout ratio...). C'est riche, mais
+  **dépendant de la fiabilité d'extraction PDF** (voir les
+  `extraction_error` déjà rencontrés, point 12) — une fiabilité
+  différente d'un calcul déterministe sur des colonnes de base.
+- **PEG ratio absent des deux filières** — PER et croissance existent
+  séparément, rien ne les divise.
+
+**Décision à prendre avant de coder** : soit (a) exploiter ce qui existe
+déjà côté IA (rapide, mais hérite de la fragilité d'extraction PDF —
+suffisant pour un premier écran "Fondamentaux" avec un avertissement clair
+sur la source), soit (b) construire une vraie table `company_fundamentals`
+alimentée par une source fiable (scraping d'une page dédiée sur brvm.org si
+elle existe, ou saisie manuelle trimestrielle) — plus fiable mais plus
+lourd, et sans garantie qu'une source structurée existe pour la BRVM.
+
+**Nouvelle table nécessaire seulement pour l'option (b).**
+
+**À faire (option a, plus rapide)** :
+- Backend : nouvelle action agrégeant, par entreprise, le dernier
+  `company_report_analyses` disponible (déjà stocké) — pas de nouveau
+  calcul, juste une lecture/formatage dédiée avec le PEG calculé (PER ÷
+  croissance du CA déjà présente) puisque c'est la seule pièce manquante.
+- Frontend : nouvel écran "Fondamentaux" ou section sur la fiche
+  entreprise, avec mention explicite "estimé par IA depuis le dernier
+  rapport traité, à vérifier" — cohérent avec le disclaimer déjà utilisé
+  partout ailleurs dans l'app pour l'IA.
+
+### 25. Moteur de backtesting simple
+
+**Gros chantier, à ne prendre qu'après les points prioritaires.** Aucun
+code de backtest n'existe (seul un commentaire dans
+`TechnicalIndicatorsCalculator.php` explique que la persistance des
+indicateurs a été pensée *pour permettre* un futur backtesting). Objectif
+minimal réaliste : tester une règle simple ("acheter si signal composite ≥
++1, vendre si ≤ -1", ou "acheter au golden cross, vendre au death cross")
+sur l'historique déjà accumulé, et calculer la performance qu'aurait eue
+cette règle par rapport à un simple "acheter et garder".
+
+**Nouvelle table probable** (`backtest_runs`/`backtest_trades`) pour
+stocker les résultats plutôt que tout recalculer à chaque affichage.
+
+**À faire** :
+- Backend : moteur simulant l'application d'une règle jour par jour sur
+  l'historique `stock_quotes`/`technical_indicators`/signaux déjà
+  persistés (pas de nouvelle collecte de données nécessaire, seulement du
+  rejeu) ; calcul de la performance simulée, du nombre de trades, du
+  taux de réussite, comparée au "buy & hold" sur la même période.
+  **Limite à annoncer clairement à l'utilisateur** : historique encore
+  très court aujourd'hui (3 jours de `technical_indicators` au 06/08/2026)
+  — un backtest sur une fenêtre aussi courte n'a quasiment aucune valeur
+  statistique ; ce chantier ne devient réellement utile qu'après plusieurs
+  mois d'accumulation de données.
+- Frontend : nouvel écran "Backtesting" — sélection d'une règle
+  prédéfinie + période, résultat sous forme de courbe de performance
+  cumulée vs buy & hold, avec l'avertissement ci-dessus toujours visible
+  tant que l'historique reste court.
+
 ## Rappel — pourquoi attendre la fermeture du marché
 
-Seul le point 8 (variation totale) modifie du code exécuté par le cron en
+Le point 8 (variation totale) modifie du code exécuté par le cron en
 production toutes les ~10 minutes en heures de marché
 (`BRVMSyncService::recordIntradaySnapshot()`) — à tester et déployer hors
-séance pour ne pas risquer de perturber la synchro en direct. Tous les
-autres points sont des endpoints de lecture (ou des scripts ponctuels
+séance pour ne pas risquer de perturber la synchro en direct. Le point 13
+(nouveaux indicateurs ADX/Stochastique/ROC/OBV/VWAP) touche aussi du code
+appelé par le cron, mais une fois par jour seulement
+(`TechnicalIndicatorsCalculator::computeAndPersist()`, appelée depuis
+`cron_sync_brvm.php` et non à chaque tick intrajournalier) — risque plus
+faible, mais même précaution : tester hors séance avant de déployer. Tous
+les autres points sont des endpoints de lecture (ou des scripts ponctuels
 comme le peuplement du point 0), sans risque, déployables à tout moment.

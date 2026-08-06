@@ -34,6 +34,7 @@ class TechnicalIndicatorsCalculator {
 
         $bollinger = $this->computeBollinger($closes, 20, 2);
         $macd = $this->computeMACD($closes, 12, 26, 9);
+        $stochastic = $this->computeStochastic($quotes, 14, 3);
 
         $indicators = [
             'company_id' => $companyId,
@@ -52,6 +53,12 @@ class TechnicalIndicatorsCalculator {
             'bb_middle' => $bollinger['middle'],
             'bb_lower' => $bollinger['lower'],
             'atr_14' => $this->computeATR($quotes, 14),
+            'adx_14' => $this->computeADX($quotes, 14),
+            'stoch_k' => $stochastic['k'],
+            'stoch_d' => $stochastic['d'],
+            'roc_12' => $this->computeROC($closes, 12),
+            'obv' => $this->computeOBV($companyId, $quotes),
+            'vwap' => $this->computeVWAP($companyId, $tradingDate),
         ];
 
         // Retirer les valeurs null pour ne pas écraser d'anciennes valeurs avec du vide
@@ -78,7 +85,7 @@ class TechnicalIndicatorsCalculator {
      */
     private function getHistoricalQuotes($companyId, $endDate, $limit) {
         $sql = "
-            SELECT trading_date, close_price, high_price, low_price
+            SELECT trading_date, close_price, high_price, low_price, volume
             FROM stock_quotes
             WHERE company_id = ?
             AND trading_date <= ?
@@ -256,5 +263,207 @@ class TechnicalIndicatorsCalculator {
         }
 
         return round($atr, 4);
+    }
+
+    /**
+     * ADX final (force de tendance, 0-100, lissage de Wilder sur +DM/-DM/TR)
+     * — même formule que api_technical_indicators.php::calculateADX(), mais
+     * on ne garde que la dernière valeur de la série plutôt que l'historique
+     * complet (voir TODO_ANALYSES.md, point 13).
+     */
+    private function computeADX(array $quotes, $period = 14) {
+        $count = count($quotes);
+        if ($count < $period * 2 + 1) {
+            return null;
+        }
+
+        $plusDM = [];
+        $minusDM = [];
+        $trueRanges = [];
+        for ($i = 1; $i < $count; $i++) {
+            $high = (float) $quotes[$i]['high_price'];
+            $low = (float) $quotes[$i]['low_price'];
+            $prevHigh = (float) $quotes[$i - 1]['high_price'];
+            $prevLow = (float) $quotes[$i - 1]['low_price'];
+            $prevClose = (float) $quotes[$i - 1]['close_price'];
+
+            $upMove = $high - $prevHigh;
+            $downMove = $prevLow - $low;
+            $plusDM[] = ($upMove > $downMove && $upMove > 0) ? $upMove : 0;
+            $minusDM[] = ($downMove > $upMove && $downMove > 0) ? $downMove : 0;
+            $trueRanges[] = max($high - $low, abs($high - $prevClose), abs($low - $prevClose));
+        }
+
+        if (count($plusDM) < $period * 2) {
+            return null;
+        }
+
+        $smoothedPlusDM = array_sum(array_slice($plusDM, 0, $period));
+        $smoothedMinusDM = array_sum(array_slice($minusDM, 0, $period));
+        $smoothedTR = array_sum(array_slice($trueRanges, 0, $period));
+
+        $dxValues = [];
+        for ($i = $period; $i < count($plusDM); $i++) {
+            $smoothedPlusDM = $smoothedPlusDM - ($smoothedPlusDM / $period) + $plusDM[$i];
+            $smoothedMinusDM = $smoothedMinusDM - ($smoothedMinusDM / $period) + $minusDM[$i];
+            $smoothedTR = $smoothedTR - ($smoothedTR / $period) + $trueRanges[$i];
+
+            $plusDI = $smoothedTR != 0 ? ($smoothedPlusDM / $smoothedTR) * 100 : 0;
+            $minusDI = $smoothedTR != 0 ? ($smoothedMinusDM / $smoothedTR) * 100 : 0;
+            $diSum = $plusDI + $minusDI;
+            $dxValues[] = $diSum != 0 ? (abs($plusDI - $minusDI) / $diSum) * 100 : 0;
+        }
+
+        if (count($dxValues) < $period) {
+            return null;
+        }
+
+        $adx = array_sum(array_slice($dxValues, -$period)) / $period;
+        return round($adx, 4);
+    }
+
+    /**
+     * Oscillateur stochastique final (%K sur $periodK jours, %D = moyenne
+     * mobile $periodD jours de %K) — même formule que
+     * api_technical_indicators.php::calculateStochastic().
+     */
+    private function computeStochastic(array $quotes, $periodK = 14, $periodD = 3) {
+        $result = ['k' => null, 'd' => null];
+        $count = count($quotes);
+        if ($count < $periodK) {
+            return $result;
+        }
+
+        $kValues = [];
+        for ($i = $periodK - 1; $i < $count; $i++) {
+            $highestHigh = -INF;
+            $lowestLow = INF;
+            for ($j = 0; $j < $periodK; $j++) {
+                $high = (float) $quotes[$i - $j]['high_price'];
+                $low = (float) $quotes[$i - $j]['low_price'];
+                if ($high > $highestHigh) $highestHigh = $high;
+                if ($low < $lowestLow) $lowestLow = $low;
+            }
+            $close = (float) $quotes[$i]['close_price'];
+            $range = $highestHigh - $lowestLow;
+            $kValues[] = $range != 0 ? (($close - $lowestLow) / $range) * 100 : 50;
+        }
+
+        $result['k'] = round(end($kValues), 4);
+
+        if (count($kValues) >= $periodD) {
+            $result['d'] = round(array_sum(array_slice($kValues, -$periodD)) / $periodD, 4);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Rate of Change final (%) — cours actuel vs cours il y a $period jours,
+     * même formule que api_technical_indicators.php::calculateROC().
+     */
+    private function computeROC(array $closes, $period = 12) {
+        $count = count($closes);
+        if ($count < $period + 1) {
+            return null;
+        }
+
+        $current = $closes[$count - 1];
+        $past = $closes[$count - 1 - $period];
+        if ($past == 0) {
+            return null;
+        }
+
+        return round((($current - $past) / $past) * 100, 4);
+    }
+
+    /**
+     * On-Balance Volume — cumul incrémental (aujourd'hui = hier + volume
+     * signé du jour) plutôt qu'un recalcul depuis le début de la fenêtre
+     * d'historique à chaque appel : la valeur ABSOLUE de l'OBV est
+     * arbitraire (dépend du point de départ), seule sa tendance a un sens,
+     * donc autant garder une continuité jour après jour plutôt que de la
+     * faire sauter à chaque recalcul sur une fenêtre glissante différente.
+     * Amorcée au volume du jour si aucune valeur précédente n'existe encore
+     * pour cette entreprise (premier jour calculé).
+     */
+    private function computeOBV($companyId, array $quotes) {
+        $count = count($quotes);
+        if ($count < 1) {
+            return null;
+        }
+
+        $today = $quotes[$count - 1];
+        $todayVolume = (float) ($today['volume'] ?? 0);
+
+        if ($count < 2) {
+            return round($todayVolume, 4);
+        }
+
+        $yesterday = $quotes[$count - 2];
+        $previous = $this->crud->find('technical_indicators', [
+            'company_id' => $companyId,
+            'trading_date' => $yesterday['trading_date'],
+        ]);
+        $previousObv = (!empty($previous) && $previous[0]['obv'] !== null)
+            ? (float) $previous[0]['obv']
+            : null;
+
+        if ($previousObv === null) {
+            // Pas de valeur persistée la veille (premier calcul pour cette
+            // entreprise, ou trou de synchro) : on repart du volume du jour
+            // comme nouveau point de départ, comme le ferait un OBV "day 0".
+            return round($todayVolume, 4);
+        }
+
+        $todayClose = (float) $today['close_price'];
+        $yesterdayClose = (float) $yesterday['close_price'];
+
+        if ($todayClose > $yesterdayClose) {
+            return round($previousObv + $todayVolume, 4);
+        }
+        if ($todayClose < $yesterdayClose) {
+            return round($previousObv - $todayVolume, 4);
+        }
+        return round($previousObv, 4);
+    }
+
+    /**
+     * VWAP du jour — calculé à partir des relevés intrajournaliers
+     * (intraday_quotes) de CETTE journée uniquement, donc réinitialisé
+     * chaque jour par construction (contrairement à l'implémentation ad-hoc
+     * de api_technical_indicators.php, qui cumule sur toute la fenêtre
+     * demandée sans jamais repartir de zéro — bug connu corrigé ici).
+     * Retourne null si aucun relevé intrajournalier n'existe pour ce jour
+     * (ex. avant que le cron intrajournalier n'ait tourné).
+     */
+    private function computeVWAP($companyId, $tradingDate) {
+        $sql = "
+            SELECT price, volume
+            FROM intraday_quotes
+            WHERE company_id = ?
+            AND DATE(quote_datetime) = ?
+            ORDER BY quote_datetime ASC
+        ";
+        $ticks = $this->crud->executeCustomQuery($sql, [$companyId, $tradingDate]) ?: [];
+
+        if (empty($ticks)) {
+            return null;
+        }
+
+        $cumulativePV = 0.0;
+        $cumulativeVolume = 0.0;
+        foreach ($ticks as $tick) {
+            $price = (float) $tick['price'];
+            $volume = (float) $tick['volume'];
+            $cumulativePV += $price * $volume;
+            $cumulativeVolume += $volume;
+        }
+
+        if ($cumulativeVolume <= 0) {
+            return null;
+        }
+
+        return round($cumulativePV / $cumulativeVolume, 4);
     }
 }

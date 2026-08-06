@@ -262,7 +262,7 @@ CREATE TABLE technical_indicators (
     
     -- Autres
     atr_14 DECIMAL(15, 4) COMMENT 'Average True Range',
-    
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
     FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,

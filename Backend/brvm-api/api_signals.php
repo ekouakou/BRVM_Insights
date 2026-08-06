@@ -45,6 +45,12 @@ class SignalsAPI {
                 case 'history':
                     return $this->getSignalHistory($input);
 
+                case 'crossovers':
+                    return $this->getCrossovers($input);
+
+                case 'divergence':
+                    return $this->getDivergence($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -159,7 +165,8 @@ class SignalsAPI {
                 ti.sma_10,
                 ti.sma_20,
                 ti.bb_upper,
-                ti.bb_lower
+                ti.bb_lower,
+                ti.atr_14
             FROM technical_indicators ti
             INNER JOIN companies c ON c.id = ti.company_id
             LEFT JOIN sectors s ON s.id = c.sector_id
@@ -170,8 +177,12 @@ class SignalsAPI {
         ";
 
         $rows = $this->crud->executeCustomQuery($sql, [$date]) ?: [];
+        $liquidityByCompany = $this->getLiquidityByCompany();
 
-        return array_map([$this, 'buildSignal'], $rows);
+        return array_map(
+            fn($row) => $this->buildSignal($row, $liquidityByCompany[(int) $row['company_id']] ?? null),
+            $rows
+        );
     }
 
     /**
@@ -213,7 +224,8 @@ class SignalsAPI {
                 ti.sma_10,
                 ti.sma_20,
                 ti.bb_upper,
-                ti.bb_lower
+                ti.bb_lower,
+                ti.atr_14
             FROM technical_indicators ti
             INNER JOIN companies c ON c.id = ti.company_id
             LEFT JOIN sectors s ON s.id = c.sector_id
@@ -227,9 +239,11 @@ class SignalsAPI {
             throw new Exception("Aucun indicateur technique disponible pour cette entreprise à cette date");
         }
 
+        $liquidityByCompany = $this->getLiquidityByCompany([$companyId]);
+
         return [
             'success' => true,
-            'data' => $this->buildSignal($rows[0])
+            'data' => $this->buildSignal($rows[0], $liquidityByCompany[$companyId] ?? null)
         ];
     }
 
@@ -300,10 +314,244 @@ class SignalsAPI {
     }
 
     /**
-     * Construit le score composite (-2 à +2) et son détail à partir d'une ligne
-     * combinant cotation + indicateurs techniques
+     * Détecte les croisements de moyennes mobiles (golden cross / death
+     * cross) sur une période, à partir des SMA déjà persistées dans
+     * technical_indicators — voir TODO_ANALYSES.md, point 14. Un jour où
+     * l'une des deux SMA manque (historique encore trop court) est
+     * simplement ignoré, sans casser la continuité de comparaison entre le
+     * jour précédent valide et le jour suivant valide.
      */
-    private function buildSignal($row) {
+    private function getCrossovers($input) {
+        $companyId = (int)($input['company_id'] ?? 0);
+        $symbol = $input['symbol'] ?? '';
+
+        if (!$companyId && !$symbol) {
+            throw new Exception("ID ou symbole de l'entreprise requis");
+        }
+
+        if (!$companyId && $symbol) {
+            $company = $this->crud->find('companies', ['symbol' => $symbol]);
+            if (empty($company)) {
+                throw new Exception("Entreprise non trouvée");
+            }
+            $companyId = $company[0]['id'];
+        }
+
+        $startDate = $input['start_date'] ?? null;
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+        $days = (int)($input['days'] ?? 180);
+
+        $sql = "SELECT trading_date, sma_10, sma_20, sma_50 FROM technical_indicators WHERE company_id = ?";
+        $params = [$companyId];
+
+        if ($startDate) {
+            $sql .= " AND trading_date >= ?";
+            $params[] = $startDate;
+        } else {
+            $sql .= " AND trading_date >= DATE_SUB(?, INTERVAL ? DAY)";
+            $params[] = $endDate;
+            $params[] = $days;
+        }
+        $sql .= " AND trading_date <= ? ORDER BY trading_date ASC";
+        $params[] = $endDate;
+
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+
+        // Deux paires suivies : croisement rapide (10/20, plus réactif,
+        // plus de faux signaux) et croisement de fond (20/50, plus lent,
+        // plus fiable) — le "golden cross" classique le plus cité (50/200)
+        // demande un historique que l'application n'a pas encore, ajoutable
+        // plus tard sans changement de schéma.
+        $pairs = [
+            '10/20' => ['fast' => 'sma_10', 'slow' => 'sma_20'],
+            '20/50' => ['fast' => 'sma_20', 'slow' => 'sma_50'],
+        ];
+
+        $crossovers = [];
+        foreach ($pairs as $label => $cols) {
+            $prevSign = null;
+            foreach ($rows as $row) {
+                $fast = $row[$cols['fast']];
+                $slow = $row[$cols['slow']];
+                if ($fast === null || $slow === null) {
+                    continue;
+                }
+
+                $diff = (float) $fast - (float) $slow;
+                $sign = $diff > 0 ? 1 : ($diff < 0 ? -1 : 0);
+                if ($sign === 0) {
+                    continue;
+                }
+
+                if ($prevSign !== null && $sign !== $prevSign) {
+                    $crossovers[] = [
+                        'date' => $row['trading_date'],
+                        'pair' => $label,
+                        'type' => $sign > 0 ? 'golden' : 'death',
+                        'fast_value' => round((float) $fast, 4),
+                        'slow_value' => round((float) $slow, 4),
+                    ];
+                }
+                $prevSign = $sign;
+            }
+        }
+
+        usort($crossovers, fn($a, $b) => $a['date'] <=> $b['date']);
+
+        return [
+            'success' => true,
+            'data' => $crossovers,
+            'count' => count($crossovers),
+            'company_id' => $companyId
+        ];
+    }
+
+    /**
+     * Détecte les divergences entre le cours et le RSI sur une période —
+     * souvent un signal d'essoufflement de tendance plus fiable qu'un
+     * simple seuil RSI <30/>70 déjà utilisé dans le score composite (voir
+     * TODO_ANALYSES.md, point 15).
+     *
+     * Méthode : repère d'abord les "pivots" du cours de clôture (un jour
+     * est un sommet local si son cours est strictement supérieur à celui
+     * des $pivotWindow jours avant ET après, symétriquement pour un creux
+     * local), puis compare deux pivots consécutifs de même type :
+     *   - Divergence baissière : le cours fait un sommet plus haut que le
+     *     précédent, mais le RSI à ce moment-là est plus bas — la hausse de
+     *     prix n'est plus confirmée par le momentum, signal d'essoufflement.
+     *   - Divergence haussière : le cours fait un creux plus bas que le
+     *     précédent, mais le RSI à ce moment-là est plus haut — la baisse
+     *     perd de sa force.
+     */
+    private function getDivergence($input) {
+        $companyId = (int)($input['company_id'] ?? 0);
+        $symbol = $input['symbol'] ?? '';
+
+        if (!$companyId && !$symbol) {
+            throw new Exception("ID ou symbole de l'entreprise requis");
+        }
+
+        if (!$companyId && $symbol) {
+            $company = $this->crud->find('companies', ['symbol' => $symbol]);
+            if (empty($company)) {
+                throw new Exception("Entreprise non trouvée");
+            }
+            $companyId = $company[0]['id'];
+        }
+
+        $startDate = $input['start_date'] ?? null;
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+        $days = (int)($input['days'] ?? 90);
+        $pivotWindow = 3;
+
+        $sql = "
+            SELECT sq.trading_date, sq.close_price, ti.rsi_14
+            FROM stock_quotes sq
+            LEFT JOIN technical_indicators ti
+                ON ti.company_id = sq.company_id AND ti.trading_date = sq.trading_date
+            WHERE sq.company_id = ?
+        ";
+        $params = [$companyId];
+
+        if ($startDate) {
+            $sql .= " AND sq.trading_date >= ?";
+            $params[] = $startDate;
+        } else {
+            $sql .= " AND sq.trading_date >= DATE_SUB(?, INTERVAL ? DAY)";
+            $params[] = $endDate;
+            $params[] = $days;
+        }
+        $sql .= " AND sq.trading_date <= ? ORDER BY sq.trading_date ASC";
+        $params[] = $endDate;
+
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+        $count = count($rows);
+
+        $dates = array_column($rows, 'trading_date');
+        $closes = array_map(fn($r) => (float) $r['close_price'], $rows);
+        $rsis = array_map(fn($r) => $r['rsi_14'] !== null ? (float) $r['rsi_14'] : null, $rows);
+
+        $pivotHighs = [];
+        $pivotLows = [];
+        for ($i = $pivotWindow; $i < $count - $pivotWindow; $i++) {
+            if ($rsis[$i] === null) {
+                continue;
+            }
+
+            $isHigh = true;
+            $isLow = true;
+            for ($j = $i - $pivotWindow; $j <= $i + $pivotWindow; $j++) {
+                if ($j === $i) {
+                    continue;
+                }
+                if ($closes[$j] >= $closes[$i]) $isHigh = false;
+                if ($closes[$j] <= $closes[$i]) $isLow = false;
+            }
+
+            if ($isHigh) $pivotHighs[] = $i;
+            if ($isLow) $pivotLows[] = $i;
+        }
+
+        $divergences = [];
+
+        for ($k = 1; $k < count($pivotHighs); $k++) {
+            $prev = $pivotHighs[$k - 1];
+            $cur = $pivotHighs[$k];
+            if ($rsis[$prev] === null || $rsis[$cur] === null) {
+                continue;
+            }
+            if ($closes[$cur] > $closes[$prev] && $rsis[$cur] < $rsis[$prev]) {
+                $divergences[] = [
+                    'date' => $dates[$cur],
+                    'type' => 'bearish',
+                    'previous_date' => $dates[$prev],
+                    'price' => round($closes[$cur], 4),
+                    'previous_price' => round($closes[$prev], 4),
+                    'rsi' => round($rsis[$cur], 4),
+                    'previous_rsi' => round($rsis[$prev], 4),
+                ];
+            }
+        }
+
+        for ($k = 1; $k < count($pivotLows); $k++) {
+            $prev = $pivotLows[$k - 1];
+            $cur = $pivotLows[$k];
+            if ($rsis[$prev] === null || $rsis[$cur] === null) {
+                continue;
+            }
+            if ($closes[$cur] < $closes[$prev] && $rsis[$cur] > $rsis[$prev]) {
+                $divergences[] = [
+                    'date' => $dates[$cur],
+                    'type' => 'bullish',
+                    'previous_date' => $dates[$prev],
+                    'price' => round($closes[$cur], 4),
+                    'previous_price' => round($closes[$prev], 4),
+                    'rsi' => round($rsis[$cur], 4),
+                    'previous_rsi' => round($rsis[$prev], 4),
+                ];
+            }
+        }
+
+        usort($divergences, fn($a, $b) => $a['date'] <=> $b['date']);
+
+        return [
+            'success' => true,
+            'data' => $divergences,
+            'count' => count($divergences),
+            'company_id' => $companyId
+        ];
+    }
+
+    /**
+     * Construit le score composite (-2 à +2) et son détail à partir d'une
+     * ligne combinant cotation + indicateurs techniques.
+     *
+     * @param string|null $liquidity Classement de liquidité déjà calculé
+     *   (Illiquide/Faible/Moyenne/Élevée, voir getLiquidityByCompany()) —
+     *   null si non disponible (ex. entreprise sans historique de volume
+     *   suffisant). Voir TODO_ANALYSES.md, point 16.
+     */
+    private function buildSignal($row, $liquidity = null) {
         $details = [];
         $sum = 0;
         $count = 0;
@@ -369,12 +617,38 @@ class SignalsAPI {
 
         $score = null;
         $label = 'Indéterminé';
+        $confidencePenalized = false;
 
         if ($count > 0) {
             $score = (int) round(($sum / $count) * 2);
             $score = max(-2, min(2, $score));
+
+            // Un signal "fort" (±2) sur un titre illiquide (cours figé
+            // faute d'acheteur/vendeur) est trompeur : les indicateurs
+            // techniques supposent un cours qui reflète l'offre/la demande
+            // du jour, pas l'absence de transaction. On ne supprime pas le
+            // signal (l'info reste utile), mais on le plafonne à ±1 et on
+            // le signale explicitement plutôt que de laisser l'utilisateur
+            // croiser manuellement avec le badge liquidité déjà affiché à
+            // côté (voir TODO_ANALYSES.md, point 16).
+            if ($liquidity === 'Illiquide' && abs($score) === 2) {
+                $score = $score > 0 ? 1 : -1;
+                $confidencePenalized = true;
+            }
+
             $label = $this->scoreLabel($score);
         }
+
+        // ATR en contexte (jamais utilisé dans le calcul du score
+        // lui-même) : situe le signal par rapport à l'agitation récente du
+        // titre — un "Achat" sur un titre très volatil (ATR élevé par
+        // rapport au cours) mérite plus de prudence qu'un "Achat" sur un
+        // titre stable, même à score composite égal.
+        $atr = $row['atr_14'] ?? null;
+        $closePrice = $row['close_price'] ?? null;
+        $atrRelativePercent = ($atr !== null && $closePrice !== null && (float) $closePrice > 0)
+            ? round(((float) $atr / (float) $closePrice) * 100, 2)
+            : null;
 
         return [
             'company_id' => $row['company_id'],
@@ -386,8 +660,71 @@ class SignalsAPI {
             'score' => $score,
             'label' => $label,
             'indicators_used' => $count,
-            'details' => $details
+            'details' => $details,
+            'liquidity' => $liquidity,
+            'confidence_penalized_by_liquidity' => $confidencePenalized,
+            'atr_14' => $atr !== null ? round((float) $atr, 4) : null,
+            'atr_relative_percent' => $atrRelativePercent
         ];
+    }
+
+    /**
+     * Classement de liquidité par entreprise (Illiquide/Faible/Moyenne/
+     * Élevée) sur 30 jours glissants — mêmes seuils et même méthode que
+     * api_quotes.php::getLiquidity(), dupliqués ici volontairement plutôt
+     * que d'instancier QuotesAPI depuis SignalsAPI (fichiers indépendants,
+     * voir le reste du projet) : si les seuils changent un jour, mettre à
+     * jour les deux endroits.
+     */
+    private function getLiquidityByCompany($companyIds = []) {
+        $days = 30;
+        $endDate = date('Y-m-d');
+
+        $sql = "
+            SELECT
+                c.id AS company_id,
+                AVG(sq.volume) AS avg_volume,
+                SUM(CASE WHEN sq.volume = 0 OR sq.volume IS NULL THEN 1 ELSE 0 END) AS zero_volume_days,
+                COUNT(*) AS total_days
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.trading_date >= DATE_SUB(?, INTERVAL ? DAY)
+            AND sq.trading_date <= ?
+            AND c.active = 1
+        ";
+        $params = [$endDate, $days, $endDate];
+
+        if (!empty($companyIds)) {
+            $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+            $sql .= " AND c.id IN ($placeholders)";
+            $params = array_merge($params, $companyIds);
+        }
+
+        $sql .= " GROUP BY c.id";
+
+        $rows = $this->crud->executeCustomQuery($sql, $params) ?: [];
+
+        $result = [];
+        foreach ($rows as $row) {
+            $avgVolume = (float) $row['avg_volume'];
+            $totalDays = (int) $row['total_days'];
+            $zeroDays = (int) $row['zero_volume_days'];
+            $zeroRatio = $totalDays > 0 ? $zeroDays / $totalDays : 0;
+
+            if ($zeroRatio > 0.3) {
+                $label = 'Illiquide';
+            } elseif ($avgVolume < 200) {
+                $label = 'Faible';
+            } elseif ($avgVolume < 2000) {
+                $label = 'Moyenne';
+            } else {
+                $label = 'Élevée';
+            }
+
+            $result[(int) $row['company_id']] = $label;
+        }
+
+        return $result;
     }
 
     private function scoreLabel($score) {

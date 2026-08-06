@@ -53,7 +53,12 @@ class ChartAnalysisService {
             "haussier/baissier), tendance (cours au-dessus/en-dessous de sa moyenne mobile SMA20 ou SMA10), " .
             "Bandes de Bollinger (cours au-dessus/en-dessous des bandes = potentiel retour à la moyenne). " .
             "Un signal peut manquer si l'historique de l'entreprise est trop court pour le calculer — le " .
-            "score se base alors sur les signaux disponibles uniquement (voir api_signals.php::buildSignal()).",
+            "score se base alors sur les signaux disponibles uniquement (voir api_signals.php::buildSignal()). " .
+            "Un score fort (±2) sur un titre classé 'Illiquide' (champ liquidity, basé sur le volume moyen et " .
+            "la part de jours sans transaction sur 30 jours) est automatiquement plafonné à ±1 " .
+            "(confidence_penalized_by_liquidity=true dans ce cas) : un cours figé faute d'acheteur/vendeur " .
+            "produit des indicateurs trompeurs, pas un vrai signal fort. atr_relative_percent (ATR 14 jours " .
+            "rapporté au cours, en %) donne le contexte de volatilité récente du titre, sans influencer le score.",
         'quotes_close_sma' =>
             "Cours de clôture quotidien d'une entreprise, avec ses moyennes mobiles simples (SMA) superposées " .
             "— chaque point de la SMA-N est la moyenne des N derniers cours de clôture (N=10, 20 ou 50 selon " .
@@ -156,6 +161,33 @@ class ChartAnalysisService {
             "Une entreprise active sans aucune cotation sur la période apparaît avec une performance manquante " .
             "(pas 0%, qui suggérerait à tort une stabilité observée) — à distinguer d'une entreprise vraiment " .
             "stable sur la période.",
+        'risk_metrics_advanced' =>
+            "Métriques de risque/performance calculées à partir des log-rendements quotidiens de chaque " .
+            "entreprise sélectionnée (api_risk_metrics.php, action 'compute') : rendement net (simple, période " .
+            "entière), CAGR (rendement annualisé composé), volatilité annualisée (écart-type des rendements × " .
+            "√252), ratio de Sharpe = (rendement annualisé - taux sans risque) / volatilité annualisée (taux " .
+            "sans risque fixé à 0% par défaut, faute de proxy simple pour les bons du Trésor UEMOA/BCEAO — " .
+            "toujours renvoyé explicitement, jamais une hypothèse implicite), ratio de Sortino (même formule " .
+            "mais avec l'écart-type des seuls rendements négatifs au dénominateur), Maximum Drawdown (perte la " .
+            "plus forte depuis un sommet précédent sur la période) et ratio de Calmar (CAGR ÷ |drawdown max|), " .
+            "VaR et CVaR historiques à 95% (percentile empirique des pires rendements, pas une hypothèse de " .
+            "distribution normale), skewness et kurtosis (asymétrie et queues de distribution des rendements), " .
+            "et bêta vs indice BRVM-COMPOSITE (covariance/variance des rendements quotidiens sur les jours " .
+            "communs, régression classique — à distinguer du 'relative_strength' déjà existant, qui est un " .
+            "écart de rendement jour par jour, pas un coefficient de régression). En-dessous de 20 rendements " .
+            "quotidiens disponibles (champ insufficient_history=true), toutes ces métriques sauf le rendement " .
+            "net simple sont volontairement laissées à null plutôt que calculées sur un échantillon trop court " .
+            "pour être statistiquement significatif.",
+        'screener' =>
+            "Classement filtrable de toutes les entreprises actives (ou du sous-ensemble déjà filtré côté " .
+            "utilisateur) croisant plusieurs sources déjà calculées ailleurs dans l'application " .
+            "(api_screener.php, action 'screen') : score composite achat/vente (-2 à +2, même formule que " .
+            "api_signals.php, plafonné si le titre est illiquide), classement de liquidité (30 jours glissants), " .
+            "performance de cours sur la période sélectionnée (première vs dernière clôture), et rang de " .
+            "l'entreprise au sein de son propre secteur d'activité par cette même performance (sector_rank sur " .
+            "sector_size, ex: 2 sur 4 = 2ᵉ meilleure performance parmi les 4 entreprises de ce secteur ayant une " .
+            "cotation sur la période). Une entreprise sans cotation sur la période n'a pas de rang sectoriel " .
+            "(sector_rank=null) plutôt qu'un rang par défaut trompeur.",
     ];
 
     private $crud;
