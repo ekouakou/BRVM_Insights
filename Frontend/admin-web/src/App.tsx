@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
+import { CompanyDashboard } from './pages/CompanyDashboard'
 import { Quotes } from './pages/Quotes'
 import { Sync } from './pages/Sync'
 import { Reports } from './pages/Reports'
@@ -35,6 +36,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Protected><Overview /></Protected>} />
+        <Route path="/company" element={<Protected><CompanyDashboard /></Protected>} />
         <Route path="/quotes" element={<Protected><Quotes /></Protected>} />
         <Route path="/volume-ranking" element={<Protected><VolumeRanking /></Protected>} />
         <Route path="/sync" element={<Protected><Sync /></Protected>} />

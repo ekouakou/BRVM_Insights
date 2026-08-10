@@ -22,6 +22,7 @@ require_once 'class/DynamiqueCrud.php';
 require_once 'class/AuthGuard.php';
 AuthGuard::requireAuth();
 require_once 'class/AiClientInterface.php';
+require_once 'class/AiChatClientInterface.php';
 require_once 'class/GeminiClient.php';
 require_once 'class/AnthropicClient.php';
 require_once 'class/GrokClient.php';
@@ -48,6 +49,9 @@ class BulletinAnalysisAPI {
 
                 case 'history':
                     return $this->history($input);
+
+                case 'stats':
+                    return $this->stats($input);
 
                 default:
                     throw new Exception("Action non reconnue: $action");
@@ -120,6 +124,21 @@ class BulletinAnalysisAPI {
         $data = $service->history($bulletinId);
 
         return ['success' => true, 'data' => $data, 'count' => count($data)];
+    }
+
+    /**
+     * Statistiques agrégées des analyses IA déjà réalisées sur les
+     * bulletins (marché entier, pas scopé à une entreprise) — voir
+     * MarketBulletinAnalysisService::getMarketAnalysisStats().
+     */
+    private function stats($input) {
+        $startDate = !empty($input['start_date']) ? $input['start_date'] : null;
+        $endDate = !empty($input['end_date']) ? $input['end_date'] : null;
+
+        $service = new MarketBulletinAnalysisService($this->crud);
+        $data = $service->getMarketAnalysisStats($startDate, $endDate);
+
+        return ['success' => true, 'data' => $data];
     }
 }
 

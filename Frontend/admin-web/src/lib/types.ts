@@ -227,6 +227,61 @@ export interface RelativeStrengthSeries {
   }[]
 }
 
+/**
+ * Historique du score de liquidité (api_quotes.php, action
+ * 'liquidity_history') — même calcul que le badge "Liquidité" (fenêtre
+ * glissante de `liquidity_window_days` jours calendaires, volume moyen +
+ * part de jours sans transaction), mais un point par jour de bourse au lieu
+ * d'un seul badge pour toute la période.
+ */
+export interface LiquidityHistorySeries {
+  company_id: number
+  symbol: string
+  name: string
+  data: {
+    date: string
+    avg_volume: number
+    zero_volume_ratio: number
+    window_trading_days: number
+    liquidity: 'Illiquide' | 'Faible' | 'Moyenne' | 'Élevée'
+  }[]
+}
+
+/**
+ * Statistiques agrégées des analyses IA déjà réalisées pour les rapports
+ * d'une entreprise (api_report_analysis.php, action 'stats') — recalculées
+ * à chaque appel à partir de company_report_analyses, donc reflètent
+ * automatiquement tout nouveau rapport analysé (pas un instantané figé).
+ * Une seule analyse (la plus récente réussie) est comptée par rapport.
+ */
+export interface ReportAnalysisStats {
+  company_id: number
+  /** true si les documents complémentaires ont été inclus dans cet appel (paramètre include_documents). */
+  documents_included: boolean
+  total_reports: number
+  analyzed_reports: number
+  pending_reports: number
+  /** Toujours à 0 quand documents_included=false (non calculé côté backend dans ce cas). */
+  total_documents: number
+  analyzed_documents: number
+  pending_documents: number
+  verdict_distribution: { verdict: string; count: number }[]
+  risk_category_distribution: { category: string; count: number }[]
+  financial_trend: {
+    source_type: 'report' | 'document'
+    source_id: number
+    source_title: string
+    /** Date de publication pour un rapport officiel, date d'ajout (uploaded_at) pour un document complémentaire. */
+    publish_date: string | null
+    revenue: number | null
+    net_income: number | null
+    net_margin_percent: number | null
+    roe_percent: number | null
+    pe_ratio: number | null
+    verdict: string | null
+  }[]
+}
+
 /** Alerte de prix (api_price_alerts.php). */
 export interface PriceAlert {
   id: number
@@ -501,6 +556,8 @@ export interface BacktestEquityPoint {
   date: string
   strategy_equity_base100: number
   buy_hold_equity_base100: number
+  /** Position vendeuse simulée indépendamment (entrées/sorties inversées de la stratégie longue), pas un simple miroir de buy-and-hold. */
+  short_equity_base100: number
 }
 
 /**
@@ -529,7 +586,15 @@ export interface BacktestResult {
   avg_trade_return_percent: number | null
   strategy_return_percent: number | null
   buy_hold_return_percent: number | null
+  short_return_percent: number | null
   open_position: { entry_date: string; entry_price: number } | null
+  /** Position vendeuse (vente à découvert) simulée indépendamment avec sa propre logique d'entrée/sortie inversée. */
+  short_trades: BacktestTrade[]
+  short_total_trades: number
+  short_winning_trades: number
+  short_win_rate_percent: number | null
+  short_avg_trade_return_percent: number | null
+  open_short_position: { entry_date: string; entry_price: number } | null
 }
 
 export interface SyncLog {
@@ -553,6 +618,38 @@ export interface BackfillCompanyProgress {
   extracted: number
   errors: number
   pending: number
+}
+
+export interface CompanyDocumentSummary {
+  id: number
+  company_id: number
+  title: string
+  original_filename: string
+  file_size: number | null
+  uploaded_at: string
+  text_extracted: boolean
+  extraction_method: string | null
+  extraction_error: string | null
+  markdown_status: 'processing' | 'success' | 'failed' | null
+  analyses_count: number
+  analyzed_models: string[]
+}
+
+export interface CompanyDocumentDetail {
+  id: number
+  company: { id: number | null; symbol: string | null; name: string | null }
+  title: string
+  original_filename: string
+  file_size: number | null
+  uploaded_at: string
+  text_extracted: boolean
+  extraction_method: string | null
+  extraction_error: string | null
+  extracted_text: string | null
+  char_count: number | null
+  formatted_markdown: string | null
+  markdown_status: 'processing' | 'success' | 'failed' | null
+  markdown_error: string | null
 }
 
 export interface ReportSummary {
@@ -650,6 +747,26 @@ export interface ValuationAssessment {
   rationale?: string
 }
 
+/** Corps structuré partagé par ReportAnalysis et CompanyDocumentAnalysis (même schéma de sortie IA, voir class/ReportAnalysisService.php et class/CompanyDocumentAnalysisService.php). */
+export interface StructuredAnalysisContent {
+  executive_summary: string
+  company_overview?: string | null
+  key_financials?: KeyFinancials
+  financial_analysis?: string | null
+  growth_trends?: string | null
+  cash_flow_analysis?: string | null
+  swot?: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] }
+  risks?: { category: string; description: string }[]
+  governance_and_audit?: string | null
+  outlook_guidance?: string | null
+  market_context_note?: string | null
+  technical_reading?: string | null
+  valuation_assessment?: ValuationAssessment
+  investment_thesis?: { bull_case: string; bear_case: string; key_watch_points: string[] }
+  data_quality_note?: string | null
+  glossary?: { term: string; explanation: string }[]
+}
+
 export interface ReportAnalysis {
   id: number
   report: { id: number; title: string; report_type: string; publish_date: string | null }
@@ -661,24 +778,27 @@ export interface ReportAnalysis {
   error_message: string | null
   rating: number | null
   notes: string | null
-  analysis: {
-    executive_summary: string
-    company_overview?: string | null
-    key_financials?: KeyFinancials
-    financial_analysis?: string | null
-    growth_trends?: string | null
-    cash_flow_analysis?: string | null
-    swot?: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] }
-    risks?: { category: string; description: string }[]
-    governance_and_audit?: string | null
-    outlook_guidance?: string | null
-    market_context_note?: string | null
-    technical_reading?: string | null
-    valuation_assessment?: ValuationAssessment
-    investment_thesis?: { bull_case: string; bear_case: string; key_watch_points: string[] }
-    data_quality_note?: string | null
-    glossary?: { term: string; explanation: string }[]
-  } | null
+  analysis: StructuredAnalysisContent | null
+  chart_data: { price_history: OhlcPoint[] }
+  disclaimer: string
+  cached: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+/** Analyse IA d'un document complémentaire (api_company_document_analysis.php) — même forme que ReportAnalysis, source 'document' au lieu de 'report'. */
+export interface CompanyDocumentAnalysis {
+  id: number
+  document: { id: number; title: string; uploaded_at: string | null }
+  company: { id: number; symbol: string; name: string }
+  provider: string
+  model: string
+  market_context_date: string | null
+  status: 'success' | 'failed'
+  error_message: string | null
+  rating: number | null
+  notes: string | null
+  analysis: StructuredAnalysisContent | null
   chart_data: { price_history: OhlcPoint[] }
   disclaimer: string
   cached: boolean
@@ -806,6 +926,30 @@ export interface BulletinAnalysis {
   updated_at: string | null
 }
 
+/**
+ * Statistiques agrégées des analyses IA déjà réalisées sur les bulletins
+ * (api_bulletin_analysis.php, action 'stats') — portée marché entier, pas
+ * une entreprise en particulier.
+ */
+export interface BulletinAnalysisStats {
+  total_bulletins: number
+  analyzed_bulletins: number
+  pending_bulletins: number
+  sentiment_distribution: { sentiment: string; count: number }[]
+  market_trend: {
+    bulletin_id: number
+    publish_date: string | null
+    sentiment: 'haussier' | 'baissier' | 'neutre' | 'mixte' | null
+    total_volume: number | null
+    total_turnover: number | null
+    advancers_count: number | null
+    decliners_count: number | null
+    unchanged_count: number | null
+  }[]
+  start_date: string | null
+  end_date: string | null
+}
+
 export interface BulletinComparisonResult {
   bulletin_ids: number[]
   provider: string
@@ -922,4 +1066,21 @@ export interface CombinedAnalysisResult {
   disclaimer: string
   cached: boolean
   created_at: string | null
+}
+
+/**
+ * Un tour de la conversation avec l'assistant IA du tableau de bord
+ * entreprise (api_company_chat.php) — 'sources' n'est renseigné que pour
+ * role='assistant' quand le fournisseur IA a effectué une recherche
+ * internet (voir class/AiChatClientInterface.php côté backend).
+ */
+export interface CompanyChatMessage {
+  id: number
+  company_id: number
+  role: 'user' | 'assistant'
+  content: string
+  provider: 'gemini' | 'anthropic' | 'grok' | null
+  model: string | null
+  sources: { title: string | null; url: string }[]
+  created_at: string
 }

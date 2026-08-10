@@ -161,18 +161,25 @@ class BacktestAPI {
     }
 
     /**
-     * Règle "signal composite" : entre en position quand le score du jour
-     * (même formule que api_signals.php::buildSignal(), voir note en tête
-     * de fichier) atteint $buyThreshold, sort quand il retombe à
-     * $sellThreshold ou en-dessous. Les jours à score indéterminé (pas
-     * assez d'indicateurs disponibles) n'agissent ni comme achat ni comme
-     * vente — la position en cours (ou l'absence de position) est
+     * Règle "signal composite" : entre en position LONGUE quand le score du
+     * jour (même formule que api_signals.php::buildSignal(), voir note en
+     * tête de fichier) atteint $buyThreshold, sort quand il retombe à
+     * $sellThreshold ou en-dessous. En parallèle, simule une position
+     * VENDEUSE à découvert avec la logique exactement inversée (entre à
+     * $sellThreshold ou en-dessous, sort/rachète à $buyThreshold) — les deux
+     * stratégies tournent indépendamment sur le même historique, ce n'est
+     * pas un simple miroir mathématique de la première. Les jours à score
+     * indéterminé (pas assez d'indicateurs disponibles) n'agissent sur
+     * aucune des deux — la position en cours (ou l'absence de position) est
      * simplement maintenue.
      */
     private function simulateSignalScore($rows, $buyThreshold, $sellThreshold) {
         $position = null;
+        $shortPosition = null;
         $trades = [];
+        $shortTrades = [];
         $equity = 1.0;
+        $shortEquity = 1.0;
         $curve = [];
         $firstClose = null;
 
@@ -188,31 +195,46 @@ class BacktestAPI {
             if ($position === null && $score !== null && $score >= $buyThreshold) {
                 $position = ['entry_date' => $row['trading_date'], 'entry_price' => $close];
             } elseif ($position !== null && $score !== null && $score <= $sellThreshold) {
-                $trades[] = $this->closeTrade($position, $row['trading_date'], $close);
+                $trades[] = $this->closeTrade($position, $row['trading_date'], $close, 'long');
                 $equity *= (1 + end($trades)['return_percent'] / 100);
                 $position = null;
             }
 
-            $curve[] = $this->equityPoint($row['trading_date'], $equity, $position, $close, $buyHold);
+            if ($shortPosition === null && $score !== null && $score <= $sellThreshold) {
+                $shortPosition = ['entry_date' => $row['trading_date'], 'entry_price' => $close];
+            } elseif ($shortPosition !== null && $score !== null && $score >= $buyThreshold) {
+                $shortTrades[] = $this->closeTrade($shortPosition, $row['trading_date'], $close, 'short');
+                $shortEquity *= (1 + end($shortTrades)['return_percent'] / 100);
+                $shortPosition = null;
+            }
+
+            $curve[] = $this->equityPoint($row['trading_date'], $equity, $position, $shortEquity, $shortPosition, $close, $buyHold);
         }
 
-        return $this->buildSummary($trades, $curve, $position);
+        return $this->buildSummary($trades, $shortTrades, $curve, $position, $shortPosition);
     }
 
     /**
-     * Règle "golden/death cross" : entre en position au croisement haussier
-     * de la paire de SMA choisie (rapide qui passe au-dessus de la lente),
-     * sort au croisement baissier (l'inverse) — même détection que
-     * api_signals.php::getCrossovers(), mais rejouée ici jour par jour
-     * dans le cadre de la simulation plutôt que listée après coup.
+     * Règle "golden/death cross" : entre en position LONGUE au croisement
+     * haussier de la paire de SMA choisie (rapide qui passe au-dessus de la
+     * lente), sort au croisement baissier (l'inverse) — même détection que
+     * api_signals.php::getCrossovers(), mais rejouée ici jour par jour dans
+     * le cadre de la simulation plutôt que listée après coup. En parallèle,
+     * simule une position VENDEUSE avec la logique inversée (entre au
+     * croisement baissier/death cross, sort/rachète au croisement
+     * haussier/golden cross) — deux simulations indépendantes sur le même
+     * historique, pas un miroir mathématique.
      */
     private function simulateGoldenCross($rows, $fastKey, $slowKey) {
         $fastField = 'sma_' . $fastKey;
         $slowField = 'sma_' . $slowKey;
 
         $position = null;
+        $shortPosition = null;
         $trades = [];
+        $shortTrades = [];
         $equity = 1.0;
+        $shortEquity = 1.0;
         $curve = [];
         $firstClose = null;
         $prevSign = null;
@@ -242,21 +264,31 @@ class BacktestAPI {
             if ($position === null && $crossSignal === 'buy') {
                 $position = ['entry_date' => $row['trading_date'], 'entry_price' => $close];
             } elseif ($position !== null && $crossSignal === 'sell') {
-                $trades[] = $this->closeTrade($position, $row['trading_date'], $close);
+                $trades[] = $this->closeTrade($position, $row['trading_date'], $close, 'long');
                 $equity *= (1 + end($trades)['return_percent'] / 100);
                 $position = null;
             }
 
-            $curve[] = $this->equityPoint($row['trading_date'], $equity, $position, $close, $buyHold);
+            if ($shortPosition === null && $crossSignal === 'sell') {
+                $shortPosition = ['entry_date' => $row['trading_date'], 'entry_price' => $close];
+            } elseif ($shortPosition !== null && $crossSignal === 'buy') {
+                $shortTrades[] = $this->closeTrade($shortPosition, $row['trading_date'], $close, 'short');
+                $shortEquity *= (1 + end($shortTrades)['return_percent'] / 100);
+                $shortPosition = null;
+            }
+
+            $curve[] = $this->equityPoint($row['trading_date'], $equity, $position, $shortEquity, $shortPosition, $close, $buyHold);
         }
 
-        return $this->buildSummary($trades, $curve, $position);
+        return $this->buildSummary($trades, $shortTrades, $curve, $position, $shortPosition);
     }
 
-    private function closeTrade($position, $exitDate, $exitPrice) {
-        $tradeReturn = $position['entry_price'] > 0
+    /** $direction='short' inverse simplement le sens du gain (on gagne quand le cours baisse entre l'entrée et la sortie). */
+    private function closeTrade($position, $exitDate, $exitPrice, $direction = 'long') {
+        $rawReturn = $position['entry_price'] > 0
             ? (($exitPrice - $position['entry_price']) / $position['entry_price']) * 100
             : 0;
+        $tradeReturn = $direction === 'short' ? -$rawReturn : $rawReturn;
 
         return [
             'entry_date' => $position['entry_date'],
@@ -267,20 +299,31 @@ class BacktestAPI {
         ];
     }
 
-    /** Valeur du portefeuille base 100, en mark-to-market si une position est ouverte ce jour-là. */
-    private function equityPoint($date, $equity, $position, $close, $buyHold) {
+    /**
+     * Valeur des trois portefeuilles base 100, en mark-to-market si une
+     * position est ouverte ce jour-là. La position vendeuse ('short') est
+     * valorisée par entry_price / close (et non close / entry_price comme
+     * la position longue) : sa valeur augmente quand le cours baisse sous
+     * le prix d'entrée, symétrique de la position longue.
+     */
+    private function equityPoint($date, $equity, $position, $shortEquity, $shortPosition, $close, $buyHold) {
         $strategyEquity = ($position !== null && $position['entry_price'] > 0)
             ? $equity * ($close / $position['entry_price'])
             : $equity;
 
+        $shortStrategyEquity = ($shortPosition !== null && $close > 0)
+            ? $shortEquity * ($shortPosition['entry_price'] / $close)
+            : $shortEquity;
+
         return [
             'date' => $date,
             'strategy_equity_base100' => round($strategyEquity * 100, 2),
-            'buy_hold_equity_base100' => round($buyHold * 100, 2)
+            'buy_hold_equity_base100' => round($buyHold * 100, 2),
+            'short_equity_base100' => round($shortStrategyEquity * 100, 2)
         ];
     }
 
-    private function buildSummary($trades, $curve, $openPosition) {
+    private function buildSummary($trades, $shortTrades, $curve, $openPosition, $openShortPosition) {
         $totalTrades = count($trades);
         $winningTrades = count(array_filter($trades, fn($t) => $t['return_percent'] > 0));
         $winRate = $totalTrades > 0 ? round($winningTrades / $totalTrades * 100, 1) : null;
@@ -288,12 +331,26 @@ class BacktestAPI {
             ? round(array_sum(array_column($trades, 'return_percent')) / $totalTrades, 2)
             : null;
 
+        $shortTotalTrades = count($shortTrades);
+        $shortWinningTrades = count(array_filter($shortTrades, fn($t) => $t['return_percent'] > 0));
+        $shortWinRate = $shortTotalTrades > 0 ? round($shortWinningTrades / $shortTotalTrades * 100, 1) : null;
+        $shortAvgTradeReturn = $shortTotalTrades > 0
+            ? round(array_sum(array_column($shortTrades, 'return_percent')) / $shortTotalTrades, 2)
+            : null;
+
         $lastPoint = end($curve) ?: null;
         $strategyReturn = $lastPoint ? round($lastPoint['strategy_equity_base100'] - 100, 2) : null;
         $buyHoldReturn = $lastPoint ? round($lastPoint['buy_hold_equity_base100'] - 100, 2) : null;
+        $shortReturn = $lastPoint ? round($lastPoint['short_equity_base100'] - 100, 2) : null;
 
         return [
             'equity_curve' => $curve,
+            'short_trades' => $shortTrades,
+            'short_total_trades' => $shortTotalTrades,
+            'short_winning_trades' => $shortWinningTrades,
+            'short_win_rate_percent' => $shortWinRate,
+            'short_avg_trade_return_percent' => $shortAvgTradeReturn,
+            'open_short_position' => $openShortPosition,
             'trades' => $trades,
             'total_trades' => $totalTrades,
             'winning_trades' => $winningTrades,
@@ -301,6 +358,7 @@ class BacktestAPI {
             'avg_trade_return_percent' => $avgTradeReturn,
             'strategy_return_percent' => $strategyReturn,
             'buy_hold_return_percent' => $buyHoldReturn,
+            'short_return_percent' => $shortReturn,
             'open_position' => $openPosition
         ];
     }

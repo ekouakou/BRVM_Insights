@@ -25,6 +25,7 @@ require_once 'class/DynamiqueCrud.php';
 require_once 'class/AuthGuard.php';
 AuthGuard::requireAuth();
 require_once 'class/AiClientInterface.php';
+require_once 'class/AiChatClientInterface.php';
 require_once 'class/GeminiClient.php';
 require_once 'class/AnthropicClient.php';
 require_once 'class/GrokClient.php';

@@ -5,7 +5,7 @@
  * GeminiClient : ce projet n'a pas de composer.json/SDK, donc pas de SDK
  * officiel Anthropic ici non plus, pour rester cohérent avec le reste du code.
  */
-class AnthropicClient implements AiClientInterface {
+class AnthropicClient implements AiClientInterface, AiChatClientInterface {
     private const API_URL = 'https://api.anthropic.com/v1/messages';
     private const API_VERSION = '2023-06-01';
     private const DEFAULT_MODEL = 'claude-opus-5';
@@ -229,5 +229,123 @@ class AnthropicClient implements AiClientInterface {
             ],
             'additionalProperties' => false,
         ];
+    }
+
+    /**
+     * Conversation libre avec recherche web activée nativement (server tool
+     * 'web_search') — Anthropic exécute les recherches côté serveur dans le
+     * même appel (pas de boucle d'exécution d'outil à gérer ici), et renvoie
+     * la réponse finale avec, le cas échéant, des blocs de citations pointant
+     * vers les pages utilisées. Pas de output_config JSON ici : on veut du
+     * texte libre (Markdown), pas un objet structuré.
+     *
+     * Comme pour GeminiClient::generateChatReply(), si l'appel avec l'outil
+     * web_search échoue pour une raison de quota/plan (429, ou le tool
+     * lui-même indisponible sur le plan tarifaire), on retente une fois SANS
+     * l'outil plutôt que de faire échouer tout le chat.
+     *
+     * @return array{success:bool, text?:string, sources?:array<array{title:?string,url:string}>, error?:string}
+     */
+    public function generateChatReply(string $systemPrompt, array $history, string $userMessage, ?string $model = null, ?array $options = null): array {
+        $model = $model ?: self::DEFAULT_MODEL;
+
+        $result = $this->callChatEndpoint($systemPrompt, $history, $userMessage, $model, $options, true);
+
+        if (!$result['success'] && $this->isSearchQuotaError($result['error'] ?? '')) {
+            $fallback = $this->callChatEndpoint($systemPrompt, $history, $userMessage, $model, $options, false);
+            if ($fallback['success']) {
+                $fallback['text'] =
+                    "*Recherche internet indisponible pour le moment (quota/plan de l'outil de recherche côté " .
+                    "fournisseur) — réponse basée uniquement sur les données du tableau de bord et les " .
+                    "connaissances déjà entraînées du modèle.*\n\n" . $fallback['text'];
+                $fallback['sources'] = [];
+            }
+            return $fallback;
+        }
+
+        return $result;
+    }
+
+    private function isSearchQuotaError(string $message): bool {
+        return stripos($message, '429') !== false
+            || stripos($message, 'quota') !== false
+            || stripos($message, 'rate_limit') !== false;
+    }
+
+    private function callChatEndpoint(string $systemPrompt, array $history, string $userMessage, string $model, ?array $options, bool $withSearch): array {
+        $messages = [];
+        foreach ($history as $turn) {
+            $role = ($turn['role'] ?? 'user') === 'assistant' ? 'assistant' : 'user';
+            $messages[] = ['role' => $role, 'content' => (string) ($turn['content'] ?? '')];
+        }
+        $messages[] = ['role' => 'user', 'content' => $userMessage];
+
+        $body = [
+            'model' => $model,
+            'max_tokens' => $options['max_tokens'] ?? 4096,
+            'system' => $systemPrompt,
+            'messages' => $messages,
+        ];
+        if ($withSearch) {
+            $body['tools'] = [
+                ['type' => 'web_search_20250305', 'name' => 'web_search', 'max_uses' => 5],
+            ];
+        }
+
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => self::API_URL,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => json_encode($body),
+            CURLOPT_HTTPHEADER => [
+                'x-api-key: ' . $this->apiKey,
+                'anthropic-version: ' . self::API_VERSION,
+                'content-type: application/json',
+            ],
+            CURLOPT_TIMEOUT => $options['timeout_seconds'] ?? 120,
+            CURLOPT_CONNECTTIMEOUT => 10,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            return ['success' => false, 'error' => "Erreur réseau vers Anthropic: $curlError"];
+        }
+
+        $decoded = json_decode($response, true);
+
+        if ($httpCode !== 200) {
+            $message = $decoded['error']['message'] ?? "HTTP $httpCode";
+            return ['success' => false, 'error' => "Erreur Anthropic ($httpCode): $message", 'raw' => $response];
+        }
+
+        if (($decoded['stop_reason'] ?? null) === 'refusal') {
+            $category = $decoded['stop_details']['category'] ?? null;
+            $message = $category ? "Requête refusée par Anthropic (catégorie: $category)" : "Requête refusée par Anthropic";
+            return ['success' => false, 'error' => $message, 'raw' => $response];
+        }
+
+        $textParts = [];
+        $sourcesByUrl = [];
+        foreach ($decoded['content'] ?? [] as $block) {
+            if (($block['type'] ?? null) === 'text') {
+                $textParts[] = $block['text'];
+                foreach ($block['citations'] ?? [] as $citation) {
+                    if (!empty($citation['url'])) {
+                        $sourcesByUrl[$citation['url']] = ['title' => $citation['title'] ?? null, 'url' => $citation['url']];
+                    }
+                }
+            }
+        }
+
+        if (!$textParts) {
+            return ['success' => false, 'error' => "Réponse Anthropic sans bloc texte", 'raw' => $response];
+        }
+
+        return ['success' => true, 'text' => implode("\n\n", $textParts), 'sources' => array_values($sourcesByUrl)];
     }
 }

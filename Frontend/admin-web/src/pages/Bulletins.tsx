@@ -1,11 +1,12 @@
 import { Fragment, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { BarChart, Bar, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts'
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { bulletinDownloadUrl, callApi, uploadFile } from '../lib/apiClient'
 import type {
   BulletinAnalysis,
+  BulletinAnalysisStats,
   BulletinComparisonResult,
   BulletinDetail,
   BulletinDiscoverResult,
@@ -16,6 +17,7 @@ import type {
 } from '../lib/types'
 import { AnalysisBadge, Button, Card, ErrorState, Input, LoadingState, MarkdownBadge, Modal, StatTile, Table } from '../components/ui'
 import { BoltIcon, CloseIcon, EyeIcon, IconButton, InfoIcon, RetryIcon, UploadIcon } from '../components/icons'
+import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 const INDEX_COLORS: Record<string, string> = {
   'BRVM-COMPOSITE': '#4f46e5',
@@ -24,6 +26,20 @@ const INDEX_COLORS: Record<string, string> = {
   'BRVM-PRINCIPAL': '#10b981',
 }
 const FALLBACK_COLORS = ['#4f46e5', '#0ea5e9', '#f59e0b', '#10b981', '#ec4899', '#8b5cf6']
+
+/** Couleurs du camembert de sentiment de marché — haussier/baissier ont un sens directionnel clair (vert/rouge), mixte/indéterminé restent neutres. */
+function sentimentColor(sentiment: string) {
+  switch (sentiment) {
+    case 'haussier':
+      return '#059669'
+    case 'baissier':
+      return '#dc2626'
+    case 'mixte':
+      return '#f59e0b'
+    default:
+      return '#6b7280'
+  }
+}
 
 export function Bulletins() {
   const [results, setResults] = useState<Record<number, BulletinProcessResult>>({})
@@ -49,6 +65,14 @@ export function Bulletins() {
   const statsQuery = useQuery({
     queryKey: ['bulletin-stats'],
     queryFn: () => callApi<BulletinStats>('api_bulletins.php', 'stats'),
+  })
+
+  // Statistiques des analyses IA déjà réalisées (pas de filtre de période ici,
+  // porte sur tout l'historique déjà analysé) — recalculées côté backend à
+  // chaque appel, donc tout nouveau bulletin analysé apparaît automatiquement.
+  const aiStatsQuery = useQuery({
+    queryKey: ['bulletin-ai-stats'],
+    queryFn: () => callApi<BulletinAnalysisStats>('api_bulletin_analysis.php', 'stats'),
   })
 
   const listQuery = useQuery({
@@ -294,6 +318,127 @@ export function Bulletins() {
         <StatTile label="En erreur" value={stats.errors} tone="negative" />
         <StatTile label="En attente" value={stats.pending} />
       </div>
+
+      {aiStatsQuery.isLoading && <LoadingState label="Chargement de la synthèse des analyses IA…" />}
+      {aiStatsQuery.error && <ErrorState message={(aiStatsQuery.error as Error).message} />}
+
+      {aiStatsQuery.data && (
+        <Card title="Synthèse des analyses IA">
+          <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            Calculée à partir des <strong>{aiStatsQuery.data.analyzed_bulletins}</strong> bulletin(s) déjà analysé(s)
+            par l'IA sur les <strong>{aiStatsQuery.data.total_bulletins}</strong> bulletins connus — se met à jour
+            automatiquement à mesure que d'autres bulletins sont analysés, une seule analyse (la plus récente)
+            comptant par bulletin. Portée marché entier (chaque bulletin couvre toute la séance), pas une
+            entreprise en particulier.
+          </p>
+
+          {aiStatsQuery.data.analyzed_bulletins === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun bulletin encore analysé par l'IA — les graphiques apparaîtront ici dès qu'au moins un bulletin
+              sera analysé (bouton "Analyser" dans la liste ci-dessous).
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    Couverture des analyses
+                  </h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={[
+                          { name: 'Analysés', value: aiStatsQuery.data.analyzed_bulletins },
+                          { name: 'En attente', value: aiStatsQuery.data.pending_bulletins },
+                        ]}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={75}
+                        paddingAngle={2}
+                      >
+                        <Cell fill="#4f46e5" />
+                        <Cell fill="#9ca3af" />
+                      </Pie>
+                      <Legend />
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {aiStatsQuery.data.sentiment_distribution.length > 0 && (
+                  <div>
+                    <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      Répartition du sentiment de marché
+                    </h4>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <PieChart>
+                        <Pie
+                          data={aiStatsQuery.data.sentiment_distribution}
+                          dataKey="count"
+                          nameKey="sentiment"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={75}
+                          paddingAngle={2}
+                        >
+                          {aiStatsQuery.data.sentiment_distribution.map((s) => (
+                            <Cell key={s.sentiment} fill={sentimentColor(s.sentiment)} />
+                          ))}
+                        </Pie>
+                        <Legend />
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
+              {aiStatsQuery.data.market_trend.filter((m) => m.advancers_count !== null).length > 1 && (
+                <div className="mt-6">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    Respiration du marché (hausses / baisses / inchangés) par bulletin analysé
+                  </h4>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={aiStatsQuery.data.market_trend}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                      <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
+                      <YAxis tick={{ fontSize: 11 }} width={40} allowDecimals={false} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="advancers_count" name="Hausses" stackId="breadth" fill="#059669" />
+                      <Bar dataKey="unchanged_count" name="Inchangés" stackId="breadth" fill="#9ca3af" />
+                      <Bar dataKey="decliners_count" name="Baisses" stackId="breadth" fill="#dc2626" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              {aiStatsQuery.data.market_trend.filter((m) => m.total_volume !== null).length > 1 && (
+                <div className="mt-6">
+                  <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                    Volume total échangé par bulletin analysé
+                  </h4>
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={aiStatsQuery.data.market_trend}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                      <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
+                      <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${(v / 1_000_000).toLocaleString('fr-FR')}M`} />
+                      <Tooltip formatter={(value: number) => value.toLocaleString('fr-FR')} />
+                      <Bar dataKey="total_volume" name="Volume total" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              <ChartAiAnalysis chartType="bulletin_analysis_stats" parameters={{}} data={aiStatsQuery.data} />
+            </>
+          )}
+        </Card>
+      )}
 
       <Card>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

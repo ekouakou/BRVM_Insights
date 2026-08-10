@@ -1,13 +1,12 @@
 <?php
 /**
- * API d'analyse IA des graphes/tableaux de comparaison (multi-fournisseurs)
- * Endpoint: api_chart_analysis.php
+ * API d'analyse IA des documents complémentaires (multi-fournisseurs)
+ * Endpoint: api_company_document_analysis.php
  *
- * Voir TODO_CHART_AI_ANALYSIS.md pour la conception complète. Miroir de
- * api_report_analysis.php mais générique sur `chart_type` au lieu d'être
- * spécifique à un rapport — le frontend envoie les données déjà calculées
- * du graphe/tableau (pas de recalcul SQL ici), avec les paramètres exacts
- * de sa sélection (entreprises, dates, lignes cochées...).
+ * Miroir de api_report_analysis.php (même schéma d'analyse, même
+ * fonctionnement de cache), appliqué aux documents ajoutés manuellement
+ * (company_documents) plutôt qu'aux rapports officiels scrapés depuis
+ * brvm.org — voir class/CompanyDocumentAnalysisService.php.
  */
 
 header('Content-Type: application/json');
@@ -29,9 +28,9 @@ require_once 'class/AiChatClientInterface.php';
 require_once 'class/GeminiClient.php';
 require_once 'class/AnthropicClient.php';
 require_once 'class/GrokClient.php';
-require_once 'class/ChartAnalysisService.php';
+require_once 'class/CompanyDocumentAnalysisService.php';
 
-class ChartAnalysisAPI {
+class CompanyDocumentAnalysisAPI {
     private $crud;
 
     public function __construct() {
@@ -53,9 +52,6 @@ class ChartAnalysisAPI {
                 case 'history':
                     return $this->history($input);
 
-                case 'list_by_company':
-                    return $this->listByCompany($input);
-
                 case 'rate':
                     return $this->rate($input);
 
@@ -75,92 +71,59 @@ class ChartAnalysisAPI {
     }
 
     /**
-     * Déclenche (ou réutilise le cache pour) une analyse IA d'un graphe/tableau.
+     * Déclenche (ou réutilise le cache pour) une analyse IA d'un document complémentaire.
      */
     private function analyze($input) {
-        $chartType = $input['chart_type'] ?? '';
-        $parameters = $input['parameters'] ?? [];
-        $data = $input['data'] ?? [];
-
-        if (!$chartType) {
-            throw new Exception("chart_type requis");
-        }
-        if (!is_array($parameters)) {
-            throw new Exception("parameters doit être un objet");
-        }
-        if (!is_array($data)) {
-            throw new Exception("data doit être fourni (les données déjà calculées du graphe/tableau)");
+        $documentId = (int) ($input['document_id'] ?? 0);
+        if (!$documentId) {
+            throw new Exception("document_id requis");
         }
 
         $provider = $input['provider'] ?? null;
         $model = $input['model'] ?? null;
         $forceRefresh = !empty($input['force_refresh']);
 
-        $service = new ChartAnalysisService($this->crud);
+        $service = new CompanyDocumentAnalysisService($this->crud);
 
         try {
-            $result = $service->analyze($chartType, $parameters, $data, $provider, $model, $forceRefresh);
+            $result = $service->analyze($documentId, $provider, $model, $forceRefresh);
             return ['success' => true, 'data' => $result];
         } catch (Exception $e) {
-            // Erreur fournisseur IA/réseau/config : pas un crash serveur, juste un échec d'analyse
             return ['success' => false, 'message' => $e->getMessage()];
         }
     }
 
+    /**
+     * Dernière analyse en cache d'un document, sans jamais appeler de fournisseur IA.
+     */
     private function get($input) {
-        $id = (int) ($input['id'] ?? 0);
-        if (!$id) {
-            throw new Exception("id requis");
+        $documentId = (int) ($input['document_id'] ?? 0);
+        if (!$documentId) {
+            throw new Exception("document_id requis");
         }
 
-        $service = new ChartAnalysisService($this->crud);
-        $result = $service->get($id);
+        $provider = $input['provider'] ?? null;
+        $model = $input['model'] ?? null;
+
+        $service = new CompanyDocumentAnalysisService($this->crud);
+        $result = $service->getLatest($documentId, $provider, $model);
 
         if (!$result) {
-            throw new Exception("Analyse non trouvée");
+            return ['success' => true, 'data' => null, 'message' => "Aucune analyse en cache pour ce document"];
         }
 
         return ['success' => true, 'data' => $result];
     }
 
     /**
-     * Historique des analyses pour un chart_type et une sélection exacte
-     * (paramètres) — pas une liste globale, voir ChartAnalysisService::history().
+     * Historique des analyses d'un document ou d'une société.
      */
     private function history($input) {
-        $chartType = $input['chart_type'] ?? '';
-        $parameters = $input['parameters'] ?? [];
+        $documentId = !empty($input['document_id']) ? (int) $input['document_id'] : null;
+        $companyId = !empty($input['company_id']) ? (int) $input['company_id'] : null;
 
-        if (!$chartType) {
-            throw new Exception("chart_type requis");
-        }
-        if (!is_array($parameters)) {
-            throw new Exception("parameters doit être un objet");
-        }
-
-        $service = new ChartAnalysisService($this->crud);
-        $data = $service->history($chartType, $parameters);
-
-        return ['success' => true, 'data' => $data, 'count' => count($data)];
-    }
-
-    /**
-     * Toutes les analyses d'un chart_type pour une entreprise donnée, toutes
-     * sélections confondues — voir ChartAnalysisService::listByCompany().
-     */
-    private function listByCompany($input) {
-        $chartType = $input['chart_type'] ?? '';
-        $companyId = (int) ($input['company_id'] ?? 0);
-
-        if (!$chartType) {
-            throw new Exception("chart_type requis");
-        }
-        if (!$companyId) {
-            throw new Exception("company_id requis");
-        }
-
-        $service = new ChartAnalysisService($this->crud);
-        $data = $service->listByCompany($chartType, $companyId);
+        $service = new CompanyDocumentAnalysisService($this->crud);
+        $data = $service->history($documentId, $companyId);
 
         return ['success' => true, 'data' => $data, 'count' => count($data)];
     }
@@ -168,8 +131,7 @@ class ChartAnalysisAPI {
     /**
      * Note (1-5 étoiles) et/ou commentaire libre sur une analyse déjà
      * enregistrée — rating/notes ne sont modifiés que s'ils sont
-     * explicitement présents dans le payload (permet de mettre à jour l'un
-     * sans effacer l'autre).
+     * explicitement présents dans le payload.
      */
     private function rate($input) {
         $id = (int) ($input['id'] ?? 0);
@@ -182,7 +144,7 @@ class ChartAnalysisAPI {
         $rating = $ratingProvided ? ($input['rating'] !== null ? (int) $input['rating'] : null) : null;
         $notes = $notesProvided ? $input['notes'] : null;
 
-        $service = new ChartAnalysisService($this->crud);
+        $service = new CompanyDocumentAnalysisService($this->crud);
         $result = $service->rate($id, $rating, $notes, $ratingProvided, $notesProvided);
 
         return ['success' => true, 'data' => $result];
@@ -197,7 +159,7 @@ class ChartAnalysisAPI {
             throw new Exception("id requis");
         }
 
-        $service = new ChartAnalysisService($this->crud);
+        $service = new CompanyDocumentAnalysisService($this->crud);
         $service->remove($id);
 
         return ['success' => true];
@@ -205,6 +167,6 @@ class ChartAnalysisAPI {
 }
 
 // Exécution
-$api = new ChartAnalysisAPI();
+$api = new CompanyDocumentAnalysisAPI();
 $response = $api->handleRequest();
 echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

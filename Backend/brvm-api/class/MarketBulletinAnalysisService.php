@@ -187,6 +187,97 @@ class MarketBulletinAnalysisService {
         }, $rows);
     }
 
+    /**
+     * Statistiques agrégées des analyses IA déjà réalisées sur les
+     * bulletins — contrairement à ReportAnalysisService::getCompanyAnalysisStats(),
+     * pas de notion d'entreprise ici : un bulletin couvre l'ensemble du
+     * marché pour UNE séance, donc cette synthèse est nécessairement
+     * globale au marché (pas scopée à une entreprise). Recalculé à la
+     * demande à chaque appel (pas de cache dédié) : reflète toujours l'état
+     * actuel de market_bulletin_analyses, donc tout nouveau bulletin
+     * analysé apparaît automatiquement au prochain appel.
+     *
+     * $startDate/$endDate (optionnels) filtrent sur la date de publication
+     * du bulletin — sans filtre, porte sur tout l'historique déjà analysé.
+     *
+     * Un bulletin peut avoir plusieurs lignes dans market_bulletin_analyses
+     * (ré-analyses, fournisseurs différents) — seule la plus récente
+     * analyse réussie par bulletin est prise en compte.
+     */
+    public function getMarketAnalysisStats(?string $startDate = null, ?string $endDate = null): array {
+        $dateConditions = [];
+        $dateParams = [];
+        if ($startDate) {
+            $dateConditions[] = 'mb.publish_date >= ?';
+            $dateParams[] = $startDate;
+        }
+        if ($endDate) {
+            $dateConditions[] = 'mb.publish_date <= ?';
+            $dateParams[] = $endDate;
+        }
+        $dateWhere = $dateConditions ? ' AND ' . implode(' AND ', $dateConditions) : '';
+
+        $totalBulletins = (int) ($this->crud->executeCustomQuery(
+            "SELECT COUNT(*) AS c FROM market_bulletins mb WHERE 1=1$dateWhere",
+            $dateParams
+        )[0]['c'] ?? 0);
+
+        $rows = $this->crud->executeCustomQuery(
+            "SELECT mba.*, mb.publish_date
+             FROM market_bulletin_analyses mba
+             INNER JOIN market_bulletins mb ON mb.id = mba.bulletin_id
+             INNER JOIN (
+                 SELECT bulletin_id, MAX(id) AS max_id
+                 FROM market_bulletin_analyses
+                 WHERE status = 'success'
+                 GROUP BY bulletin_id
+             ) latest ON latest.max_id = mba.id
+             WHERE 1=1$dateWhere
+             ORDER BY mb.publish_date ASC",
+            $dateParams
+        ) ?: [];
+
+        $sentimentCounts = [];
+        $marketTrend = [];
+
+        foreach ($rows as $row) {
+            $details = json_decode($row['details'] ?? 'null', true) ?: [];
+
+            $sentiment = $details['sentiment']['verdict'] ?? null;
+            $sentimentKey = $sentiment ?: 'indéterminé';
+            $sentimentCounts[$sentimentKey] = ($sentimentCounts[$sentimentKey] ?? 0) + 1;
+
+            $figures = $details['key_figures'] ?? [];
+            $marketTrend[] = [
+                'bulletin_id' => (int) $row['bulletin_id'],
+                'publish_date' => $row['publish_date'],
+                'sentiment' => $sentiment,
+                'total_volume' => isset($figures['total_volume']) ? (float) $figures['total_volume'] : null,
+                'total_turnover' => isset($figures['total_turnover']) ? (float) $figures['total_turnover'] : null,
+                'advancers_count' => isset($figures['advancers_count']) ? (int) $figures['advancers_count'] : null,
+                'decliners_count' => isset($figures['decliners_count']) ? (int) $figures['decliners_count'] : null,
+                'unchanged_count' => isset($figures['unchanged_count']) ? (int) $figures['unchanged_count'] : null,
+            ];
+        }
+
+        $analyzedBulletins = count($rows);
+
+        $sentimentDistribution = [];
+        foreach ($sentimentCounts as $sentiment => $count) {
+            $sentimentDistribution[] = ['sentiment' => $sentiment, 'count' => $count];
+        }
+
+        return [
+            'total_bulletins' => $totalBulletins,
+            'analyzed_bulletins' => $analyzedBulletins,
+            'pending_bulletins' => max(0, $totalBulletins - $analyzedBulletins),
+            'sentiment_distribution' => $sentimentDistribution,
+            'market_trend' => $marketTrend,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+        ];
+    }
+
     private function createClient(string $provider): AiClientInterface {
         $class = self::PROVIDERS[$provider]['class'];
         return new $class();

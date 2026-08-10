@@ -5,3 +5,7 @@ scripts/run_daily_sync.local.sh
 # restent en historique, mais on arrête d'en ajouter de nouveaux (utiliser
 # api_db_dump.php / la synchro plutôt que git pour transporter ces fichiers).
 storage/reports/
+
+# Documents uploadés manuellement (voir api_company_documents.php) — même
+# raison que storage/reports/ ci-dessus, jamais suivis dès le départ.
+storage/documents/

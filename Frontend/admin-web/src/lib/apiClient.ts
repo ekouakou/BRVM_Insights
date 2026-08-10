@@ -38,6 +38,12 @@ export function bulletinDownloadUrl(bulletinId: number): string {
   return `${API_BASE_URL}/api_bulletins.php?action=download&id=${bulletinId}&token=${encodeURIComponent(token)}`
 }
 
+/** Même principe que reportDownloadUrl(), pour les documents complémentaires uploadés manuellement. */
+export function companyDocumentDownloadUrl(documentId: number): string {
+  const token = getToken() ?? ''
+  return `${API_BASE_URL}/api_company_documents.php?action=download&id=${documentId}&token=${encodeURIComponent(token)}`
+}
+
 /**
  * URL de téléchargement d'un dump complet de la base (voir
  * RESET_DATABASE.md) — même principe que reportDownloadUrl() (token en

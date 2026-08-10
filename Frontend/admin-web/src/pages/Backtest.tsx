@@ -191,11 +191,29 @@ export function Backtest() {
               value={result.buy_hold_return_percent !== null ? `${result.buy_hold_return_percent > 0 ? '+' : ''}${result.buy_hold_return_percent}%` : '—'}
               tone={result.buy_hold_return_percent === null ? 'default' : result.buy_hold_return_percent > 0 ? 'positive' : result.buy_hold_return_percent < 0 ? 'negative' : 'default'}
             />
+            <StatTile
+              label="Vente à découvert"
+              value={result.short_return_percent !== null ? `${result.short_return_percent > 0 ? '+' : ''}${result.short_return_percent}%` : '—'}
+              tone={result.short_return_percent === null ? 'default' : result.short_return_percent > 0 ? 'positive' : result.short_return_percent < 0 ? 'negative' : 'default'}
+            />
           </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            "Vente à découvert" simule une stratégie active indépendante avec sa propre logique d'entrée/sortie
+            (l'inverse exact des signaux d'achat/vente utilisés par la stratégie longue — sans frais de portage/marge)
+            — profite d'une baisse du cours, perd sur une hausse. Sert de repère pour une thèse baissière, pas un
+            mode de trading réellement disponible sur la BRVM. {result.short_total_trades} opération(s) de vente à
+            découvert détectée(s), taux de réussite {result.short_win_rate_percent !== null ? `${result.short_win_rate_percent}%` : '—'}.
+          </p>
 
           {result.open_position && (
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Position encore ouverte à la fin de la période (entrée le {result.open_position.entry_date} à {result.open_position.entry_price}) — comptabilisée en valeur de marché dans la courbe et les statistiques ci-dessus, mais pas dans le tableau des opérations (pas encore clôturée).
+              Position longue encore ouverte à la fin de la période (entrée le {result.open_position.entry_date} à {result.open_position.entry_price}) — comptabilisée en valeur de marché dans la courbe et les statistiques ci-dessus, mais pas dans le tableau des opérations (pas encore clôturée).
+            </p>
+          )}
+
+          {result.open_short_position && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Position vendeuse encore ouverte à la fin de la période (entrée le {result.open_short_position.entry_date} à {result.open_short_position.entry_price}) — comptabilisée en valeur de marché dans la courbe et les statistiques ci-dessus, mais pas dans le tableau des opérations (pas encore clôturée).
             </p>
           )}
 
@@ -210,6 +228,7 @@ export function Backtest() {
                 <Legend />
                 <Line type="monotone" dataKey="strategy_equity_base100" name="Stratégie" stroke="#4f46e5" dot={false} strokeWidth={2} />
                 <Line type="monotone" dataKey="buy_hold_equity_base100" name="Acheter & garder" stroke="#9ca3af" dot={false} strokeWidth={2} strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="short_equity_base100" name="Vente à découvert" stroke="#e34948" dot={false} strokeWidth={2} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
 
@@ -235,6 +254,41 @@ export function Backtest() {
                   </thead>
                   <tbody>
                     {result.trades.map((t, i) => (
+                      <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="py-2 pr-3">{t.entry_date}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{t.entry_price}</td>
+                        <td className="py-2 pr-3">{t.exit_date}</td>
+                        <td className="py-2 pr-3 text-right tabular-nums">{t.exit_price}</td>
+                        <td
+                          className={`py-2 text-right tabular-nums font-medium ${
+                            t.return_percent > 0 ? 'text-emerald-600 dark:text-emerald-400' : t.return_percent < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500'
+                          }`}
+                        >
+                          {t.return_percent > 0 ? '+' : ''}{t.return_percent}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
+          {result.short_trades.length > 0 && (
+            <Card title="Opérations — vente à découvert">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                      <th className="pb-2 pr-3">Entrée</th>
+                      <th className="pb-2 pr-3 text-right">Prix entrée</th>
+                      <th className="pb-2 pr-3">Sortie</th>
+                      <th className="pb-2 pr-3 text-right">Prix sortie</th>
+                      <th className="pb-2 text-right">Rendement</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.short_trades.map((t, i) => (
                       <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
                         <td className="py-2 pr-3">{t.entry_date}</td>
                         <td className="py-2 pr-3 text-right tabular-nums">{t.entry_price}</td>

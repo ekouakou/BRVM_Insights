@@ -41,4 +41,4 @@ CREATE TABLE IF NOT EXISTS market_bulletin_corporate_actions (
     INDEX idx_bulletin (bulletin_id),
     INDEX idx_company (company_id),
     INDEX idx_event_date (event_date)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

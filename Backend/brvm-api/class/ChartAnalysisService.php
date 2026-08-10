@@ -31,6 +31,9 @@ class ChartAnalysisService {
     // prompt trop volumineux pour une sélection large d'entreprises.
     private const MAX_REPORT_COMPANIES = 15;
     private const MAX_REPORT_CHARS_PER_COMPANY = 15000;
+    private const MAX_DOCUMENTS_PER_COMPANY = 3;
+    private const MAX_DOCUMENT_CHARS = 15000;
+    private const MAX_SELECTED_REPORTS = 5;
 
     /**
      * Méthode de calcul par chart_type, en français — envoyée telle quelle
@@ -84,6 +87,19 @@ class ChartAnalysisService {
             "'total_variation' — sur la même période). Un ratio plus élevé signifie un meilleur rendement " .
             "pour un même niveau d'agitation du cours ; deux titres au même rendement net peuvent avoir des " .
             "ratios très différents si l'un est monté en ligne quasi droite et l'autre en oscillant fortement.",
+        'liquidity_history' =>
+            "Historique quotidien du score de liquidité d'une entreprise (api_quotes.php, action " .
+            "'liquidity_history') — pour chaque jour de bourse de la période, volume moyen ('avg_volume') et " .
+            "part de jours sans transaction ('zero_volume_ratio', en %) calculés sur une fenêtre glissante de " .
+            "30 jours calendaires se terminant ce jour-là ('window_trading_days' = nombre de jours de bourse " .
+            "réellement présents dans cette fenêtre, peut être inférieur à 30 en début de période ou sur un " .
+            "titre peu actif), avec le label résultant ('liquidity' : Illiquide si plus de 30% de jours sans " .
+            "transaction dans la fenêtre, sinon Faible sous 200 titres/jour en moyenne, Moyenne entre 200 et " .
+            "2000, Élevée au-dessus). Contrairement à un badge unique pour toute la période (voir chart_type " .
+            "'screener', champ 'liquidity'), cette série permet de repérer une liquidité qui se dégrade ou " .
+            "s'améliore dans le temps — utile pour distinguer un titre durablement peu liquide d'un titre qui " .
+            "vient de traverser une phase calme (assèchement récent des échanges) ou au contraire qui vient de " .
+            "regagner en activité.",
         'relative_strength' =>
             "Pour chaque entreprise et chaque jour : variation quotidienne (%) du titre moins variation " .
             "quotidienne (%) de l'indice BRVM-COMPOSITE le même jour (champ 'relative_strength' des données " .
@@ -165,6 +181,32 @@ class ChartAnalysisService {
             "Une entreprise active sans aucune cotation sur la période apparaît avec une performance manquante " .
             "(pas 0%, qui suggérerait à tort une stabilité observée) — à distinguer d'une entreprise vraiment " .
             "stable sur la période.",
+        'report_analysis_stats' =>
+            "Statistiques agrégées des analyses IA déjà réalisées sur les rapports financiers (et, optionnellement, " .
+            "les documents complémentaires) d'UNE entreprise (api_report_analysis.php, action 'stats', paramètre " .
+            "'include_documents' — voir 'documents_included' dans les données pour savoir si cet appel les inclut) : " .
+            "'total_reports' (tous les rapports officiels connus de l'entreprise) vs 'analyzed_reports' (ceux ayant " .
+            "au moins une analyse IA réussie — une seule, la plus récente, comptée par rapport même si ré-analysé " .
+            "plusieurs fois) vs 'pending_reports' (pas encore analysés avec succès) ; mêmes trois compteurs pour les " .
+            "documents complémentaires ('total_documents'/'analyzed_documents'/'pending_documents', à 0 si " .
+            "'documents_included' est false — ce sont des documents ajoutés manuellement par l'équipe, analysés " .
+            "avec exactement le même schéma que les rapports officiels, voir class/CompanyDocumentAnalysisService.php). " .
+            "IMPORTANT : cette synthèse ne porte QUE sur le sous-ensemble déjà analysé — les éléments 'pending' " .
+            "sont un angle mort, pas une absence de risque/donnée, à rappeler explicitement plutôt qu'à ignorer, " .
+            "et cette synthèse changera automatiquement à mesure que d'autres rapports/documents seront analysés " .
+            "(jamais un instantané figé). 'verdict_distribution' compte combien d'éléments analysés (rapports, et " .
+            "documents si inclus) concluent à 'sous-coté'/'surcoté'/'correctement valorisé'/'indéterminable' (voir " .
+            "chart_type 'fundamentals' pour le détail de ce verdict) — permet de voir si l'avis de l'IA a été " .
+            "stable ou a changé d'un exercice à l'autre. 'risk_category_distribution' compte la fréquence des " .
+            "catégories de risques identifiées par l'IA à travers tous les éléments analysés (ex: 'opérationnel' " .
+            "cité N fois) — une catégorie très récurrente signale un risque structurel plutôt que ponctuel. " .
+            "'financial_trend' liste, par élément analysé et dans l'ordre chronologique ('source_type'='report' ou " .
+            "'document', 'source_title'), le chiffre d'affaires, le résultat net (peut être négatif), la marge " .
+            "nette, le ROE, le PER et le verdict extraits — 'publish_date' est la date de publication réelle pour " .
+            "un rapport officiel, mais seulement la date d'AJOUT (uploaded_at) pour un document complémentaire, à " .
+            "préciser si tu compares les deux. Plusieurs éléments peuvent partager la même date (ex: rapport " .
+            "annuel et rapport des commissaires aux comptes publiés le même jour pour le même exercice) : ne pas " .
+            "déduire une tendance d'un seul point isolé sur peu d'éléments analysés.",
         'risk_metrics_advanced' =>
             "Métriques de risque/performance calculées à partir des log-rendements quotidiens de chaque " .
             "entreprise sélectionnée (api_risk_metrics.php, action 'compute') : rendement net (simple, période " .
@@ -216,13 +258,45 @@ class ChartAnalysisService {
             "même période. Deux règles possibles : 'signal_score' (entre en position quand le score composite — " .
             "même formule que 'quotes_signals' — atteint le seuil d'achat, sort quand il retombe au seuil de " .
             "vente) ou 'golden_cross' (entre au croisement haussier d'une paire de moyennes mobiles, sort au " .
-            "croisement baissier). equity_curve donne l'évolution de 100 FCFA investis selon la stratégie vs " .
-            "buy-and-hold ; trades liste chaque position ouverte/fermée avec son rendement. " .
+            "croisement baissier). equity_curve donne l'évolution de 100 FCFA investis selon trois approches : la " .
+            "stratégie, 'acheter et garder' (buy-and-hold), et la 'vente à découvert' (short_equity_base100) — " .
+            "cette troisième courbe est une SIMULATION ACTIVE INDÉPENDANTE, pas un miroir mathématique de " .
+            "buy-and-hold : elle a sa propre logique d'entrée/sortie, exactement inversée par rapport à la " .
+            "stratégie longue (entre en position vendeuse quand le signal déclencherait normalement une sortie " .
+            "longue — score au seuil de vente ou death cross —, rachète/couvre quand le signal déclencherait " .
+            "normalement une entrée longue — score au seuil d'achat ou golden cross). On emprunte le titre pour " .
+            "le vendre, dans l'espoir de le racheter moins cher, donc on gagne quand le cours baisse et on perd " .
+            "quand il monte — PAS un mode de trading réellement disponible sur la BRVM, juste un repère théorique " .
+            "pour une thèse baissière. short_return_percent (résultat final) et short_win_rate_percent/" .
+            "short_total_trades (statistiques) proviennent de cette simulation réelle, donc short_return_percent " .
+            "n'est PAS forcément égal à -buy_hold_return_percent — les deux stratégies peuvent avoir des " .
+            "trajectoires de trades totalement différentes sur la même période. trades et short_trades listent " .
+            "chaque position ouverte/fermée avec son rendement, pour la stratégie longue et vendeuse " .
+            "respectivement. " .
             "IMPORTANT : quand insufficient_history=true (moins de 60 jours de bourse simulés), le résultat n'a " .
             "quasiment aucune valeur statistique (souvent 0 ou 1 trade) — à signaler explicitement dans ton " .
             "analyse plutôt que de commenter la performance comme si l'échantillon était suffisant. Ceci n'est " .
             "jamais un conseil en investissement, seulement le résultat mécanique d'une règle simple sur des " .
             "données passées.",
+        'bulletin_analysis_stats' =>
+            "Statistiques agrégées des analyses IA déjà réalisées sur les Bulletins Officiels de la Cote (BOC) " .
+            "(api_bulletin_analysis.php, action 'stats') — PORTÉE MARCHÉ ENTIER, pas une entreprise en " .
+            "particulier : un bulletin couvre TOUTE la séance de bourse, pas un titre isolé. " .
+            "'total_bulletins' (tous les bulletins déjà scrapés) vs 'analyzed_bulletins' (ceux ayant au moins une " .
+            "analyse IA réussie — une seule, la plus récente, comptée par bulletin même si ré-analysé plusieurs " .
+            "fois) vs 'pending_bulletins' (pas encore analysés avec succès) : 'pending_bulletins' est un angle " .
+            "mort, pas une absence d'activité de marché ces jours-là, à rappeler explicitement. Cette synthèse " .
+            "change automatiquement à mesure que d'autres bulletins sont analysés (jamais un instantané figé), et " .
+            "peut être filtrée sur une période ('start_date'/'end_date', absents = tout l'historique analysé). " .
+            "'sentiment_distribution' compte combien de séances analysées concluent à 'haussier'/'baissier'/" .
+            "'neutre'/'mixte' (avis de l'IA sur l'orientation générale du marché ce jour-là, PAS un indicateur " .
+            "technique calculé). 'market_trend' liste, par bulletin analysé et dans l'ordre chronologique de " .
+            "publication, le volume total échangé, la valeur totale transigée (FCFA), et la respiration du marché " .
+            "(nombre de valeurs en hausse/en baisse/inchangées) — utile pour observer si l'activité du marché " .
+            "(volume) et son orientation (hausses vs baisses) évoluent de concert ou divergent dans le temps. Ne " .
+            "pas déduire une tendance de marché durable d'un seul point isolé sur peu de bulletins analysés — le " .
+            "nombre de bulletins déjà scrapés (total_bulletins) dépasse presque toujours largement le nombre " .
+            "analysés, donc la période couverte par ce graphe est souvent partielle/discontinue.",
         'corporate_actions' =>
             "Calendrier des opérations sur titres (dividendes, augmentations de capital, admissions, assemblées " .
             "générales...) extraites PAR IA du texte des Bulletins Officiels de la Cote (BOC) déjà traités " .
@@ -236,6 +310,29 @@ class ChartAnalysisService {
             "opération dans ce calendrier ne signifie pas qu'elle n'existe pas, seulement qu'elle n'a pas encore " .
             "été identifiée dans un bulletin traité (pending_count indique combien de bulletins restent à " .
             "extraire).",
+        'company_dashboard' =>
+            "Vue d'ensemble d'une seule entreprise, agrégeant en une fois les données déjà calculées dans " .
+            "plusieurs onglets du tableau de bord (Frontend/admin-web, page CompanyDashboard) : signal composite " .
+            "et dernier cours ('signal'), historique récent de cours + SMA ('recent_price_history', 60 derniers " .
+            "points), croisements de moyennes mobiles ('ma_crossovers'), ratios fondamentaux extraits par IA du " .
+            "dernier rapport traité ('fundamentals', voir chart_type 'fundamentals' pour le détail de cette " .
+            "source), calendrier des opérations sur titres ('corporate_actions', voir chart_type " .
+            "'corporate_actions'), aperçu d'un backtest avec la règle par défaut signal_score seuils +1/-1 " .
+            "('backtest_default_rule', voir chart_type 'backtest'), variation totale intrajournalière cumulée " .
+            "('total_variation'), rendement/volatilité/ratio risque ('risk_adjusted'), force relative vs indice " .
+            "('relative_strength_recent'), métriques de risque avancées Sharpe/Sortino/drawdown/VaR/bêta " .
+            "('risk_metrics_advanced', voir chart_type 'risk_metrics_advanced'), classement/rang sectoriel " .
+            "('screener_ranking', voir chart_type 'screener'), historique récent du score de liquidité " .
+            "('liquidity_history_recent', 60 derniers points, voir chart_type 'liquidity_history' pour le détail " .
+            "du calcul), performance du secteur de l'entreprise " .
+            "('sector_performance'), largeur de marché générale à titre de contexte ('market_breadth_recent', " .
+            "PAS spécifique à cette entreprise), et anomalies de qualité de données détectées spécifiquement " .
+            "pour cette entreprise ('data_quality_flags'). Un champ peut être null si la donnée sous-jacente " .
+            "est indisponible pour cette entreprise (ex: pas encore de rapport financier traité, pas de secteur " .
+            "renseigné) — à signaler plutôt qu'à ignorer silencieusement. 'reports_available_count'/" .
+            "'documents_available_count' indiquent combien de rapports/documents existent au total pour cette " .
+            "entreprise (au-delà de ceux éventuellement inclus en texte intégral, voir contexte complémentaire " .
+            "ci-dessous s'il est fourni).",
     ];
 
     private $crud;
@@ -284,6 +381,18 @@ class ChartAnalysisService {
         if (!empty($parameters['include_report_context'])) {
             $companyIds = $parameters['selected_company_ids'] ?? $parameters['company_ids'] ?? [];
             $reportContext = $this->buildReportContext(is_array($companyIds) ? $companyIds : []);
+        } elseif (!empty($parameters['selected_report_ids']) || !empty($parameters['selected_document_ids'])) {
+            // Sélection ciblée de rapports et/ou de documents complémentaires
+            // précis (voir CompanyDashboard.tsx, section "Analyse IA
+            // globale" — cases à cocher dans l'onglet Rapports) — différent
+            // de buildReportContext() ci-dessus, qui prend automatiquement le
+            // DERNIER rapport de chaque entreprise d'une sélection multi-
+            // entreprises ; ici l'utilisateur choisit explicitement, pour une
+            // seule entreprise.
+            $reportContext = $this->buildSelectedResourcesContext(
+                is_array($parameters['selected_report_ids'] ?? null) ? $parameters['selected_report_ids'] : [],
+                is_array($parameters['selected_document_ids'] ?? null) ? $parameters['selected_document_ids'] : []
+            );
         }
 
         $prompt = $this->buildPrompt($chartType, $parameters, $data, $reportContext);
@@ -355,6 +464,39 @@ class ChartAnalysisService {
     public function get(int $id): ?array {
         $row = $this->crud->findById('chart_analyses', $id);
         return $row ? $this->formatResult($row, true) : null;
+    }
+
+    /**
+     * Toutes les analyses d'un chart_type portant sur une entreprise donnée
+     * (paramètres['company_id'] = $companyId), TOUTES sélections confondues
+     * (dates, rapports/documents cochés...) — contrairement à history() qui
+     * ne renvoie que la sélection EXACTE courante. Pensé pour comparer des
+     * analyses faites à des moments différents (voir CompanyDashboard.tsx,
+     * onglet "Analyse IA globale") : chaque appel avec des dates par défaut
+     * "aujourd'hui - N jours" produit un hash différent d'un jour à l'autre,
+     * donc history() seul ne suffit pas à retrouver les analyses passées
+     * d'une même entreprise. JSON_EXTRACT fonctionne aussi bien sur MySQL
+     * (5.7+) que MariaDB (10.2+, JSON stocké en LONGTEXT) — pas de
+     * dépendance à une fonctionnalité MySQL-only.
+     *
+     * IMPORTANT : JSON_EXTRACT() seul renvoie une valeur typée JSON, pas un
+     * entier SQL — comparée à un paramètre PDO lié en chaîne (comportement
+     * par défaut de PDO), l'égalité échoue silencieusement (0 résultat, pas
+     * d'erreur). CAST(... AS UNSIGNED) force une comparaison numérique
+     * fiable quel que soit le type de liaison PDO. Vérifié en conditions
+     * réelles avant ce choix — voir aussi l'alternative équivalente
+     * parameters->>'$.company_id' (opérateur de "unquoting", supporté
+     * MySQL 5.7.13+ et MariaDB 10.2.4+).
+     */
+    public function listByCompany(string $chartType, int $companyId): array {
+        $rows = $this->crud->executeCustomQuery(
+            "SELECT * FROM chart_analyses
+             WHERE chart_type = ? AND CAST(JSON_EXTRACT(parameters, '$.company_id') AS UNSIGNED) = ?
+             ORDER BY id DESC",
+            [$chartType, $companyId]
+        ) ?: [];
+
+        return array_map(fn($row) => $this->formatResult($row, true), $rows);
     }
 
     /**
@@ -482,6 +624,7 @@ class ChartAnalysisService {
         foreach ($companyIds as $companyId) {
             $company = $companyById[$companyId] ?? null;
             $label = $company ? "{$company['symbol']} — {$company['name']}" : "Entreprise #$companyId";
+            $companyBlock = "### $label";
 
             $reports = $this->crud->executeCustomQuery(
                 "SELECT id, report_type, publish_date FROM company_reports
@@ -492,18 +635,83 @@ class ChartAnalysisService {
             $report = $reports[0] ?? null;
 
             if (!$report) {
-                $blocks[] = "### $label\nAucun rapport traité disponible pour cette entreprise.";
+                $companyBlock .= "\nAucun rapport traité disponible pour cette entreprise.";
+            } else {
+                $contents = $this->crud->find('company_report_contents', ['report_id' => $report['id']]);
+                $content = $contents[0] ?? null;
+                $usingMarkdown = !empty($content['formatted_markdown']) && ($content['markdown_status'] ?? null) === 'success';
+                $text = $usingMarkdown ? $content['formatted_markdown'] : ($content['extracted_text'] ?? null);
+
+                if (empty($text)) {
+                    $companyBlock .= "\nRapport {$report['report_type']} du {$report['publish_date']} référencé, " .
+                        "mais texte pas encore extrait.";
+                } else {
+                    $text = $this->truncateReportText($text, self::MAX_REPORT_CHARS_PER_COMPANY);
+                    $sourceNote = $usingMarkdown ? '' : ' (texte brut extrait, pas encore reformaté en Markdown)';
+                    $companyBlock .= " — rapport {$report['report_type']} du {$report['publish_date']}$sourceNote\n\n$text";
+                }
+            }
+
+            // Documents complémentaires ajoutés manuellement (voir
+            // api_company_documents.php) — rapports détaillés publiés sur le
+            // site de l'entreprise mais absents/résumés dans le rapport
+            // officiel ci-dessus, présentations investisseurs, etc.
+            $documents = $this->crud->executeCustomQuery(
+                "SELECT id, title FROM company_documents
+                 WHERE company_id = ? AND text_extracted = 1
+                 ORDER BY uploaded_at DESC LIMIT ?",
+                [$companyId, self::MAX_DOCUMENTS_PER_COMPANY]
+            ) ?: [];
+
+            foreach ($documents as $document) {
+                $docContents = $this->crud->find('company_document_contents', ['document_id' => $document['id']]);
+                $docContent = $docContents[0] ?? null;
+                $usingMarkdown = !empty($docContent['formatted_markdown']) && ($docContent['markdown_status'] ?? null) === 'success';
+                $docText = $usingMarkdown ? $docContent['formatted_markdown'] : ($docContent['extracted_text'] ?? null);
+
+                if (empty($docText)) {
+                    continue;
+                }
+
+                $docText = $this->truncateReportText($docText, self::MAX_DOCUMENT_CHARS);
+                $sourceNote = $usingMarkdown ? '' : ' (texte brut extrait, pas encore reformaté en Markdown)';
+                $companyBlock .= "\n\n#### Document complémentaire : {$document['title']}$sourceNote\n\n$docText";
+            }
+
+            $blocks[] = $companyBlock;
+        }
+
+        return implode("\n\n---\n\n", $blocks);
+    }
+
+    /**
+     * Contexte financier ciblé sur des rapports et/ou des documents
+     * complémentaires choisis explicitement par l'utilisateur (cases à
+     * cocher dans CompanyDashboard.tsx, onglet Rapports, section "Analyse IA
+     * globale", chart_type 'company_dashboard') — contrairement à
+     * buildReportContext() ci-dessus qui prend automatiquement le dernier
+     * rapport de chaque entreprise d'une sélection multi-entreprises, ici il
+     * n'y a qu'une seule entreprise en jeu et le choix est manuel.
+     */
+    private function buildSelectedResourcesContext(array $reportIds, array $documentIds): string {
+        $blocks = [];
+
+        $reportIds = array_slice(array_unique(array_map('intval', $reportIds)), 0, self::MAX_SELECTED_REPORTS);
+        foreach ($reportIds as $reportId) {
+            $report = $this->crud->findById('company_reports', $reportId);
+            if (!$report) {
                 continue;
             }
 
-            $contents = $this->crud->find('company_report_contents', ['report_id' => $report['id']]);
+            $company = $this->crud->findById('companies', $report['company_id']);
+            $label = $company ? "{$company['symbol']} — {$company['name']}" : "Entreprise #{$report['company_id']}";
+
+            $contents = $this->crud->find('company_report_contents', ['report_id' => $reportId]);
             $content = $contents[0] ?? null;
             $usingMarkdown = !empty($content['formatted_markdown']) && ($content['markdown_status'] ?? null) === 'success';
             $text = $usingMarkdown ? $content['formatted_markdown'] : ($content['extracted_text'] ?? null);
 
             if (empty($text)) {
-                $blocks[] = "### $label\nRapport {$report['report_type']} du {$report['publish_date']} référencé, " .
-                    "mais texte pas encore extrait.";
                 continue;
             }
 
@@ -512,7 +720,28 @@ class ChartAnalysisService {
             $blocks[] = "### $label — rapport {$report['report_type']} du {$report['publish_date']}$sourceNote\n\n$text";
         }
 
-        return implode("\n\n---\n\n", $blocks);
+        $documentIds = array_slice(array_unique(array_map('intval', $documentIds)), 0, self::MAX_DOCUMENTS_PER_COMPANY);
+        foreach ($documentIds as $documentId) {
+            $document = $this->crud->findById('company_documents', $documentId);
+            if (!$document) {
+                continue;
+            }
+
+            $contents = $this->crud->find('company_document_contents', ['document_id' => $documentId]);
+            $content = $contents[0] ?? null;
+            $usingMarkdown = !empty($content['formatted_markdown']) && ($content['markdown_status'] ?? null) === 'success';
+            $text = $usingMarkdown ? $content['formatted_markdown'] : ($content['extracted_text'] ?? null);
+
+            if (empty($text)) {
+                continue;
+            }
+
+            $text = $this->truncateReportText($text, self::MAX_DOCUMENT_CHARS);
+            $sourceNote = $usingMarkdown ? '' : ' (texte brut extrait, pas encore reformaté en Markdown)';
+            $blocks[] = "#### Document complémentaire : {$document['title']}$sourceNote\n\n$text";
+        }
+
+        return implode("\n\n", $blocks);
     }
 
     private function truncateReportText(string $text, int $maxChars): string {

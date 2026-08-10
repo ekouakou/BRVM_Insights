@@ -1,0 +1,6 @@
+
+Fatal error: Uncaught Error: Interface "AiChatClientInterface" not found in /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/class/GeminiClient.php:7
+Stack trace:
+#0 /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/scripts/format_report_markdown.php(22): require_once()
+#1 {main}
+  thrown in /Applications/MAMP/htdocs/BRVM_Insights/Backend/brvm-api/class/GeminiClient.php on line 7

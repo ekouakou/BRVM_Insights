@@ -55,6 +55,9 @@ class QuotesAPI {
                 case 'liquidity':
                     return $this->getLiquidity($input);
 
+                case 'liquidity_history':
+                    return $this->getLiquidityHistory($input);
+
                 case 'sector_performance':
                     return $this->getSectorPerformance($input);
 
@@ -632,16 +635,6 @@ class QuotesAPI {
             $zeroDays = (int) $row['zero_volume_days'];
             $zeroRatio = $totalDays > 0 ? $zeroDays / $totalDays : 0;
 
-            if ($zeroRatio > 0.3) {
-                $label = 'Illiquide';
-            } elseif ($avgVolume < 200) {
-                $label = 'Faible';
-            } elseif ($avgVolume < 2000) {
-                $label = 'Moyenne';
-            } else {
-                $label = 'Élevée';
-            }
-
             return [
                 'company_id' => (int) $row['company_id'],
                 'symbol' => $row['symbol'],
@@ -650,7 +643,7 @@ class QuotesAPI {
                 'zero_volume_days' => $zeroDays,
                 'total_days' => $totalDays,
                 'zero_volume_ratio' => round($zeroRatio * 100, 1),
-                'liquidity' => $label
+                'liquidity' => $this->classifyLiquidity($avgVolume, $zeroRatio)
             ];
         }, $rows);
 
@@ -659,6 +652,124 @@ class QuotesAPI {
             'data' => $result,
             'count' => count($result),
             'days' => $days,
+            'end_date' => $endDate
+        ];
+    }
+
+    /** Seuils partagés avec getLiquidityHistory() ci-dessous — un seul endroit à ajuster. */
+    private function classifyLiquidity(float $avgVolume, float $zeroRatio): string {
+        if ($zeroRatio > 0.3) {
+            return 'Illiquide';
+        }
+        if ($avgVolume < 200) {
+            return 'Faible';
+        }
+        if ($avgVolume < 2000) {
+            return 'Moyenne';
+        }
+        return 'Élevée';
+    }
+
+    /**
+     * Historise le score de liquidité de getLiquidity() ci-dessus : au lieu
+     * d'UN classement pour toute la période (fenêtre glissante des `days`
+     * derniers jours calendaires avant end_date), calcule ce même
+     * classement (volume moyen, part de jours sans transaction, label) pour
+     * CHAQUE jour de bourse de [start_date, end_date], avec sa propre
+     * fenêtre glissante de `days` jours calendaires se terminant sur ce
+     * jour — de quoi tracer un graphe de l'évolution de la liquidité dans
+     * le temps plutôt qu'un simple badge figé sur la période affichée.
+     *
+     * Fenêtre glissante calculée en O(n) par entreprise (pointeur qui
+     * n'avance que vers l'avant, jamais recalculé depuis le début) plutôt
+     * qu'une requête par jour — les lignes en dehors de [start_date,
+     * end_date] mais dans la fenêtre de préchauffage (start_date - days)
+     * sont récupérées mais pas retournées comme points de la série.
+     */
+    private function getLiquidityHistory($input) {
+        $companyIds = $input['company_ids'] ?? [];
+        $days = (int) ($input['days'] ?? 30);
+        $startDate = $input['start_date'] ?? date('Y-m-d', strtotime('-180 days'));
+        $endDate = $input['end_date'] ?? date('Y-m-d');
+
+        if (empty($companyIds)) {
+            throw new Exception("IDs des entreprises requis");
+        }
+
+        $placeholders = implode(',', array_fill(0, count($companyIds), '?'));
+
+        $sql = "
+            SELECT c.id AS company_id, c.symbol, c.name, sq.trading_date, sq.volume
+            FROM stock_quotes sq
+            INNER JOIN companies c ON c.id = sq.company_id
+            WHERE sq.company_id IN ($placeholders)
+            AND sq.trading_date >= DATE_SUB(?, INTERVAL ? DAY)
+            AND sq.trading_date <= ?
+            ORDER BY c.symbol ASC, sq.trading_date ASC
+        ";
+        $rows = $this->crud->executeCustomQuery($sql, array_merge($companyIds, [$startDate, $days, $endDate])) ?: [];
+
+        $bySymbol = [];
+        foreach ($rows as $row) {
+            $symbol = $row['symbol'];
+            if (!isset($bySymbol[$symbol])) {
+                $bySymbol[$symbol] = ['company_id' => (int) $row['company_id'], 'name' => $row['name'], 'rows' => []];
+            }
+            $bySymbol[$symbol]['rows'][] = $row;
+        }
+
+        $result = [];
+        foreach ($bySymbol as $symbol => $info) {
+            $companyRows = $info['rows'];
+            $series = [];
+            $windowStart = 0;
+
+            foreach ($companyRows as $i => $row) {
+                if ($row['trading_date'] < $startDate) {
+                    continue;
+                }
+
+                $windowMinDate = date('Y-m-d', strtotime($row['trading_date'] . " -$days days"));
+                while ($companyRows[$windowStart]['trading_date'] < $windowMinDate) {
+                    $windowStart++;
+                }
+
+                $windowRows = array_slice($companyRows, $windowStart, $i - $windowStart + 1);
+                $totalDays = count($windowRows);
+                $zeroDays = 0;
+                $volumeSum = 0.0;
+                foreach ($windowRows as $wr) {
+                    $vol = $wr['volume'] !== null ? (float) $wr['volume'] : 0.0;
+                    if ($vol == 0.0) {
+                        $zeroDays++;
+                    }
+                    $volumeSum += $vol;
+                }
+                $avgVolume = $totalDays > 0 ? $volumeSum / $totalDays : 0.0;
+                $zeroRatio = $totalDays > 0 ? $zeroDays / $totalDays : 0;
+
+                $series[] = [
+                    'date' => $row['trading_date'],
+                    'avg_volume' => round($avgVolume, 1),
+                    'zero_volume_ratio' => round($zeroRatio * 100, 1),
+                    'window_trading_days' => $totalDays,
+                    'liquidity' => $this->classifyLiquidity($avgVolume, $zeroRatio)
+                ];
+            }
+
+            $result[] = [
+                'company_id' => $info['company_id'],
+                'symbol' => $symbol,
+                'name' => $info['name'],
+                'data' => $series
+            ];
+        }
+
+        return [
+            'success' => true,
+            'data' => array_values($result),
+            'liquidity_window_days' => $days,
+            'start_date' => $startDate,
             'end_date' => $endDate
         ];
     }

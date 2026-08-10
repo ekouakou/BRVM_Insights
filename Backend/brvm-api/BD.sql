@@ -557,6 +557,8 @@ CREATE TABLE company_report_analyses (
     summary TEXT COMMENT 'résumé exécutif court, pour affichage/listage rapide',
     details JSON NULL COMMENT 'analyse complète structurée (financials, SWOT, risques, thèse, glossaire...)',
     status VARCHAR(20) NOT NULL DEFAULT 'success' COMMENT 'success|failed',
+    rating TINYINT UNSIGNED NULL COMMENT 'note 1-5 étoiles, NULL = pas noté',
+    notes TEXT NULL COMMENT 'commentaire libre de l’utilisateur sur cette analyse',
     error_message TEXT NULL,
     input_char_count INT NULL,
     raw_response LONGTEXT NULL COMMENT 'réponse brute du fournisseur IA, pour audit/debug',
@@ -590,6 +592,8 @@ CREATE TABLE company_report_comparisons (
     summary TEXT,
     details JSON NULL COMMENT 'analyse comparative complète + chart_data',
     status VARCHAR(20) NOT NULL DEFAULT 'success',
+    rating TINYINT UNSIGNED NULL COMMENT 'note 1-5 étoiles, NULL = pas noté',
+    notes TEXT NULL COMMENT 'commentaire libre de l’utilisateur sur cette analyse',
     error_message TEXT NULL,
     input_char_count INT NULL,
     raw_response LONGTEXT NULL,
@@ -597,6 +601,33 @@ CREATE TABLE company_report_comparisons (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     UNIQUE KEY uk_comparison (request_hash, provider, model, computed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- Analyse IA générique des graphes/tableaux de comparaison de l'app (voir
+-- migrations/009_chart_analyses.sql, class/ChartAnalysisService.php) — un
+-- enregistrement par (chart_type, paramètres exacts, fournisseur, modèle),
+-- pour à la fois le cache (éviter de refacturer un appel IA identique) et
+-- la comparaison de plusieurs fournisseurs/modèles sur la même sélection.
+-- ============================================
+CREATE TABLE chart_analyses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    chart_type VARCHAR(50) NOT NULL COMMENT 'ex: quotes_comparison, quotes_signals, quotes_close_sma, market_summary, total_variation, correlation, risk_adjusted, relative_strength, sector_performance, market_breadth, data_quality_reconciliation, data_quality_price_jumps, data_quality_missing_days',
+    request_hash CHAR(64) NOT NULL COMMENT 'sha256(chart_type + paramètres normalisés, y compris la sélection de lignes pour les tableaux) — détecte les requêtes identiques',
+    parameters LONGTEXT NOT NULL COMMENT 'JSON des paramètres exacts (company_ids, sector, start_date, end_date, granularity, display_mode, selected_rows...)',
+    provider VARCHAR(30) NOT NULL DEFAULT 'gemini',
+    model VARCHAR(50) NOT NULL,
+    summary TEXT NULL,
+    details LONGTEXT NULL COMMENT 'JSON structuré : méthodologie expliquée, observations clés, points notables',
+    status VARCHAR(20) NOT NULL DEFAULT 'success',
+    rating TINYINT UNSIGNED NULL COMMENT 'note 1-5 étoiles, NULL = pas noté',
+    notes TEXT NULL COMMENT 'commentaire libre de l’utilisateur sur cette analyse',
+    error_message TEXT NULL,
+    data_points_count INT NULL COMMENT 'taille des données envoyées, pour contexte/debug',
+    raw_response LONGTEXT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_chart_type (chart_type),
+    UNIQUE KEY uk_request_provider_model (request_hash, provider, model)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
@@ -703,6 +734,8 @@ CREATE TABLE combined_analyses (
     summary TEXT,
     details JSON NULL COMMENT 'analyse combinée complète + chart_data',
     status VARCHAR(20) NOT NULL DEFAULT 'success',
+    rating TINYINT UNSIGNED NULL COMMENT 'note 1-5 étoiles, NULL = pas noté',
+    notes TEXT NULL COMMENT 'commentaire libre de l’utilisateur sur cette analyse',
     error_message TEXT NULL,
     input_char_count INT NULL,
     raw_response LONGTEXT NULL,
@@ -710,6 +743,104 @@ CREATE TABLE combined_analyses (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     UNIQUE KEY uk_comparison (request_hash, provider, model, computed_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- Documents complémentaires ajoutés manuellement par entreprise (rapports
+-- détaillés publiés sur le site de l'entreprise mais absents/résumés dans
+-- les rapports officiels scrapés depuis brvm.org, présentations
+-- investisseurs...) — même principe que company_reports (extraction de
+-- texte + formatage markdown IA) mais alimenté par upload manuel, voir
+-- migrations/013_company_documents.sql, class/PdfTextExtractor.php et
+-- class/CompanyDocumentMarkdownFormatterService.php. Ces documents servent
+-- de contexte additionnel pour les analyses IA (ChartAnalysisService,
+-- ReportAnalysisService) au même titre que les rapports officiels.
+-- ============================================
+CREATE TABLE company_documents (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    title VARCHAR(500) NOT NULL COMMENT 'Titre donné manuellement lors de l’upload',
+    original_filename VARCHAR(255) NOT NULL,
+    local_path VARCHAR(500) NOT NULL,
+    file_size BIGINT,
+    file_hash CHAR(64),
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    text_extracted TINYINT(1) DEFAULT 0,
+    extraction_method VARCHAR(10) NULL COMMENT 'text (pdftotext) ou ocr (tesseract)',
+    extraction_error TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    INDEX idx_company (company_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE company_document_contents (
+    document_id BIGINT PRIMARY KEY,
+    extracted_text LONGTEXT,
+    formatted_markdown LONGTEXT NULL,
+    markdown_status VARCHAR(20) NULL COMMENT 'processing|success|failed',
+    markdown_error TEXT NULL,
+    markdown_provider VARCHAR(30) NULL,
+    markdown_model VARCHAR(50) NULL,
+    markdown_updated_at TIMESTAMP NULL,
+    char_count INT,
+    extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (document_id) REFERENCES company_documents(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- Analyse IA structurée des documents complémentaires — même schéma que
+-- company_report_analyses (exécutif, fondamentaux, SWOT, risques,
+-- valorisation...), voir migrations/015_company_document_analyses.sql et
+-- class/CompanyDocumentAnalysisService.php. Compte pleinement dans les
+-- statistiques agrégées de l'onglet Rapports au même titre que les rapports
+-- officiels (voir chart_type 'report_analysis_stats'), en plus de leur
+-- usage existant comme contexte texte brut pour d'autres analyses.
+-- ============================================
+CREATE TABLE company_document_analyses (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    document_id BIGINT NOT NULL,
+    company_id INT NOT NULL,
+    provider VARCHAR(30) NOT NULL DEFAULT 'gemini' COMMENT 'anthropic, gemini...',
+    model VARCHAR(50) NOT NULL,
+    market_context_date DATE NULL COMMENT 'trading_date des cours/indicateurs utilisés comme contexte',
+    summary TEXT COMMENT 'résumé exécutif court, pour affichage/listage rapide',
+    details JSON NULL COMMENT 'analyse complète structurée (financials, SWOT, risques, thèse, glossaire...)',
+    status VARCHAR(20) NOT NULL DEFAULT 'success' COMMENT 'success|failed',
+    error_message TEXT NULL,
+    input_char_count INT NULL,
+    raw_response LONGTEXT NULL COMMENT 'réponse brute du fournisseur IA, pour audit/debug',
+    rating TINYINT UNSIGNED NULL COMMENT 'note 1-5 étoiles, NULL = pas noté',
+    notes TEXT NULL COMMENT 'commentaire libre de l’utilisateur sur cette analyse',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (document_id) REFERENCES company_documents(id) ON DELETE CASCADE,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+
+    UNIQUE KEY uk_document_provider_model_date (document_id, provider, model, market_context_date),
+    INDEX idx_company (company_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- Chat bot IA du tableau de bord entreprise — conversation persistée par
+-- entreprise (un tour utilisateur/assistant par ligne), voir
+-- migrations/014_company_chat.sql et class/CompanyChatService.php.
+-- ============================================
+CREATE TABLE company_chat_messages (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    company_id INT NOT NULL,
+    role ENUM('user', 'assistant') NOT NULL,
+    content LONGTEXT NOT NULL,
+    provider VARCHAR(30) NULL COMMENT 'Fournisseur IA ayant généré ce message (NULL pour un message role=user)',
+    model VARCHAR(50) NULL,
+    sources JSON NULL COMMENT 'Sources web citées par le fournisseur (recherche internet), tableau de {title, url}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    INDEX idx_company_created (company_id, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================

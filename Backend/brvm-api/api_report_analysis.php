@@ -26,6 +26,7 @@ require_once 'class/DynamiqueCrud.php';
 require_once 'class/AuthGuard.php';
 AuthGuard::requireAuth();
 require_once 'class/AiClientInterface.php';
+require_once 'class/AiChatClientInterface.php';
 require_once 'class/GeminiClient.php';
 require_once 'class/AnthropicClient.php';
 require_once 'class/GrokClient.php';
@@ -52,6 +53,9 @@ class ReportAnalysisAPI {
 
                 case 'history':
                     return $this->history($input);
+
+                case 'stats':
+                    return $this->stats($input);
 
                 case 'rate':
                     return $this->rate($input);
@@ -128,6 +132,24 @@ class ReportAnalysisAPI {
         $data = $service->history($reportId, $companyId);
 
         return ['success' => true, 'data' => $data, 'count' => count($data)];
+    }
+
+    /**
+     * Statistiques agrégées des analyses IA déjà réalisées pour une
+     * entreprise (répartition des verdicts, catégories de risque, tendance
+     * financière) — voir ReportAnalysisService::getCompanyAnalysisStats().
+     */
+    private function stats($input) {
+        $companyId = (int) ($input['company_id'] ?? 0);
+        if (!$companyId) {
+            throw new Exception("company_id requis");
+        }
+        $includeDocuments = !empty($input['include_documents']);
+
+        $service = new ReportAnalysisService($this->crud);
+        $data = $service->getCompanyAnalysisStats($companyId, $includeDocuments);
+
+        return ['success' => true, 'data' => $data];
     }
 
     /**

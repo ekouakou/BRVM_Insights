@@ -1,24 +1,25 @@
 <?php
 /**
- * Orchestration de l'analyse IA d'un rapport de société : construit le
- * prompt (texte du rapport + contexte marché récent), l'envoie au fournisseur
- * IA demandé (Anthropic par défaut, ou un autre via $provider), et met en
- * cache le résultat dans company_report_analyses (un appel par jour et par
- * couple fournisseur+modèle, pas plus).
+ * Orchestration de l'analyse IA d'un document complémentaire (ajouté
+ * manuellement, voir api_company_documents.php) : même principe et même
+ * schéma de sortie que ReportAnalysisService (rapports officiels
+ * scrapés depuis brvm.org), pour que les documents complémentaires comptent
+ * pleinement dans les statistiques agrégées de l'onglet Rapports (voir
+ * ReportAnalysisService::getCompanyAnalysisStats(), paramètre
+ * $includeDocuments) et pas seulement comme contexte texte brut pour
+ * d'autres analyses (usage existant, toujours actif en parallèle, voir
+ * ReportAnalysisService::buildAdditionalDocumentsContext()).
+ *
+ * Fichier indépendant de ReportAnalysisService par convention de ce projet
+ * (voir son en-tête) plutôt qu'un couplage entre classes — même si cela
+ * duplique la majeure partie de sa logique.
  */
-class ReportAnalysisService {
-    private const MAX_REPORT_CHARS = 500000;
+class CompanyDocumentAnalysisService {
+    private const MAX_DOCUMENT_CHARS = 500000;
     private const PRICE_HISTORY_DAYS = 180;
-    private const MAX_ADDITIONAL_DOCUMENTS = 3;
-    private const MAX_ADDITIONAL_DOCUMENT_CHARS = 15000;
     private const DISCLAIMER = "Analyse générée automatiquement à titre informatif, "
         . "ne constitue pas un conseil en investissement.";
 
-    /**
-     * Registre des fournisseurs IA supportés. Pour ajouter un fournisseur
-     * (OpenAI, Grok, Kimi...) : créer une classe implémentant
-     * AiClientInterface (voir GeminiClient/AnthropicClient) et l'ajouter ici.
-     */
     private const PROVIDERS = [
         'anthropic' => ['class' => 'AnthropicClient', 'default_model' => 'claude-opus-5'],
         'gemini' => ['class' => 'GeminiClient', 'default_model' => 'gemini-flash-lite-latest'],
@@ -27,7 +28,7 @@ class ReportAnalysisService {
     private const DEFAULT_PROVIDER = 'gemini';
 
     /**
-     * Clés de la réponse IA à conserver dans company_report_analyses.details.
+     * Clés de la réponse IA à conserver dans company_document_analyses.details.
      * IMPORTANT : toute clé ajoutée au schéma JSON demandé dans buildPrompt()
      * doit être ajoutée ici, sinon elle sera renvoyée par l'IA puis perdue
      * silencieusement au moment de la mise en cache.
@@ -59,59 +60,53 @@ class ReportAnalysisService {
     /**
      * @return array Résultat structuré prêt à être renvoyé par l'API
      */
-    public function analyze(int $reportId, ?string $provider = null, ?string $model = null, bool $forceRefresh = false): array {
+    public function analyze(int $documentId, ?string $provider = null, ?string $model = null, bool $forceRefresh = false): array {
         $provider = $provider ?: self::DEFAULT_PROVIDER;
         if (!isset(self::PROVIDERS[$provider])) {
             throw new Exception("Fournisseur IA inconnu: $provider. Disponibles: " . implode(', ', array_keys(self::PROVIDERS)));
         }
         $model = $model ?: self::PROVIDERS[$provider]['default_model'];
 
-        $report = $this->crud->findById('company_reports', $reportId);
-        if (!$report) {
-            throw new Exception("Rapport non trouvé (id=$reportId)");
+        $document = $this->crud->findById('company_documents', $documentId);
+        if (!$document) {
+            throw new Exception("Document non trouvé (id=$documentId)");
         }
 
-        $content = $this->crud->find('company_report_contents', ['report_id' => $reportId]);
+        $content = $this->crud->find('company_document_contents', ['document_id' => $documentId]);
         $contentRow = $content[0] ?? null;
 
-        // Préfère le markdown restructuré (tableaux propres, voir
-        // ReportMarkdownFormatterService) s'il est disponible : matière
-        // première plus fiable pour l'IA que le dump pdftotext brut, qui
-        // reste le repli sinon.
-        $usingMarkdown = !empty($contentRow['formatted_markdown']) && $contentRow['markdown_status'] === 'success';
+        $usingMarkdown = !empty($contentRow['formatted_markdown']) && ($contentRow['markdown_status'] ?? null) === 'success';
         $sourceText = $usingMarkdown ? $contentRow['formatted_markdown'] : ($contentRow['extracted_text'] ?? null);
 
         if (empty($sourceText)) {
             throw new Exception(
-                "Le texte de ce rapport n'a pas encore été extrait. " .
-                "Lance 'php scripts/backfill_reports.php' avant de l'analyser."
+                "Le texte de ce document n'a pas encore été extrait — vérifie le statut d'extraction avant de l'analyser."
             );
         }
 
-        $company = $this->crud->findById('companies', $report['company_id']);
-        $marketContextDate = $this->getLatestTradingDate($report['company_id']);
+        $company = $this->crud->findById('companies', $document['company_id']);
+        $marketContextDate = $this->getLatestTradingDate($document['company_id']);
 
         $existing = $this->crud->executeCustomQuery(
-            "SELECT * FROM company_report_analyses WHERE report_id = ? AND provider = ? AND model = ? AND market_context_date <=> ? LIMIT 1",
-            [$reportId, $provider, $model, $marketContextDate]
+            "SELECT * FROM company_document_analyses WHERE document_id = ? AND provider = ? AND model = ? AND market_context_date <=> ? LIMIT 1",
+            [$documentId, $provider, $model, $marketContextDate]
         );
         $existingRow = $existing[0] ?? null;
 
         if ($existingRow && $existingRow['status'] === 'success' && !$forceRefresh) {
-            return $this->formatResult($existingRow, $report, $company, true);
+            return $this->formatResult($existingRow, $document, $company, true);
         }
 
-        $marketContext = $this->getMarketContext($report['company_id'], $marketContextDate);
-        $additionalDocsContext = $this->buildAdditionalDocumentsContext($report['company_id']);
+        $marketContext = $this->getMarketContext($document['company_id'], $marketContextDate);
         $truncatedText = $this->truncate($sourceText);
 
-        $prompt = $this->buildPrompt($company, $report, $marketContext, $truncatedText, $additionalDocsContext);
+        $prompt = $this->buildPrompt($company, $document, $marketContext, $truncatedText);
         $client = $this->createClient($provider);
         $aiResult = $client->generateContent($prompt, $model);
 
         $row = [
-            'report_id' => $reportId,
-            'company_id' => $report['company_id'],
+            'document_id' => $documentId,
+            'company_id' => $document['company_id'],
             'provider' => $provider,
             'model' => $model,
             'market_context_date' => $marketContextDate,
@@ -140,34 +135,33 @@ class ReportAnalysisService {
         }
 
         if ($existingRow) {
-            $this->crud->merge('company_report_analyses', $row, ['id' => $existingRow['id']]);
+            $this->crud->merge('company_document_analyses', $row, ['id' => $existingRow['id']]);
             $rowId = $existingRow['id'];
         } else {
-            $rowId = $this->crud->persist('company_report_analyses', $row);
+            $rowId = $this->crud->persist('company_document_analyses', $row);
         }
 
         if (!$aiResult['success']) {
             throw new Exception($aiResult['error']);
         }
 
-        // Relu depuis la base pour récupérer created_at/updated_at générés par MySQL
-        $savedRow = $this->crud->findById('company_report_analyses', $rowId);
+        $savedRow = $this->crud->findById('company_document_analyses', $rowId);
 
-        return $this->formatResult($savedRow, $report, $company, false);
+        return $this->formatResult($savedRow, $document, $company, false);
     }
 
     /**
-     * Dernière analyse en cache pour un rapport, sans jamais appeler de fournisseur IA.
+     * Dernière analyse en cache pour un document, sans jamais appeler de fournisseur IA.
      */
-    public function getLatest(int $reportId, ?string $provider = null, ?string $model = null): ?array {
-        $report = $this->crud->findById('company_reports', $reportId);
-        if (!$report) {
-            throw new Exception("Rapport non trouvé (id=$reportId)");
+    public function getLatest(int $documentId, ?string $provider = null, ?string $model = null): ?array {
+        $document = $this->crud->findById('company_documents', $documentId);
+        if (!$document) {
+            throw new Exception("Document non trouvé (id=$documentId)");
         }
-        $company = $this->crud->findById('companies', $report['company_id']);
+        $company = $this->crud->findById('companies', $document['company_id']);
 
-        $conditions = ['report_id = ?'];
-        $params = [$reportId];
+        $conditions = ['document_id = ?'];
+        $params = [$documentId];
         if ($provider) {
             $conditions[] = 'provider = ?';
             $params[] = $provider;
@@ -178,7 +172,7 @@ class ReportAnalysisService {
         }
 
         $rows = $this->crud->executeCustomQuery(
-            "SELECT * FROM company_report_analyses WHERE " . implode(' AND ', $conditions) .
+            "SELECT * FROM company_document_analyses WHERE " . implode(' AND ', $conditions) .
             " ORDER BY market_context_date DESC, id DESC LIMIT 1",
             $params
         );
@@ -187,208 +181,51 @@ class ReportAnalysisService {
             return null;
         }
 
-        return $this->formatResult($rows[0], $report, $company, true);
+        return $this->formatResult($rows[0], $document, $company, true);
     }
 
     /**
-     * Historique des analyses d'un rapport (ou de tous les rapports d'une société).
+     * Historique des analyses d'un document (ou de tous les documents d'une société).
      */
-    public function history(?int $reportId, ?int $companyId): array {
-        if ($reportId) {
-            $rows = $this->crud->find('company_report_analyses', ['report_id' => $reportId], PDO::FETCH_ASSOC, true, 'market_context_date DESC, id DESC');
+    public function history(?int $documentId, ?int $companyId): array {
+        if ($documentId) {
+            $rows = $this->crud->find('company_document_analyses', ['document_id' => $documentId], PDO::FETCH_ASSOC, true, 'market_context_date DESC, id DESC');
         } elseif ($companyId) {
-            $rows = $this->crud->find('company_report_analyses', ['company_id' => $companyId], PDO::FETCH_ASSOC, true, 'market_context_date DESC, id DESC');
+            $rows = $this->crud->find('company_document_analyses', ['company_id' => $companyId], PDO::FETCH_ASSOC, true, 'market_context_date DESC, id DESC');
         } else {
-            throw new Exception("report_id ou company_id requis");
+            throw new Exception("document_id ou company_id requis");
         }
 
-        $reportsById = [];
+        $documentsById = [];
         $companiesById = [];
 
-        return array_map(function ($row) use (&$reportsById, &$companiesById) {
-            $rId = $row['report_id'];
-            if (!isset($reportsById[$rId])) {
-                $reportsById[$rId] = $this->crud->findById('company_reports', $rId);
+        return array_map(function ($row) use (&$documentsById, &$companiesById) {
+            $dId = $row['document_id'];
+            if (!isset($documentsById[$dId])) {
+                $documentsById[$dId] = $this->crud->findById('company_documents', $dId);
             }
-            $report = $reportsById[$rId];
+            $document = $documentsById[$dId];
 
-            $cId = $report['company_id'] ?? null;
+            $cId = $document['company_id'] ?? null;
             if ($cId !== null && !isset($companiesById[$cId])) {
                 $companiesById[$cId] = $this->crud->findById('companies', $cId);
             }
             $company = $cId !== null ? ($companiesById[$cId] ?? null) : null;
 
-            return $this->formatResult($row, $report, $company, true);
+            return $this->formatResult($row, $document, $company, true);
         }, $rows);
     }
 
     /**
-     * Statistiques agrégées des analyses IA déjà réalisées pour UNE
-     * entreprise — pense pour alimenter des graphes (répartition des
-     * verdicts de valorisation, fréquence des catégories de risque,
-     * tendance CA/résultat net) plutôt qu'une lecture rapport par rapport.
-     * Recalculé à la demande à chaque appel (pas de cache dédié) : reflète
-     * toujours l'état actuel de company_report_analyses (et de
-     * company_document_analyses si $includeDocuments), donc tout nouveau
-     * rapport/document analysé apparaît automatiquement au prochain appel
-     * sans modification de code.
-     *
-     * Un rapport (ou document) peut avoir plusieurs lignes dans sa table
-     * d'analyses (ré-analyses, fournisseurs différents, jours différents à
-     * cause du cache quotidien) — seule la plus récente analyse réussie par
-     * rapport/document est prise en compte, pour ne pas compter deux fois
-     * le même élément dans les répartitions.
-     *
-     * $includeDocuments (défaut false, rétro-compatible) : si true, les
-     * documents complémentaires déjà analysés (voir
-     * CompanyDocumentAnalysisService, même schéma d'analyse) sont fusionnés
-     * dans les mêmes répartitions que les rapports officiels, distingués par
-     * 'source_type' dans financial_trend — les documents complémentaires
-     * n'ont pas de date de publication propre (contrairement aux rapports
-     * scrapés depuis brvm.org), 'publish_date' utilise alors leur date
-     * d'ajout (uploaded_at) comme repère chronologique approximatif.
-     */
-    public function getCompanyAnalysisStats(int $companyId, bool $includeDocuments = false): array {
-        $totalReports = (int) ($this->crud->executeCustomQuery(
-            "SELECT COUNT(*) AS c FROM company_reports WHERE company_id = ?",
-            [$companyId]
-        )[0]['c'] ?? 0);
-
-        $reportRows = $this->crud->executeCustomQuery(
-            "SELECT cra.*, cr.publish_date, cr.title
-             FROM company_report_analyses cra
-             INNER JOIN company_reports cr ON cr.id = cra.report_id
-             INNER JOIN (
-                 SELECT report_id, MAX(id) AS max_id
-                 FROM company_report_analyses
-                 WHERE company_id = ? AND status = 'success'
-                 GROUP BY report_id
-             ) latest ON latest.max_id = cra.id",
-            [$companyId]
-        ) ?: [];
-
-        $items = array_map(fn($row) => [
-            'source_type' => 'report',
-            'source_id' => (int) $row['report_id'],
-            'source_title' => $row['title'],
-            'publish_date' => $row['publish_date'],
-            'details' => json_decode($row['details'] ?? 'null', true) ?: [],
-        ], $reportRows);
-
-        $totalDocuments = 0;
-        $analyzedDocuments = 0;
-        if ($includeDocuments) {
-            $totalDocuments = (int) ($this->crud->executeCustomQuery(
-                "SELECT COUNT(*) AS c FROM company_documents WHERE company_id = ?",
-                [$companyId]
-            )[0]['c'] ?? 0);
-
-            $documentRows = $this->crud->executeCustomQuery(
-                "SELECT cda.*, cd.title, cd.uploaded_at
-                 FROM company_document_analyses cda
-                 INNER JOIN company_documents cd ON cd.id = cda.document_id
-                 INNER JOIN (
-                     SELECT document_id, MAX(id) AS max_id
-                     FROM company_document_analyses
-                     WHERE company_id = ? AND status = 'success'
-                     GROUP BY document_id
-                 ) latest ON latest.max_id = cda.id",
-                [$companyId]
-            ) ?: [];
-
-            $analyzedDocuments = count($documentRows);
-            foreach ($documentRows as $row) {
-                $items[] = [
-                    'source_type' => 'document',
-                    'source_id' => (int) $row['document_id'],
-                    'source_title' => $row['title'],
-                    'publish_date' => $row['uploaded_at'] ? substr($row['uploaded_at'], 0, 10) : null,
-                    'details' => json_decode($row['details'] ?? 'null', true) ?: [],
-                ];
-            }
-        }
-
-        usort($items, fn($a, $b) => ($a['publish_date'] ?? '') <=> ($b['publish_date'] ?? ''));
-
-        $verdictCounts = [];
-        $riskCategoryCounts = [];
-        $financialTrend = [];
-
-        foreach ($items as $item) {
-            $details = $item['details'];
-
-            $verdict = $details['valuation_assessment']['verdict'] ?? null;
-            $verdictKey = $verdict ?: 'indéterminable';
-            $verdictCounts[$verdictKey] = ($verdictCounts[$verdictKey] ?? 0) + 1;
-
-            foreach ($details['risks'] ?? [] as $risk) {
-                $category = trim((string) ($risk['category'] ?? ''));
-                if ($category === '') {
-                    continue;
-                }
-                $normalized = mb_strtolower($category);
-                if (!isset($riskCategoryCounts[$normalized])) {
-                    $riskCategoryCounts[$normalized] = ['label' => ucfirst($category), 'count' => 0];
-                }
-                $riskCategoryCounts[$normalized]['count']++;
-            }
-
-            $financials = $details['key_financials'] ?? [];
-            $valuation = $details['valuation_assessment'] ?? [];
-            $financialTrend[] = [
-                'source_type' => $item['source_type'],
-                'source_id' => $item['source_id'],
-                'source_title' => $item['source_title'],
-                'publish_date' => $item['publish_date'],
-                'revenue' => isset($financials['revenue']) ? (float) $financials['revenue'] : null,
-                'net_income' => isset($financials['net_income']) ? (float) $financials['net_income'] : null,
-                'net_margin_percent' => isset($financials['net_margin_percent']) ? (float) $financials['net_margin_percent'] : null,
-                'roe_percent' => isset($financials['roe_percent']) ? (float) $financials['roe_percent'] : null,
-                'pe_ratio' => isset($valuation['pe_ratio']) ? (float) $valuation['pe_ratio'] : null,
-                'verdict' => $verdict,
-            ];
-        }
-
-        $analyzedReports = count($reportRows);
-
-        $verdictDistribution = [];
-        foreach ($verdictCounts as $verdict => $count) {
-            $verdictDistribution[] = ['verdict' => $verdict, 'count' => $count];
-        }
-
-        $riskCategoryDistribution = array_values($riskCategoryCounts);
-        usort($riskCategoryDistribution, fn($a, $b) => $b['count'] <=> $a['count']);
-        $riskCategoryDistribution = array_map(
-            fn($r) => ['category' => $r['label'], 'count' => $r['count']],
-            $riskCategoryDistribution
-        );
-
-        return [
-            'company_id' => $companyId,
-            'documents_included' => $includeDocuments,
-            'total_reports' => $totalReports,
-            'analyzed_reports' => $analyzedReports,
-            'pending_reports' => max(0, $totalReports - $analyzedReports),
-            'total_documents' => $totalDocuments,
-            'analyzed_documents' => $analyzedDocuments,
-            'pending_documents' => max(0, $totalDocuments - $analyzedDocuments),
-            'verdict_distribution' => $verdictDistribution,
-            'risk_category_distribution' => $riskCategoryDistribution,
-            'financial_trend' => $financialTrend,
-        ];
-    }
-
-    /**
      * Note (1-5 étoiles) et/ou commentaire libre sur une analyse déjà
-     * enregistrée — voir ChartAnalysisService::rate() pour le même pattern
-     * (rating/notes ne sont modifiés que s'ils sont explicitement fournis).
+     * enregistrée — même pattern que ReportAnalysisService::rate().
      */
     public function rate(int $id, ?int $rating, ?string $notes, bool $ratingProvided, bool $notesProvided): array {
         if ($ratingProvided && $rating !== null && ($rating < 1 || $rating > 5)) {
             throw new Exception("La note doit être comprise entre 1 et 5");
         }
 
-        $row = $this->crud->findById('company_report_analyses', $id);
+        $row = $this->crud->findById('company_document_analyses', $id);
         if (!$row) {
             throw new Exception("Analyse non trouvée (id=$id)");
         }
@@ -398,24 +235,24 @@ class ReportAnalysisService {
         if ($notesProvided) $update['notes'] = $notes;
 
         if (!empty($update)) {
-            $this->crud->merge('company_report_analyses', $update, ['id' => $id]);
+            $this->crud->merge('company_document_analyses', $update, ['id' => $id]);
         }
 
-        $updatedRow = $this->crud->findById('company_report_analyses', $id);
-        $report = $this->crud->findById('company_reports', $updatedRow['report_id']);
-        $company = $this->crud->findById('companies', $report['company_id']);
-        return $this->formatResult($updatedRow, $report, $company, true);
+        $updatedRow = $this->crud->findById('company_document_analyses', $id);
+        $document = $this->crud->findById('company_documents', $updatedRow['document_id']);
+        $company = $this->crud->findById('companies', $document['company_id']);
+        return $this->formatResult($updatedRow, $document, $company, true);
     }
 
     /**
      * Supprime une analyse enregistrée.
      */
     public function remove(int $id): void {
-        $row = $this->crud->findById('company_report_analyses', $id);
+        $row = $this->crud->findById('company_document_analyses', $id);
         if (!$row) {
             throw new Exception("Analyse non trouvée (id=$id)");
         }
-        $this->crud->remove('company_report_analyses', ['id' => $id]);
+        $this->crud->remove('company_document_analyses', ['id' => $id]);
     }
 
     private function createClient(string $provider): AiClientInterface {
@@ -447,9 +284,7 @@ class ReportAnalysisService {
     }
 
     /**
-     * Historique de prix récent (même forme que api_quotes.php::getOHLCData)
-     * pour permettre au frontend de tracer un graphe à côté de l'analyse,
-     * sans appel IA ni impact sur le cache.
+     * Historique de prix récent, même forme que ReportAnalysisService::getPriceHistory().
      */
     private function getPriceHistory(int $companyId): array {
         return $this->crud->executeCustomQuery(
@@ -463,54 +298,15 @@ class ReportAnalysisService {
     }
 
     private function truncate(string $text): string {
-        if (mb_strlen($text) <= self::MAX_REPORT_CHARS) {
+        if (mb_strlen($text) <= self::MAX_DOCUMENT_CHARS) {
             return $text;
         }
-        return mb_substr($text, 0, self::MAX_REPORT_CHARS) . "\n\n[...texte tronqué...]";
+        return mb_substr($text, 0, self::MAX_DOCUMENT_CHARS) . "\n\n[...texte tronqué...]";
     }
 
-    /**
-     * Documents complémentaires ajoutés manuellement pour cette entreprise
-     * (voir api_company_documents.php) — rapports détaillés publiés sur le
-     * site de l'entreprise mais absents/résumés dans le rapport officiel
-     * analysé ici, présentations investisseurs, etc. Toujours inclus quand
-     * disponibles (pas d'option à cocher, contrairement à
-     * ChartAnalysisService::buildReportContext() : ici il n'y a qu'une seule
-     * entreprise concernée, pas de coût de prompt à arbitrer entre
-     * plusieurs).
-     */
-    private function buildAdditionalDocumentsContext(int $companyId): string {
-        $documents = $this->crud->executeCustomQuery(
-            "SELECT id, title FROM company_documents
-             WHERE company_id = ? AND text_extracted = 1
-             ORDER BY uploaded_at DESC LIMIT ?",
-            [$companyId, self::MAX_ADDITIONAL_DOCUMENTS]
-        ) ?: [];
-
-        $blocks = [];
-        foreach ($documents as $document) {
-            $contents = $this->crud->find('company_document_contents', ['document_id' => $document['id']]);
-            $content = $contents[0] ?? null;
-            $usingMarkdown = !empty($content['formatted_markdown']) && ($content['markdown_status'] ?? null) === 'success';
-            $text = $usingMarkdown ? $content['formatted_markdown'] : ($content['extracted_text'] ?? null);
-
-            if (empty($text)) {
-                continue;
-            }
-
-            if (mb_strlen($text) > self::MAX_ADDITIONAL_DOCUMENT_CHARS) {
-                $text = mb_substr($text, 0, self::MAX_ADDITIONAL_DOCUMENT_CHARS) . "\n\n[...texte tronqué...]";
-            }
-            $sourceNote = $usingMarkdown ? '' : ' (texte brut extrait, pas encore reformaté en Markdown)';
-            $blocks[] = "#### {$document['title']}$sourceNote\n\n$text";
-        }
-
-        return implode("\n\n", $blocks);
-    }
-
-    private function buildPrompt($company, $report, array $marketContext, string $reportText, string $additionalDocsContext = ''): string {
+    private function buildPrompt($company, $document, array $marketContext, string $documentText): string {
         $companyLabel = ($company['symbol'] ?? '?') . ' - ' . ($company['name'] ?? '?');
-        $reportLabel = ($report['report_type'] ?? 'rapport') . ' publié le ' . ($report['publish_date'] ?? 'date inconnue');
+        $documentLabel = ($document['title'] ?? 'document') . ' (ajouté manuellement le ' . ($document['uploaded_at'] ?? 'date inconnue') . ')';
 
         $marketBlock = "Aucune donnée de marché récente disponible.";
         if (!empty($marketContext['quote'])) {
@@ -547,14 +343,6 @@ class ReportAnalysisService {
             );
         }
 
-        $additionalDocsBlock = '';
-        if (!empty($additionalDocsContext)) {
-            $additionalDocsBlock = "\nDocuments complémentaires disponibles pour cette entreprise (ajoutés manuellement, "
-                . "souvent plus détaillés que le rapport officiel ci-dessus — croise-les avec le rapport analysé, "
-                . "complète les champs (ex: shares_outstanding, chiffres manquants) s'ils y figurent explicitement, "
-                . "sans jamais inventer une donnée absente des deux sources) :\n$additionalDocsContext\n";
-        }
-
         return <<<PROMPT
 Tu es un analyste financier senior et data analyst spécialisé sur les marchés
 actions d'Afrique de l'Ouest (BRVM), avec une double expertise en lecture des
@@ -569,11 +357,12 @@ te contenter de les recopier s'ils y sont, ou de les laisser de côté s'ils
 n'y sont pas explicitement mais calculables à partir des données du texte.
 
 Société : $companyLabel
-Rapport analysé : $reportLabel
+Document complémentaire analysé (ajouté manuellement par l'équipe, pas un
+rapport officiel scrapé depuis brvm.org — peut être un rapport détaillé du
+site de l'entreprise, une présentation investisseurs, etc.) : $documentLabel
 
 Contexte marché récent (BRVM) :
 $marketBlock
-$additionalDocsBlock
 
 Réponds UNIQUEMENT avec un objet JSON de cette forme exacte (aucun texte
 avant/après, pas de balises markdown) :
@@ -618,7 +407,7 @@ avant/après, pas de balises markdown) :
     "roa_percent": "rentabilité des actifs = net_income / total actifs, SI le total actif est connu, sinon null"
   },
   "financial_analysis": "analyse détaillée en plusieurs phrases des chiffres ci-dessus : tendance N/N-1, rentabilité à chaque étage du compte de résultat (marge brute -> opérationnelle -> nette), structure financière, points marquants",
-  "growth_trends": "analyse de la trajectoire pluriannuelle si le rapport fournit un historique sur 3 ans ou plus (CAGR du chiffre d'affaires et du résultat net, régularité ou volatilité de la croissance) ; si seules deux années sont disponibles, le préciser explicitement ; null si aucune série historique n'est présente",
+  "growth_trends": "analyse de la trajectoire pluriannuelle si le document fournit un historique sur 3 ans ou plus (CAGR du chiffre d'affaires et du résultat net, régularité ou volatilité de la croissance) ; si seules deux années sont disponibles, le préciser explicitement ; null si aucune série historique n'est présente",
   "cash_flow_analysis": "lecture de la génération de trésorerie : cohérence entre résultat net et flux de trésorerie d'exploitation, niveau des investissements, capacité à autofinancer la croissance et le dividende ; null si le texte ne fournit pas de tableau de flux de trésorerie",
   "swot": {
     "strengths": ["force 1", "force 2"],
@@ -631,7 +420,7 @@ avant/après, pas de balises markdown) :
   ],
   "governance_and_audit": "réserves ou observations du commissaire aux comptes, doute sur la continuité d'exploitation, transactions significatives avec des parties liées, changements de gouvernance mentionnés dans le texte ; null si le texte ne mentionne rien de tel",
   "outlook_guidance": "objectifs, guidance ou perspectives communiqués par la direction pour le prochain exercice, s'ils sont explicitement mentionnés dans le texte ; null sinon",
-  "market_context_note": "mise en perspective détaillée : ce rapport confirme-t-il ou contredit-il le cours/les indicateurs techniques récents, et pourquoi",
+  "market_context_note": "mise en perspective détaillée : ce document confirme-t-il ou contredit-il le cours/les indicateurs techniques récents, et pourquoi",
   "technical_reading": "lecture technique factuelle des indicateurs fournis (tendance, momentum, niveaux), sans recommandation d'achat/vente",
   "valuation_assessment": {
     "shares_outstanding": "nombre d'actions en circulation SI mentionné dans le texte (capital social, actionnariat...), sinon null — ne jamais deviner",
@@ -661,21 +450,20 @@ Règles impératives :
 - N'inclus dans "glossary" que les termes techniques que tu as réellement utilisés ailleurs dans la réponse.
 - Réponds uniquement avec le JSON.
 
-Texte du rapport :
-$reportText
+Texte du document :
+$documentText
 PROMPT;
     }
 
-    private function formatResult(array $row, array $report, ?array $company, bool $cached): array {
+    private function formatResult(array $row, array $document, ?array $company, bool $cached): array {
         $details = json_decode($row['details'] ?? 'null', true) ?: [];
 
         return [
             'id' => (int) $row['id'],
-            'report' => [
-                'id' => $report['id'],
-                'title' => $report['title'],
-                'report_type' => $report['report_type'],
-                'publish_date' => $report['publish_date'],
+            'document' => [
+                'id' => $document['id'],
+                'title' => $document['title'],
+                'uploaded_at' => $document['uploaded_at'],
             ],
             'company' => [
                 'id' => $company['id'] ?? null,
@@ -694,7 +482,7 @@ PROMPT;
                 $details
             ) : null,
             'chart_data' => [
-                'price_history' => $this->getPriceHistory($report['company_id']),
+                'price_history' => $this->getPriceHistory($document['company_id']),
             ],
             'disclaimer' => self::DISCLAIMER,
             'cached' => $cached,
