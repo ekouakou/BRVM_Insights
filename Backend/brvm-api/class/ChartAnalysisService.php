@@ -109,6 +109,17 @@ class ChartAnalysisService {
             "'index_variation_percent' (identique pour toutes les entreprises à une date donnée) : appuie-toi " .
             "dessus pour distinguer un titre qui surperforme un marché déjà haussier d'un titre qui ne fait " .
             "que reculer moins vite qu'un marché baissier.",
+        'market_indices' =>
+            "Cours de clôture quotidien officiel d'un ou plusieurs indices BRVM (BRVM-COMPOSITE — l'ensemble " .
+            "des sociétés cotées, pondérées par capitalisation boursière — BRVM-30, BRVM-PRESTIGE, " .
+            "BRVM-PRINCIPAL selon la sélection), avec variation quotidienne en % (api_market.php, action " .
+            "'history'). Deux modes d'affichage possibles côté frontend : niveau brut de l'indice (les indices " .
+            "n'ont pas la même base ni la même échelle entre eux, donc peu comparables visuellement en niveau " .
+            "brut), ou variation cumulée en % depuis le premier jour de la période sélectionnée (indexée à 0% " .
+            "à ce premier jour) — ce second mode est celui à privilégier pour comparer la performance relative " .
+            "de plusieurs indices entre eux sur une même période, précise-le si la sélection comporte plusieurs " .
+            "indices. À distinguer de 'sector_performance' (indices sectoriels internes équipondérés, " .
+            "recalculés par l'application) : ici il s'agit des indices BRVM officiels tels que publiés.",
         'sector_performance' =>
             "Indice équipondéré par secteur d'activité : pour chaque secteur et chaque jour, moyenne de " .
             "l'indice base 100 (cours du jour / cours au premier jour de la période × 100) de toutes les " .
@@ -239,6 +250,23 @@ class ChartAnalysisService {
             "sector_size, ex: 2 sur 4 = 2ᵉ meilleure performance parmi les 4 entreprises de ce secteur ayant une " .
             "cotation sur la période). Une entreprise sans cotation sur la période n'a pas de rang sectoriel " .
             "(sector_rank=null) plutôt qu'un rang par défaut trompeur.",
+        'composite_score' =>
+            "Score de synthèse 0-100 par entreprise (api_composite_score.php, action 'compute'), PAS un signal " .
+            "d'achat/vente ni une prédiction : moyenne pondérée de 6 sous-scores 0-100 déjà normalisés — " .
+            "Fondamental 30% (PER/rendement dividende/ROE/croissance CA/marge nette, barèmes simples documentés " .
+            "dans le code, moyenne des seules composantes disponibles), Technique 25% (score composite achat/" .
+            "vente -2/+2 rescalé en 0-100, même formule que 'quotes_signals'/'screener'), Momentum 15% " .
+            "(performance de cours sur la période, rescalée), Liquidité 10% (classement Illiquide/Faible/Moyenne/" .
+            "Élevée mappé en points fixes), Secteur 10% (rang de l'entreprise dans son secteur par performance, " .
+            "rescalé), Marché 10% (performance de l'entreprise MOINS performance de BRVM-COMPOSITE sur la même " .
+            "période — surperformance/sous-performance relative). IMPORTANT : 'coverage_percent' indique quelle " .
+            "part des 100% de pondération a réellement pu être calculée pour cette entreprise (une entreprise " .
+            "sans rapport financier traité n'a pas de sous-score Fondamental — le score est alors renormalisé " .
+            "sur les dimensions disponibles, PAS pénalisé par un 0 silencieux) : toujours mentionner ce chiffre " .
+            "quand tu compares deux entreprises, une comparaison entre une couverture de 45% et une de 90% n'a " .
+            "pas la même fiabilité. Les barèmes de normalisation sont des heuristiques simples et documentées, " .
+            "pas un calibrage statistique sur l'historique du marché — à présenter comme un outil de tri rapide, " .
+            "jamais comme une note financière académique.",
         'fundamentals' =>
             "Ratios fondamentaux (PER, PEG, Price/Book, ROE, ROA, marges, EV/EBITDA, rendement du dividende, " .
             "payout ratio...) par entreprise sélectionnée (api_fundamentals.php, action 'list'). " .

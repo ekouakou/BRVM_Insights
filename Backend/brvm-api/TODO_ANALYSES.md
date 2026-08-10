@@ -761,6 +761,83 @@ d'équity stratégie vs acheter-garder, tableau des opérations.
   stratégie reste plate faute d'avoir jamais pu entrer en position) —
   comportement attendu, pas un bug.
 
+### ✅ 26. Page Indices BRVM + fix Total Return/sectoriels + Score composite 0-100 — FAIT le 10/08/2026
+
+**Contexte** : demande utilisateur en deux temps — (1) afficher un graphe
+pour BRVM-COMPOSITE et les autres indices, avec vérification préalable
+qu'aucune nouvelle table n'était nécessaire ; (2) après une longue
+discussion sur les facteurs qui font bouger le cours d'une action à la
+BRVM et le fonctionnement de BRVM-COMPOSITE (bêta, performance relative,
+Total Return), demande d'implémenter les éléments manquants : score
+composite 0-100, BRVM-Composite Total Return, indicateurs macro BCEAO.
+
+**Page Indices (aucune nouvelle table)** : `market_indices`/`index_values`
+existaient déjà (alimentées par `BRVMSyncService::syncIndices()`), ainsi
+qu'une action `history` dans `api_market.php` jamais utilisée côté
+frontend. Nouvelle page `pages/Indices.tsx` (route `/indices`) :
+sélection multi-indices, période, bascule Niveau brut / Variation depuis
+le début (rebasée à 0% au premier jour, pour comparer des indices dont
+les échelles ne sont pas comparables telles quelles), graphe Recharts,
+`chart_type` IA `market_indices` enregistré dans
+`ChartAnalysisService::METHODOLOGY`.
+
+**Bug trouvé et corrigé — Total Return et indices sectoriels invisibles** :
+recherche web confirmant que brvm.org publie bien un "BRVM COMPOSITE
+TOTAL RETURN" ainsi que 7 indices sectoriels, absents de `market_indices`
+(seuls les 4 indices principaux y étaient). Cause exacte identifiée en
+inspectant le HTML brut de `/fr/indices` : la page contient RÉELLEMENT
+3 blocs `<section id="block-tools-indices">` distincts (principaux,
+"Indices sectoriels", "Indice Total Return" — id dupliqué côté BRVM,
+HTML invalide mais bien réel), mais `BRVMScraperFixed::parseIndicesTable()`
+ne prenait que `->item(0)` sur le XPath, ignorant silencieusement les 2
+autres blocs. Corrigé en itérant sur tous les blocs trouvés et en
+fusionnant leurs lignes — `BRVMSyncService::ensureIndexExists()` créait
+déjà dynamiquement toute nouvelle ligne d'indice rencontrée, donc **aucune
+nouvelle table nécessaire**, juste ce fix. Effet de bord découvert en
+testant : le nom "BRVM – COMPOSITE TOTAL RETURN" utilise un tiret cadratin
+(U+2013) non reconnu par les regex de `nameToIndexCode()` (qui ne
+ciblaient que le tiret ASCII), et plusieurs noms d'indices sectoriels
+dépassaient les 20 caractères de `market_indices.code` une fois
+normalisés (ex: "BRVM-CONSOMMATION-DISCRETIONNAIRE", 34 caractères) —
+corrigé (normalisation du tiret cadratin + migration 016, `code` élargi
+en VARCHAR(40)). **Testé en conditions réelles** : `syncIndices()` lancé
+contre le vrai site — 12 indices récupérés (4 principaux + 7 sectoriels +
+1 Total Return), 8 nouvelles lignes insérées, 0 échec.
+
+**Score composite 0-100** : nouveau fichier `api_composite_score.php`
+(action `compute`), pondérations demandées explicitement par
+l'utilisateur — Fondamental 30% / Technique 25% / Momentum 15% /
+Liquidité 10% / Secteur 10% / Marché 10%. **Aucune nouvelle table** : tout
+dérive de données déjà en base (mêmes requêtes qu'`api_screener.php` pour
+score technique/liquidité/momentum/rang sectoriel — dupliquées ici par
+convention établie dans le projet ; mêmes sources qu'`api_fundamentals.php`
+pour les fondamentaux ; même calcul qu'`api_risk_metrics.php` pour le
+rendement de BRVM-COMPOSITE sur la période, utilisé pour la dimension
+Marché = performance de l'entreprise moins performance de l'indice).
+Chaque dimension est normalisée en 0-100 par un barème simple et
+documenté dans le code (ex: ROE ≥25% = 100, PER proche de 8 = 100 et
+décroît au-delà). **Couverture partielle assumée** : une entreprise sans
+rapport financier traité (la majorité, voir point 24) n'a pas de
+sous-score Fondamental — le score composite est alors renormalisé sur les
+seules dimensions disponibles plutôt que pénalisé par un 0 silencieux, et
+`coverage_percent` (somme des poids effectivement utilisés) est renvoyé et
+affiché à côté du score pour signaler sa fiabilité. `chart_type` IA
+`composite_score` enregistré. Nouvel onglet "Score composite" dans
+`Screener.tsx` (converti en Tabs : "Filtres multi-critères" existant +
+nouvel onglet), tableau avec score + couverture + détail des 6 sous-scores.
+**Testé sur données réelles** : 47 entreprises actives, scores de 71 à 81
+sur un échantillon, couverture de 45% (sans fondamentaux) à 75% (avec) —
+et analyse IA réelle (Gemini) vérifiée : résumé et observations citent
+correctement les scores, couvertures et comparaison au benchmark exacts.
+
+**Reporté (décision utilisateur)** : indicateurs macro-économiques BCEAO
+(inflation, taux directeur, croissance UEMOA) — recherche effectuée :
+aucune API BCEAO, seulement des notes de conjoncture PDF publiées
+~mensuellement (bceao.int). Nécessiterait un chantier comparable au point
+12 (nouveau scraper PDF + extraction IA structurée + 2 nouvelles tables)
+pour une donnée à fréquence de mise à jour très faible — mis de côté pour
+l'instant, à reprendre sur demande explicite.
+
 ## Rappel — pourquoi attendre la fermeture du marché
 
 Le point 8 (variation totale) modifie du code exécuté par le cron en

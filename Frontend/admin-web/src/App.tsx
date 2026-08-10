@@ -21,6 +21,7 @@ import { Screener } from './pages/Screener'
 import { Fundamentals } from './pages/Fundamentals'
 import { Backtest } from './pages/Backtest'
 import { CorporateActions } from './pages/CorporateActions'
+import { Indices } from './pages/Indices'
 
 function Protected({ children }: { children: ReactNode }) {
   return (
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/fundamentals" element={<Protected><Fundamentals /></Protected>} />
         <Route path="/backtest" element={<Protected><Backtest /></Protected>} />
         <Route path="/corporate-actions" element={<Protected><CorporateActions /></Protected>} />
+        <Route path="/indices" element={<Protected><Indices /></Protected>} />
       </Routes>
     </AuthProvider>
   )

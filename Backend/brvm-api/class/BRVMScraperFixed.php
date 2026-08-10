@@ -389,7 +389,18 @@ class BRVMScraperFixed {
     }
 
     /**
-     * Parse le tableau des indices (bloc #block-tools-indices)
+     * Parse les tableaux d'indices (bloc(s) #block-tools-indices).
+     *
+     * La page /fr/indices contient en réalité TROIS blocs distincts partageant
+     * le même id "block-tools-indices" (HTML invalide mais bien réel côté
+     * BRVM) : les 4 indices principaux, les indices sectoriels ("Indices
+     * sectoriels"), et l'indice Total Return ("Indice Total Return", ex:
+     * BRVM-COMPOSITE TOTAL RETURN). L'ancienne version ne prenait que
+     * ->item(0) (le premier bloc), ignorant silencieusement les deux autres —
+     * corrigé en itérant sur tous les blocs trouvés. ensureIndexExists()
+     * côté BRVMSyncService crée déjà dynamiquement toute nouvelle ligne
+     * d'indice rencontrée, donc aucune table supplémentaire n'est nécessaire
+     * ici, juste ce fix.
      */
     private function parseIndicesTable($html) {
         $dom = new DOMDocument();
@@ -397,21 +408,31 @@ class BRVMScraperFixed {
 
         $xpath = new DOMXPath($dom);
 
-        $block = $xpath->query("//*[@id='block-tools-indices']")->item(0);
+        $blocks = $xpath->query("//*[@id='block-tools-indices']");
 
-        if (!$block) {
+        if (!$blocks || $blocks->length === 0) {
             $this->log("Élément #block-tools-indices non trouvé");
             return false;
         }
 
-        $table = $xpath->query(".//table", $block)->item(0);
+        $data = [];
+        foreach ($blocks as $block) {
+            $table = $xpath->query(".//table", $block)->item(0);
+            if (!$table) {
+                continue;
+            }
+            $rows = $this->extractTableData($table);
+            if ($rows) {
+                $data = array_merge($data, $rows);
+            }
+        }
 
-        if (!$table) {
-            $this->log("Aucun tableau trouvé dans #block-tools-indices");
+        if (empty($data)) {
+            $this->log("Aucun tableau trouvé dans les blocs #block-tools-indices");
             return false;
         }
 
-        return $this->extractTableData($table);
+        return $data;
     }
 
     /**

@@ -33,7 +33,7 @@ export function Login() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
       >
-        <h1 className="mb-1 text-lg font-semibold text-gray-900 dark:text-gray-100">BRVM Admin</h1>
+        <h1 className="mb-1 text-lg font-semibold text-gray-900 dark:text-gray-100">EpiqNation</h1>
         <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">Connecte-toi pour continuer</p>
 
         {error && (

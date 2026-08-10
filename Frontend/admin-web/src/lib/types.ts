@@ -5,6 +5,24 @@ export interface IntradayPoint {
   variation_percent: string | number | null
 }
 
+/** Un indice de marché BRVM (api_market.php, action 'list' — market_indices). */
+export interface MarketIndex {
+  id: number
+  code: string
+  name: string
+  active?: number
+}
+
+/** Un point d'historique d'un indice (api_market.php, action 'history' — index_values). */
+export interface IndexHistoryPoint {
+  date: string
+  open: string | number | null
+  close: string | number | null
+  high: string | number | null
+  low: string | number | null
+  variation_percent: string | number | null
+}
+
 export interface CompanyQuoteRow {
   symbol: string
   name: string
@@ -491,6 +509,45 @@ export interface ScreenerRow {
   /** Rang de l'entreprise au sein de son secteur par period_performance_percent (1 = meilleure performance). Null si pas de cotation sur la période. */
   sector_rank: number | null
   sector_size: number | null
+}
+
+/**
+ * Score composite 0-100 (api_composite_score.php, action 'compute') —
+ * synthèse pondérée de 6 dimensions (Fondamental 30%, Technique 25%,
+ * Momentum 15%, Liquidité 10%, Secteur 10%, Marché 10%), PAS un signal
+ * d'achat/vente. `coverage_percent` = somme des poids réellement
+ * calculables (une entreprise sans fondamentaux disponibles a un score
+ * renormalisé sur les 70% restants, jamais pénalisée par un 0 silencieux)
+ * — toujours afficher ce chiffre à côté du score, une couverture faible
+ * rend la comparaison entre deux entreprises moins fiable.
+ */
+export interface CompositeScoreRow {
+  company_id: number
+  symbol: string
+  name: string
+  sector_id: number | null
+  sector: string | null
+  composite_score: number | null
+  coverage_percent: number
+  sub_scores: {
+    fundamental: number | null
+    technical: number | null
+    momentum: number | null
+    liquidity: number | null
+    sector: number | null
+    market: number | null
+  }
+  weights: { fundamental: number; technical: number; momentum: number; liquidity: number; sector: number; market: number }
+  close_price: string | number | null
+  variation_percent: string | number | null
+  period_performance_percent: number | null
+  benchmark_return_percent: number | null
+  liquidity: 'Illiquide' | 'Faible' | 'Moyenne' | 'Élevée' | null
+  signal_score: number | null
+  signal_label: string
+  sector_rank: number | null
+  sector_size: number | null
+  fundamentals_available: boolean
 }
 
 /**

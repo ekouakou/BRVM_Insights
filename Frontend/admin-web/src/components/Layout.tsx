@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/fundamentals', label: 'Fondamentaux' },
   { to: '/backtest', label: 'Backtesting' },
   { to: '/corporate-actions', label: 'Opérations sur titres' },
+  { to: '/indices', label: 'Indices' },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -28,7 +29,7 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       <aside className="w-56 shrink-0 border-r border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-        <h1 className="mb-6 px-2 text-lg font-semibold tracking-tight">BRVM Admin</h1>
+        <h1 className="mb-6 px-2 text-lg font-semibold tracking-tight">EpiqNation</h1>
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => (
             <NavLink

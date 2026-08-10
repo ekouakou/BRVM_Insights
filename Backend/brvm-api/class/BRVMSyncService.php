@@ -336,13 +336,23 @@ class BRVMSyncService {
     }
 
     /**
-     * Normalise un nom d'indice ("BRVM - COMPOSITE") en code ("BRVM-COMPOSITE")
+     * Normalise un nom d'indice ("BRVM - COMPOSITE") en code ("BRVM-COMPOSITE").
+     *
+     * Le bloc "Indice Total Return" de brvm.org utilise un tiret cadratin
+     * ("BRVM – COMPOSITE TOTAL RETURN", U+2013) plutôt qu'un tiret simple —
+     * normalisé ici en "-" avant le reste du traitement, sinon il serait
+     * conservé tel quel (non reconnu par les regex ci-dessous, qui ne
+     * ciblent que le tiret ASCII) et produirait un code illisible.
+     * market_indices.code est VARCHAR(40) (migration 013) — assez large
+     * pour les noms d'indices sectoriels ("BRVM-CONSOMMATION-DISCRETIONNAIRE"
+     * fait 34 caractères).
      */
     private function nameToIndexCode($name) {
         $code = strtoupper(trim($name));
+        $code = str_replace(['–', '—'], '-', $code);
         $code = preg_replace('/\s*-\s*/', '-', $code);
         $code = preg_replace('/\s+/', '-', $code);
-        return substr($code, 0, 20);
+        return substr($code, 0, 40);
     }
 
     /**
