@@ -85,6 +85,9 @@ class QuotesAPI {
                 case 'performance_ranking':
                     return $this->getPerformanceRanking($input);
 
+                case 'recent_trading_dates':
+                    return $this->getRecentTradingDates($input);
+
                 default:
                     throw new Exception("Action non reconnue: $action");
             }
@@ -95,6 +98,33 @@ class QuotesAPI {
                 'message' => $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Dernières dates de bourse effectivement connues (marché entier, pas
+     * spécifique à une entreprise — le calendrier BRVM est commun à toutes
+     * les valeurs cotées). Sert à calculer un "3 derniers jours de
+     * cotation" fiable côté frontend : le calendrier BRVM n'est PAS
+     * simplement "tous les jours sauf samedi/dimanche" (jours fériés, ex.
+     * un lundi manquant entre le 31/07 et le 04/08/2026 constaté en base) —
+     * une approximation par soustraction de jours calendaires se serait
+     * trompée. Renvoie les dates les plus récentes en premier.
+     */
+    private function getRecentTradingDates($input) {
+        $count = max(1, min(30, (int) ($input['count'] ?? 3)));
+
+        $sql = "SELECT DISTINCT trading_date FROM stock_quotes ORDER BY trading_date DESC LIMIT $count";
+        $rows = $this->crud->executeCustomQuery($sql) ?: [];
+        $dates = array_map(fn($r) => $r['trading_date'], $rows);
+
+        return [
+            'success' => true,
+            'data' => [
+                'dates' => $dates,
+                'start_date' => !empty($dates) ? end($dates) : null,
+                'end_date' => !empty($dates) ? $dates[0] : null,
+            ],
+        ];
     }
 
     /**

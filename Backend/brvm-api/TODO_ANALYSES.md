@@ -27,6 +27,13 @@ Sharpe simplifié" (volatilité = churn intrajournalier cumulé, pas un
 écart-type de rendements, pas de taux sans risque) — utile mais à ne pas
 confondre avec les vraies métriques du même nom.
 
+**Convention à partir du 10/08/2026** : ce fichier est désormais surtout
+un **journal historique** des chantiers déjà `✅ FAIT` (tous les points
+ci-dessous le sont, sauf mention contraire). Tout nouveau chantier encore
+**à faire** (pas commencé) va dans
+[`TODO_PENDING.md`](TODO_PENDING.md) — évite de perdre de vue ce qui
+reste réellement à implémenter au milieu de l'historique.
+
 ## ✅ Implémenté le 04/08/2026
 
 **Tout est fait sauf le point 12** (suivi des dividendes via les

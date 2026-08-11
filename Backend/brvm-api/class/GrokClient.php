@@ -136,8 +136,14 @@ class GrokClient implements AiClientInterface, AiChatClientInterface {
         return $result;
     }
 
+    // Couvre aussi la DÉPRÉCIATION de la recherche live (410 "Live search is
+    // deprecated", constatée le 11/08/2026 — xAI impose désormais l'Agent
+    // Tools API) : mieux vaut un repli sans recherche, avec l'avertissement
+    // affiché, qu'un échec complet du chat. Migration Agent Tools à faire si
+    // la recherche Grok redevient nécessaire.
     private function isSearchQuotaError(string $message): bool {
-        return stripos($message, '429') !== false || stripos($message, 'quota') !== false;
+        return stripos($message, '429') !== false || stripos($message, 'quota') !== false
+            || stripos($message, '410') !== false || stripos($message, 'deprecated') !== false;
     }
 
     private function callChatEndpoint(string $systemPrompt, array $history, string $userMessage, string $model, ?array $options, bool $withSearch): array {
@@ -151,9 +157,15 @@ class GrokClient implements AiClientInterface, AiChatClientInterface {
         $body = [
             'model' => $model,
             'messages' => $messages,
-            'search_parameters' => ['mode' => $withSearch ? 'auto' : 'off', 'return_citations' => true],
             'temperature' => 0.3,
         ];
+        // search_parameters est DÉPRÉCIÉ côté xAI (410 dès que le paramètre
+        // est présent, même en mode 'off' — constaté le 11/08/2026) : ne
+        // l'envoyer que quand la recherche est réellement demandée, pour que
+        // le repli sans recherche de generateChatReply() fonctionne.
+        if ($withSearch) {
+            $body['search_parameters'] = ['mode' => 'auto', 'return_citations' => true];
+        }
         if (isset($options['max_tokens'])) {
             $body['max_tokens'] = $options['max_tokens'];
         }

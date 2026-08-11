@@ -332,13 +332,26 @@ class BulletinsAPI {
 
         // PHP_BINARY pointe vers le binaire du SAPI courant : sous Apache/mod_fastcgi
         // c'est php-cgi (pas utilisable pour un script CLI classique — STDERR/STDIN
-        // n'y sont pas définis). Le binaire CLI "php" est son voisin direct sous MAMP.
+        // n'y sont pas définis), et il peut même être VIDE (constaté le
+        // 11/08/2026 : la commande détachée tentait alors d'exécuter le script
+        // .php directement → « Permission denied » et statut bloqué à
+        // 'processing') — d'où le repli explicite sur le binaire CLI le plus
+        // récent de MAMP.
         $phpBin = PHP_BINARY;
         if (php_sapi_name() !== 'cli') {
-            $cliCandidate = dirname($phpBin) . '/php';
-            if (is_executable($cliCandidate)) {
+            $cliCandidate = $phpBin !== '' ? dirname($phpBin) . '/php' : '';
+            if ($cliCandidate !== '' && is_executable($cliCandidate)) {
                 $phpBin = $cliCandidate;
+            } else {
+                $mampBinaries = glob('/Applications/MAMP/bin/php/php*/bin/php') ?: [];
+                if (!empty($mampBinaries)) {
+                    sort($mampBinaries);
+                    $phpBin = end($mampBinaries);
+                }
             }
+        }
+        if ($phpBin === '') {
+            $phpBin = 'php';
         }
 
         $cmd = escapeshellcmd($phpBin) . ' ' . escapeshellarg($scriptPath) . ' ' . $bulletinId

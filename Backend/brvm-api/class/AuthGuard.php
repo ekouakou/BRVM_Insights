@@ -36,6 +36,44 @@ class AuthGuard {
     }
 
     /**
+     * Identifiant de l'admin_user propriétaire du token courant — utilisé
+     * par les fonctionnalités multi-tenant (ex: "Mon Équipe BRVM", voir
+     * TODO_PORTFOLIO_TEAM.md) pour scoper les lectures/écritures à
+     * l'utilisateur courant. Duplique volontairement la petite extraction
+     * de header d'extractToken() (privée) plutôt que d'en changer la
+     * visibilité — requireAuth() ne doit pas bouger de comportement.
+     * Retourne null si absent (ne devrait pas arriver après un
+     * requireAuth() réussi, mais on reste défensif).
+     */
+    public static function getCurrentUserId(): ?int {
+        $headers = function_exists('getallheaders') ? getallheaders() : [];
+        $token = null;
+        foreach ($headers as $name => $value) {
+            if (strcasecmp($name, 'X-Auth-Token') === 0) {
+                $token = trim($value) ?: null;
+                break;
+            }
+        }
+        if (!$token && !empty($_SERVER['HTTP_X_AUTH_TOKEN'])) {
+            $token = trim($_SERVER['HTTP_X_AUTH_TOKEN']);
+        }
+        if (!$token && !empty($_GET['token'])) {
+            $token = trim($_GET['token']);
+        }
+        if (!$token) {
+            return null;
+        }
+
+        $crud = new DynamiqueCrud();
+        $rows = $crud->executeCustomQuery(
+            "SELECT user_id FROM admin_sessions WHERE token = ? AND expires_at > NOW() LIMIT 1",
+            [$token]
+        );
+
+        return !empty($rows) ? (int) $rows[0]['user_id'] : null;
+    }
+
+    /**
      * Crée une session pour un utilisateur et retourne le token généré.
      */
     public static function createSession(DynamiqueCrud $crud, int $userId): string {
