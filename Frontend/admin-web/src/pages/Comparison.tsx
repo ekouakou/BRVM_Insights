@@ -17,7 +17,8 @@ import { callApi } from '../lib/apiClient'
 import type { Company, CompanyPriceSeries, CompanyWithReports, ComparisonResult, ShareTurnover } from '../lib/types'
 import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, Select, StarRating, Tabs } from '../components/ui'
 import { IconButton, TrashIcon } from '../components/icons'
-import { colorForCompany, groupCompaniesBySector } from '../lib/companyGroups'
+import { groupCompaniesBySector, useCompanyColors, usePersistedSelection } from '../lib/companyGroups'
+import { SelectedCompanyColors } from '../components/CompanyColorPicker'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 import { AnalysisHistoryList } from '../components/AnalysisHistoryList'
 import { AI_MODELS, type AiProvider } from '../lib/aiModels'
@@ -136,7 +137,7 @@ function ComparisonResultView({
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
                 <Tooltip />
-                <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="close" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -152,8 +153,8 @@ function ComparisonResultView({
                 <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} width={80} />
                 <Tooltip />
-                <Bar dataKey="revenue" fill="#4f46e5" name="Chiffre d'affaires" />
-                <Bar dataKey="net_income" fill="#a5b4fc" name="Résultat net" />
+                <Bar dataKey="revenue" fill="var(--chart-1)" name="Chiffre d'affaires" />
+                <Bar dataKey="net_income" fill="var(--chart-soft)" name="Résultat net" />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -172,7 +173,8 @@ export function Comparison() {
   // Cotations (qui reste dédiée à une entreprise à la fois).
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'price' | 'volume' | 'turnover' | 'reports'>('price')
-  const [selected, setSelected] = useState<number[]>([])
+  const [selected, setSelected] = usePersistedSelection('brvm_comparison_selection')
+  const { colorFor, setColor, overrides: colorOverrides } = useCompanyColors()
   const [historyOverride, setHistoryOverride] = useState<ComparisonResult | null>(null)
   const [compareMode, setCompareMode] = useState(false)
   const [compareLeftId, setCompareLeftId] = useState<number | null>(null)
@@ -366,7 +368,7 @@ export function Comparison() {
         className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${
           isSelected ? 'text-white' : 'border-gray-300 text-gray-600 dark:border-gray-700 dark:text-gray-300'
         }`}
-        style={isSelected ? { backgroundColor: colorForCompany(c.company_id), borderColor: colorForCompany(c.company_id) } : undefined}
+        style={isSelected ? { backgroundColor: colorFor(c.company_id, selected), borderColor: colorFor(c.company_id, selected) } : undefined}
       >
         <input type="checkbox" className="hidden" checked={isSelected} onChange={() => toggle(c.company_id)} />
         {c.symbol}
@@ -419,6 +421,15 @@ export function Comparison() {
                 Tout décocher
               </button>
             )}
+            <div className="mt-2">
+              <SelectedCompanyColors
+                companies={companies}
+                selectedIds={selected}
+                colorFor={colorFor}
+                setColor={setColor}
+                overrides={colorOverrides}
+              />
+            </div>
           </div>
         </div>
       </Card>
@@ -508,7 +519,7 @@ export function Comparison() {
                   width={60}
                   tickFormatter={(v: number) => (showPercent ? `${v.toFixed(1)}%` : String(v))}
                 />
-                {showPercent && <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />}
+                {showPercent && <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />}
                 <Tooltip
                   labelFormatter={(label) => (priceGranularity === 'intraday' ? `Heure : ${label}` : `Date : ${label}`)}
                   formatter={(value, name) =>
@@ -521,7 +532,7 @@ export function Comparison() {
                     key={serie.company_id}
                     type="monotone"
                     dataKey={serie.symbol}
-                    stroke={colorForCompany(serie.company_id)}
+                    stroke={colorFor(serie.company_id, selected)}
                     dot={false}
                     strokeWidth={2}
                     connectNulls
@@ -608,7 +619,7 @@ export function Comparison() {
                     key={serie.company_id}
                     type="monotone"
                     dataKey={serie.symbol}
-                    stroke={colorForCompany(serie.company_id)}
+                    stroke={colorFor(serie.company_id, selected)}
                     dot={false}
                     strokeWidth={2}
                   />
@@ -690,8 +701,8 @@ export function Comparison() {
                     <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} width={90} />
                     <Tooltip />
                     <Legend />
-                    <Bar yAxisId="left" dataKey="shares_outstanding" name="Actions en circulation (total émis)" fill="#94a3b8" />
-                    <Bar yAxisId="right" dataKey="total_volume_traded" name="Volume échangé (période)" fill="#4f46e5" />
+                    <Bar yAxisId="left" dataKey="shares_outstanding" name="Actions en circulation (total émis)" fill="var(--chart-muted)" />
+                    <Bar yAxisId="right" dataKey="total_volume_traded" name="Volume échangé (période)" fill="var(--chart-1)" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -711,7 +722,7 @@ export function Comparison() {
                     <XAxis dataKey="symbol" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} width={60} unit="%" />
                     <Tooltip />
-                    <Bar dataKey="turnover_percent" name="Taux de rotation (%)" fill="#059669" />
+                    <Bar dataKey="turnover_percent" name="Taux de rotation (%)" fill="var(--chart-positive)" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -732,7 +743,7 @@ export function Comparison() {
                     <XAxis dataKey="symbol" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} width={90} />
                     <Tooltip />
-                    <Bar dataKey="shares_untouched_estimate" name="Actions non retradées (estimation basse)" fill="#eda100" />
+                    <Bar dataKey="shares_untouched_estimate" name="Actions non retradées (estimation basse)" fill="var(--chart-5)" />
                   </BarChart>
                 </ResponsiveContainer>
                 {turnoverQuery.data.some((t) => t.fully_rotated) && (
@@ -767,7 +778,7 @@ export function Comparison() {
                       <XAxis dataKey="symbol" tick={{ fontSize: 11 }} />
                       <YAxis tick={{ fontSize: 11 }} width={60} unit="%" domain={[0, 100]} />
                       <Tooltip />
-                      <Bar dataKey="floating_percent" name="Flottant réel (%)" fill="#2a78d6" />
+                      <Bar dataKey="floating_percent" name="Flottant réel (%)" fill="var(--chart-2)" />
                     </BarChart>
                   </ResponsiveContainer>
                 )}

@@ -14,7 +14,8 @@ import {
 import { callApi } from '../lib/apiClient'
 import type { Company, CorrelationResult, RelativeStrengthSeries, RiskAdjustedResult, RiskMetricsRow, TotalVariationSeries } from '../lib/types'
 import { Card, ErrorState, InfoPanel, Input, LoadingState, Tabs } from '../components/ui'
-import { colorForCompany, groupCompaniesBySector } from '../lib/companyGroups'
+import { groupCompaniesBySector, useCompanyColors, usePersistedSelection } from '../lib/companyGroups'
+import { SelectedCompanyColors } from '../components/CompanyColorPicker'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function todayIso() {
@@ -33,7 +34,8 @@ type StatsTab = 'total_variation' | 'correlation' | 'risk_adjusted' | 'relative_
 
 export function Statistics() {
   const [activeTab, setActiveTab] = useState<StatsTab>('total_variation')
-  const [selected, setSelected] = useState<number[]>([])
+  const [selected, setSelected] = usePersistedSelection('brvm_statistics_selection')
+  const { colorFor, setColor, overrides: colorOverrides } = useCompanyColors()
   const [startDate, setStartDate] = useState(daysAgoIso(30))
   const [endDate, setEndDate] = useState(todayIso())
   const [displayMode, setDisplayMode] = useState<DisplayMode>('total')
@@ -151,7 +153,7 @@ export function Statistics() {
     return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)))
   }, [series, displayMode])
 
-  // Couleur par entreprise partout (colorForCompany, comme pour le reste de
+  // Couleur par entreprise partout (colorFor, comme pour le reste de
   // l'app) — le vert/rouge universel rendait la comparaison entre
   // entreprises impossible dès qu'on en sélectionnait plusieurs. Simples
   // lignes, sans remplissage : les baisses restent en négatif (sous la
@@ -160,7 +162,7 @@ export function Statistics() {
   const lines = useMemo(() => {
     const result: { key: string; color: string; width: number; dasharray?: string }[] = []
     for (const serie of series) {
-      const color = colorForCompany(serie.company_id)
+      const color = colorFor(serie.company_id, selected)
       if (displayMode === 'total' || displayMode === 'both') {
         result.push({ key: `${serie.symbol} · total`, color, width: displayMode === 'both' ? 2.5 : 2 })
       }
@@ -223,7 +225,7 @@ export function Statistics() {
                       }`}
                       style={
                         selected.includes(c.company_id)
-                          ? { backgroundColor: colorForCompany(c.company_id), borderColor: colorForCompany(c.company_id) }
+                          ? { backgroundColor: colorFor(c.company_id, selected), borderColor: colorFor(c.company_id, selected) }
                           : undefined
                       }
                     >
@@ -256,7 +258,7 @@ export function Statistics() {
                       }`}
                       style={
                         selected.includes(c.company_id)
-                          ? { backgroundColor: colorForCompany(c.company_id), borderColor: colorForCompany(c.company_id) }
+                          ? { backgroundColor: colorFor(c.company_id, selected), borderColor: colorFor(c.company_id, selected) }
                           : undefined
                       }
                     >
@@ -273,6 +275,14 @@ export function Statistics() {
               </div>
             )}
           </div>
+
+          <SelectedCompanyColors
+            companies={companies}
+            selectedIds={selected}
+            colorFor={colorFor}
+            setColor={setColor}
+            overrides={colorOverrides}
+          />
 
           <div className="flex flex-wrap items-end gap-4">
             <label className="w-40">
@@ -305,7 +315,7 @@ export function Statistics() {
                     onClick={() => setDisplayMode(opt.value)}
                     className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
                       displayMode === opt.value
-                        ? 'bg-indigo-600 text-white'
+                        ? 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white'
                         : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
                     }`}
                   >
@@ -390,7 +400,7 @@ export function Statistics() {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${v}%`} />
-                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                  <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                   <Tooltip formatter={(value, name) => [`${Number(value).toFixed(2)}%`, name]} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   {lines.map((line) => (
@@ -702,7 +712,7 @@ export function Statistics() {
               <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
               <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${v}%`} />
-              <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+              <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
               <Tooltip
                 formatter={(value, name) => [`${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`, name]}
               />
@@ -711,7 +721,7 @@ export function Statistics() {
                 type="monotone"
                 dataKey="BRVM-COMPOSITE"
                 name="BRVM-COMPOSITE (variation quotidienne)"
-                stroke="#6b7280"
+                stroke="var(--chart-muted)"
                 strokeDasharray="5 3"
                 dot={false}
                 strokeWidth={1.5}
@@ -722,7 +732,7 @@ export function Statistics() {
                   key={serie.company_id}
                   type="monotone"
                   dataKey={serie.symbol}
-                  stroke={colorForCompany(serie.company_id)}
+                  stroke={colorFor(serie.company_id, selected)}
                   dot={false}
                   strokeWidth={2}
                   connectNulls

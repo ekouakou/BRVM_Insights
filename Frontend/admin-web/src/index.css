@@ -1,7 +1,16 @@
 @import "tailwindcss";
 
+/* La variante Tailwind `dark:` est pilotée par la classe `dark` sur <html>
+   (posée par ThemeContext selon la préférence clair/sombre/système) — sans
+   cette directive, Tailwind v4 suivrait uniquement prefers-color-scheme et
+   la bascule manuelle serait impossible. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+}
+:root.dark {
+  color-scheme: dark;
 }
 
 body {
@@ -11,4 +20,76 @@ body {
 
 #root {
   min-height: 100svh;
+}
+
+/* ============================================================
+   Palette des graphiques (Recharts) — variables CSS pour que les
+   couleurs s'adaptent au thème clair/sombre (les hex codés en dur ne
+   réagissent pas à la classe .dark). Ton monochrome façon Vercel :
+   la série primaire est noire en clair / blanche en sombre ; les
+   séries catégorielles sont des teintes sobres, éclaircies en mode
+   sombre pour garder le contraste sur fond noir.
+   ============================================================ */
+:root {
+  --chart-1: #171717;  /* primaire — noir */
+  --chart-2: #2563eb;  /* bleu */
+  --chart-3: #9333ea;  /* violet */
+  --chart-4: #0d9488;  /* teal */
+  --chart-5: #d97706;  /* ambre */
+  --chart-6: #db2777;  /* rose */
+  --chart-7: #16a34a;  /* vert */
+  --chart-8: #dc2626;  /* rouge */
+  --chart-positive: #16a34a;
+  --chart-negative: #dc2626;
+  --chart-warning: #d97706;
+  --chart-muted: #9ca3af;   /* lignes de référence, éléments secondaires */
+  --chart-soft: #a3a3a3;    /* remplissages discrets (ex: barres secondaires) */
+  --chart-9: #0891b2;   /* cyan */
+  --chart-10: #65a30d;  /* citron vert */
+  --chart-11: #4f46e5;  /* indigo (réservé aux séries de données, plus à l'UI) */
+  --chart-12: #ea580c;  /* orange brûlé */
+}
+:root.dark {
+  --chart-1: #ededed;  /* primaire — blanc */
+  --chart-2: #60a5fa;
+  --chart-3: #c084fc;
+  --chart-4: #2dd4bf;
+  --chart-5: #fbbf24;
+  --chart-6: #f472b6;
+  --chart-7: #4ade80;
+  --chart-8: #f87171;
+  --chart-positive: #4ade80;
+  --chart-negative: #f87171;
+  --chart-warning: #fbbf24;
+  --chart-muted: #6b7280;
+  --chart-soft: #525252;
+  --chart-9: #22d3ee;
+  --chart-10: #a3e635;
+  --chart-11: #818cf8;
+  --chart-12: #fb923c;
+}
+
+/* Recharts : textes d'axes et infobulle par défaut adaptés au thème
+   (le composant pose des fill/style inline clairs, illisibles ou ternes
+   sur fond noir sans ces surcharges). */
+.recharts-cartesian-axis-tick-value,
+.recharts-legend-item-text,
+.recharts-label {
+  fill: #6b7280;
+}
+.dark .recharts-cartesian-axis-tick-value,
+.dark .recharts-legend-item-text,
+.dark .recharts-label {
+  fill: #9ca3af;
+}
+.dark .recharts-legend-item-text {
+  color: #9ca3af !important;
+}
+.dark .recharts-default-tooltip {
+  background-color: #0a0a0a !important;
+  border-color: #262626 !important;
+}
+.dark .recharts-tooltip-item,
+.dark .recharts-tooltip-label {
+  color: #ededed !important;
 }

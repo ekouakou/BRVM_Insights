@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid, ReferenceLine } from 'recharts'
 import { callApi } from '../lib/apiClient'
 import type { BacktestResult, Company } from '../lib/types'
-import { Card, ErrorState, InfoPanel, Input, LoadingState, Select, StatTile } from '../components/ui'
+import { Card, ErrorState, InfoPanel, Input, LoadingState, SearchableSelect, Select, StatTile } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function todayIso() {
@@ -52,6 +52,26 @@ export function Backtest() {
   })
 
   const companies = companiesQuery.data ?? []
+
+  // Sélection par défaut dès que la liste des entreprises est chargée — une
+  // seule fois, pour ne pas reforcer la sélection si l'utilisateur en choisit
+  // une autre ensuite. Priorité : dernière entreprise consultée sur cet écran
+  // (localStorage) > première entreprise de la liste (même comportement que
+  // le tableau de bord entreprise et l'écran Cotations).
+  useEffect(() => {
+    if (companyId === null && companies.length > 0) {
+      const lastViewed = localStorage.getItem('brvm_backtest_last_company')
+      const match = (lastViewed && companies.find((c) => c.symbol === lastViewed)) || companies[0]
+      setCompanyId(match.company_id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companies, companyId])
+
+  function selectCompany(id: number | null) {
+    setCompanyId(id)
+    const company = companies.find((c) => c.company_id === id)
+    if (company) localStorage.setItem('brvm_backtest_last_company', company.symbol)
+  }
   const result = backtestQuery.data
 
   return (
@@ -101,14 +121,11 @@ export function Backtest() {
         <div className="flex flex-wrap items-end gap-4">
           <label className="flex-1 min-w-[220px]">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
-            <Select value={companyId ?? ''} onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">— Choisir —</option>
-              {companies.map((c) => (
-                <option key={c.company_id} value={c.company_id}>
-                  {c.symbol} — {c.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={companyId !== null ? String(companyId) : ''}
+              onChange={(v) => selectCompany(v ? Number(v) : null)}
+              options={companies.map((c) => ({ value: String(c.company_id), label: `${c.symbol} — ${c.name}` }))}
+            />
           </label>
           <label className="w-44">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Règle</span>
@@ -223,12 +240,12 @@ export function Backtest() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={60} />
-                <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="3 3" />
+                <ReferenceLine y={100} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="strategy_equity_base100" name="Stratégie" stroke="#4f46e5" dot={false} strokeWidth={2} />
-                <Line type="monotone" dataKey="buy_hold_equity_base100" name="Acheter & garder" stroke="#9ca3af" dot={false} strokeWidth={2} strokeDasharray="4 2" />
-                <Line type="monotone" dataKey="short_equity_base100" name="Vente à découvert" stroke="#e34948" dot={false} strokeWidth={2} strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="strategy_equity_base100" name="Stratégie" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="buy_hold_equity_base100" name="Acheter & garder" stroke="var(--chart-muted)" dot={false} strokeWidth={2} strokeDasharray="4 2" />
+                <Line type="monotone" dataKey="short_equity_base100" name="Vente à découvert" stroke="var(--chart-negative)" dot={false} strokeWidth={2} strokeDasharray="4 2" />
               </LineChart>
             </ResponsiveContainer>
 

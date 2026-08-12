@@ -65,8 +65,8 @@ function CombinedResultView({
       </div>
 
       {result.analysis.key_takeaways.length > 0 && (
-        <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
-          <h3 className="mb-1 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Points clés pour la décision</h3>
+        <div className="rounded-md border border-gray-300 bg-gray-100 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+          <h3 className="mb-1 text-sm font-semibold text-gray-800 dark:text-gray-200">Points clés pour la décision</h3>
           <ul className="list-disc pl-4 text-sm text-gray-800 dark:text-gray-200">
             {result.analysis.key_takeaways.map((k, i) => <li key={i}>{k}</li>)}
           </ul>
@@ -121,7 +121,7 @@ function CombinedResultView({
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                   <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                  <Line type="monotone" dataKey="close" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
@@ -391,7 +391,7 @@ export function Combined() {
               </span>
               <div className="flex flex-wrap gap-1">
                 {selectedReports.map((r) => (
-                  <span key={r.id} className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  <span key={r.id} className="inline-flex items-center gap-1 rounded-full bg-gray-200 px-2 py-0.5 text-xs text-gray-800 dark:bg-gray-800 dark:text-gray-200">
                     {r.label}
                     <button type="button" onClick={() => setSelectedReports((prev) => prev.filter((x) => x.id !== r.id))} className="font-bold">×</button>
                   </span>

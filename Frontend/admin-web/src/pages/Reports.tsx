@@ -397,8 +397,8 @@ export function Reports() {
       </div>
 
       {bulkAllSummary && (
-        <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 text-sm dark:border-indigo-900 dark:bg-indigo-950/40">
-          <p className="text-indigo-900 dark:text-indigo-200">
+        <div className="rounded-md border border-gray-300 bg-gray-100 p-3 text-sm dark:border-gray-700 dark:bg-gray-800/60">
+          <p className="text-gray-900 dark:text-gray-100">
             {bulkAllSummary.matched} entreprise(s) nouvellement rattachée(s) à l'annuaire brvm.org ·{' '}
             {bulkAllSummary.companies} entreprise(s) traitée(s) au total · {bulkAllSummary.newReports} nouveau(x) rapport(s)
             trouvé(s) · {bulkAllSummary.processed} téléchargé(s)/extrait(s) avec succès
@@ -406,11 +406,11 @@ export function Reports() {
           </p>
           {bulkAllSummary.review.length > 0 && (
             <div className="mt-2">
-              <p className="text-xs font-medium text-indigo-900 dark:text-indigo-200">
+              <p className="text-xs font-medium text-gray-900 dark:text-gray-100">
                 {bulkAllSummary.review.length} entreprise(s) à rattacher manuellement (correspondance incertaine) — voir
                 <code className="mx-1">companies.brvm_report_slug</code>en base :
               </p>
-              <ul className="mt-1 list-disc pl-4 text-xs text-indigo-800 dark:text-indigo-300">
+              <ul className="mt-1 list-disc pl-4 text-xs text-gray-900 dark:text-gray-200">
                 {bulkAllSummary.review.map((r) => (
                   <li key={r.symbol}>
                     {r.symbol} — suggestion : {r.suggestion ?? '—'} ({r.score}%)
@@ -438,7 +438,7 @@ export function Reports() {
                 key={row.company_id}
                 onClick={() => { setSelectedSymbol(row.symbol); discoverMutation.reset() }}
                 className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                  selectedSymbol === row.symbol ? 'bg-indigo-50 dark:bg-indigo-950' : ''
+                  selectedSymbol === row.symbol ? 'bg-gray-100 dark:bg-gray-800' : ''
                 }`}
               >
                 <td className="px-3 py-2 font-medium">{row.symbol}</td>
@@ -860,7 +860,7 @@ export function Reports() {
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                         <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
                         <Tooltip />
-                        <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="close" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
                       </LineChart>
                     </ResponsiveContainer>
                   </Card>
@@ -876,8 +876,8 @@ export function Reports() {
                         <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} width={80} />
                         <Tooltip />
-                        <Bar dataKey="revenue" fill="#4f46e5" name="Chiffre d'affaires" />
-                        <Bar dataKey="net_income" fill="#a5b4fc" name="Résultat net" />
+                        <Bar dataKey="revenue" fill="var(--chart-1)" name="Chiffre d'affaires" />
+                        <Bar dataKey="net_income" fill="var(--chart-soft)" name="Résultat net" />
                       </BarChart>
                     </ResponsiveContainer>
                   </Card>

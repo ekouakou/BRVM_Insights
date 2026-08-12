@@ -78,7 +78,7 @@ function AnalysisResultView({
               <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
               <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
               <Tooltip />
-              <Line type="monotone" dataKey="close" stroke="#4f46e5" dot={false} strokeWidth={2} />
+              <Line type="monotone" dataKey="close" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -101,7 +101,7 @@ function AnalysisResultView({
 
       {result.analysis.valuation_assessment && (
         <Card title="Valorisation">
-          <div className="mb-2 inline-block rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+          <div className="mb-2 inline-block rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-200">
             {result.analysis.valuation_assessment.verdict}
           </div>
           <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">

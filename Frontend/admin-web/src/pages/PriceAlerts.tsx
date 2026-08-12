@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { callApi } from '../lib/apiClient'
 import type { Company, PriceAlert, PriceAlertCheckResult } from '../lib/types'
-import { Button, Card, ErrorState, Input, LoadingState, Select, Table } from '../components/ui'
+import { Button, Card, ErrorState, Input, LoadingState, SearchableSelect, Select, Table } from '../components/ui'
 
 type AlertType = 'above' | 'below' | 'change_percent'
 
@@ -79,14 +79,11 @@ export function PriceAlerts() {
         <div className="flex flex-wrap items-end gap-4">
           <label className="min-w-[220px] flex-1">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
-            <Select value={companyId} onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : '')}>
-              <option value="">— Choisir —</option>
-              {companies.map((c) => (
-                <option key={c.company_id} value={c.company_id}>
-                  {c.symbol} — {c.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={companyId === '' ? '' : String(companyId)}
+              onChange={(v) => setCompanyId(v ? Number(v) : '')}
+              options={companies.map((c) => ({ value: String(c.company_id), label: `${c.symbol} — ${c.name}` }))}
+            />
           </label>
 
           <label className="w-52">

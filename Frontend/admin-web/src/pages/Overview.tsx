@@ -123,7 +123,7 @@ export function Overview() {
           ? `${selectedSymbols.length} entreprise(s) cochée(s) dans les tableaux ci-dessus — l'analyse IA portera sur ce sous-ensemble (statistiques globales toujours incluses).`
           : "Coche des lignes dans les tableaux ci-dessus pour restreindre l'analyse IA à un sous-ensemble (par défaut : résumé de toute la séance)."}
         {selectedSymbols.length > 0 && (
-          <button type="button" onClick={() => setSelectedSymbols([])} className="ml-2 text-indigo-600 underline hover:text-indigo-500 dark:text-indigo-400">
+          <button type="button" onClick={() => setSelectedSymbols([])} className="ml-2 text-gray-700 underline-offset-2 underline hover:text-black dark:text-gray-200">
             Tout décocher
           </button>
         )}

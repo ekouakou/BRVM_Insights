@@ -180,7 +180,7 @@ export function MarketHealth() {
                     width={60}
                     tickFormatter={(v: number) => `${v.toFixed(1)}%`}
                   />
-                  <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                  <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                   <Tooltip
                     formatter={(value, name) => [`${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`, name]}
                   />
@@ -248,9 +248,9 @@ export function MarketHealth() {
                   <YAxis tick={{ fontSize: 11 }} width={40} />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="gainers" name="Hausses" stackId="breadth" fill="#1baf7a" />
-                  <Bar dataKey="unchanged" name="Inchangées" stackId="breadth" fill="#9ca3af" />
-                  <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="#e34948" />
+                  <Bar dataKey="gainers" name="Hausses" stackId="breadth" fill="var(--chart-4)" />
+                  <Bar dataKey="unchanged" name="Inchangées" stackId="breadth" fill="var(--chart-muted)" />
+                  <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="var(--chart-negative)" />
                 </BarChart>
               </ResponsiveContainer>
 

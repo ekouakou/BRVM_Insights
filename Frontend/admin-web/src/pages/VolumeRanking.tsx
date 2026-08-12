@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, LabelList, ReferenceLine } from 'recharts'
 import { callApi } from '../lib/apiClient'
-import type { PerformanceRankingRow, VolumeRankingRow } from '../lib/types'
+import type { PerformanceRankingRow, RecentTradingDates, VolumeRankingRow } from '../lib/types'
 import { Card, ErrorState, InfoPanel, Input, LoadingState, Tabs } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
@@ -51,10 +51,33 @@ function SelectionHeader({
 
 export function VolumeRanking() {
   const [activeTab, setActiveTab] = useState<'volume' | 'performance'>('volume')
+  // Valeur de repli le temps que recentTradingDatesQuery ci-dessous réponde
+  // (voir l'effet plus bas) — remplacée par les 3 derniers jours de
+  // cotation RÉELS dès que connus (voir Quotes.tsx pour le détail : un
+  // calcul calendaire "aujourd'hui - N jours" se trompe dès qu'un jour
+  // férié tombe dans la fenêtre, constaté en base).
   const [startDate, setStartDate] = useState(daysAgoIso(30))
   const [endDate, setEndDate] = useState(todayIso())
   const [volumeSelected, setVolumeSelected] = useState<number[]>([])
   const [perfSelected, setPerfSelected] = useState<number[]>([])
+
+  // Calendrier de bourse réel (marché entier, pas par entreprise) pour fixer
+  // par défaut la période sur les 3 derniers jours de cotation — voir
+  // api_quotes.php::getRecentTradingDates().
+  const recentTradingDatesQuery = useQuery({
+    queryKey: ['recent-trading-dates'],
+    queryFn: () => callApi<RecentTradingDates>('api_quotes.php', 'recent_trading_dates', { count: 3 }),
+  })
+  // N'applique la période par défaut qu'une seule fois au chargement — ne
+  // doit jamais écraser un choix de date fait ensuite par l'utilisateur.
+  const appliedDefaultPeriod = useRef(false)
+  useEffect(() => {
+    if (!appliedDefaultPeriod.current && recentTradingDatesQuery.data?.start_date) {
+      setStartDate(recentTradingDatesQuery.data.start_date)
+      setEndDate(recentTradingDatesQuery.data.end_date ?? todayIso())
+      appliedDefaultPeriod.current = true
+    }
+  }, [recentTradingDatesQuery.data])
 
   const periodEnabled = !!startDate && !!endDate && startDate <= endDate
 
@@ -172,7 +195,7 @@ export function VolumeRanking() {
                   <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => fmt(v)} />
                   <YAxis type="category" dataKey="symbol" tick={{ fontSize: 11 }} width={60} />
                   <Tooltip formatter={(value) => [fmt(value as number), 'Volume']} />
-                  <Bar dataKey="volume" fill="#4f46e5" radius={[0, 4, 4, 0]}>
+                  <Bar dataKey="volume" fill="var(--chart-1)" radius={[0, 4, 4, 0]}>
                     <LabelList dataKey="volume" position="right" formatter={(v) => fmt(v as number)} className="fill-gray-500 text-[10px] dark:fill-gray-400" />
                   </Bar>
                 </BarChart>
@@ -322,7 +345,7 @@ export function VolumeRanking() {
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-gray-200 dark:stroke-gray-800" />
                   <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${fmt(v, 1)}%`} />
                   <YAxis type="category" dataKey="symbol" tick={{ fontSize: 11 }} width={60} />
-                  <ReferenceLine x={0} stroke="#9ca3af" />
+                  <ReferenceLine x={0} stroke="var(--chart-muted)" />
                   <Tooltip formatter={(value) => [`${fmt(value as number, 2)}%`, 'Variation']} />
                   <Bar dataKey="variation" radius={[0, 4, 4, 0]}>
                     {perfChartData.map((d) => (

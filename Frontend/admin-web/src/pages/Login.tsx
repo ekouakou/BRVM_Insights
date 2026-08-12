@@ -28,10 +28,10 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
+    <div className="flex min-h-screen items-center justify-center bg-white dark:bg-black">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-950"
       >
         <h1 className="mb-1 text-lg font-semibold text-gray-900 dark:text-gray-100">EpiqNation</h1>
         <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">Connecte-toi pour continuer</p>

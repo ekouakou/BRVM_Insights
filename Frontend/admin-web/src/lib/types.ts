@@ -1,3 +1,10 @@
+/** Dernières dates de bourse connues, marché entier (api_quotes.php, action recent_trading_dates). */
+export interface RecentTradingDates {
+  dates: string[]
+  start_date: string | null
+  end_date: string | null
+}
+
 export interface IntradayPoint {
   quote_datetime: string
   price: string | number
@@ -548,6 +555,307 @@ export interface CompositeScoreRow {
   sector_rank: number | null
   sector_size: number | null
   fundamentals_available: boolean
+}
+
+/** Un type d'annonce du registre (api_issuer_announcements.php, action 'types'). */
+export interface IssuerAnnouncementType {
+  key: string
+  label: string
+  url: string
+  has_company_column: boolean
+}
+
+/** Une annonce émetteur/publication BRVM (api_issuer_announcements.php, action 'list'). */
+export interface IssuerAnnouncementRow {
+  id: number
+  announcement_type: string
+  publish_date: string | null
+  company_name_raw: string | null
+  company_id: number | null
+  company_symbol: string | null
+  company_name: string | null
+  match_confidence: 'exact' | 'fuzzy' | null
+  title: string
+  file_url: string
+  text_extracted: number
+  extraction_error: string | null
+  markdown_status: 'processing' | 'success' | 'failed' | null
+  char_count: number | null
+  analyses_count: number
+}
+
+/** Détail d'une annonce, texte et markdown inclus (action 'get'). */
+export interface IssuerAnnouncementDetail {
+  id: number
+  announcement_type: string
+  type_label: string
+  publish_date: string | null
+  company_name_raw: string | null
+  company: { id: number; symbol: string; name: string } | null
+  title: string
+  file_url: string
+  file_size: number | null
+  text_extracted: boolean
+  extraction_method: string | null
+  extraction_error: string | null
+  extracted_text: string | null
+  char_count: number | null
+  formatted_markdown: string | null
+  markdown_status: 'processing' | 'success' | 'failed' | null
+  markdown_error: string | null
+}
+
+/** Analyse IA structurée d'une annonce (actions 'analyze'/'get_analysis'). */
+export interface IssuerAnnouncementAnalysis {
+  announcement: { id: number; title: string; announcement_type: string; publish_date: string | null }
+  provider: string
+  model: string
+  status: 'success' | 'failed'
+  error_message: string | null
+  analysis: {
+    summary: string
+    key_points: string[]
+    important_dates: { date: string; event: string }[]
+    amounts: { label: string; value: string }[]
+    potential_market_relevance: string | null
+    glossary: { term: string; explanation: string }[]
+  } | null
+  disclaimer: string
+  cached: boolean
+  created_at: string | null
+  updated_at: string | null
+}
+
+/**
+ * Un événement du journal d'informations d'une entreprise
+ * (api_company_market_events.php) — saisi manuellement ou trouvé par la
+ * recherche IA puis confirmé par l'utilisateur. `impact_assessment` est le
+ * jugement de l'utilisateur, jamais rempli par l'IA.
+ */
+export interface CompanyMarketEvent {
+  id: number
+  company_id: number
+  title: string
+  description: string
+  event_date: string | null
+  source_type: 'utilisateur' | 'ia_recherche'
+  source_url: string | null
+  impact_assessment: 'positif' | 'negatif' | 'neutre' | 'indetermine' | null
+  created_by_admin_user_id: number | null
+  created_by_username: string | null
+  created_at: string
+  updated_at: string
+}
+
+/** Un candidat d'événement proposé par la recherche IA — RIEN n'est stocké sans confirmation humaine. */
+export interface MarketEventCandidate {
+  title: string
+  description: string
+  event_date: string | null
+  source_url: string | null
+}
+
+/** api_company_market_events.php, action 'search'. */
+export interface MarketEventSearchResult {
+  company_id: number
+  provider: string
+  model: string
+  candidates: MarketEventCandidate[]
+  sources: { title: string | null; url: string }[]
+  /** Texte brut de la veille — contient l'avertissement explicite si la recherche web était indisponible (quota/dépréciation fournisseur). */
+  raw_text: string
+  disclaimer: string
+}
+
+/** Sous-scores 0-100 (ou null si donnée indisponible) — voir class/CompositeScoreCalculator.php. */
+export interface PortfolioSubScores {
+  fundamental: number | null
+  technical: number | null
+  momentum: number | null
+  liquidity: number | null
+  sector: number | null
+  market: number | null
+}
+
+/**
+ * Une position de "Mon Équipe BRVM" (api_portfolio.php, action 'team') —
+ * simulée (target_amount_fcfa, aucun achat réel) ou réelle (quantity/
+ * average_purchase_price renseignés). `role` est calculé automatiquement
+ * depuis les sous-scores sauf si `role_override` est posé ; `role_partial`
+ * signale une classification faite sans fondamentaux disponibles.
+ */
+export interface PortfolioHolding {
+  id: number
+  company_id: number
+  symbol: string
+  name: string
+  sector: string | null
+  status: 'simule' | 'achete'
+  target_amount_fcfa: number | null
+  quantity: number | null
+  average_purchase_price: number | null
+  purchase_date: string | null
+  role_override: 'gardien' | 'defense' | 'milieu' | 'attaque' | null
+  role: 'gardien' | 'defense' | 'milieu' | 'attaque'
+  role_partial: boolean
+  composite_score: number | null
+  coverage_percent: number
+  sub_scores: PortfolioSubScores
+  close_price: number | null
+  position_value_fcfa: number
+  thesis: { buy_reason: string | null; exit_criteria: string | null } | null
+}
+
+export interface PortfolioLine {
+  score: number | null
+  value_fcfa: number
+  count: number
+}
+
+/** api_portfolio.php, action 'team'. */
+export interface PortfolioTeamResult {
+  cash_reserve: { amount: number; currency: string }
+  holdings: PortfolioHolding[]
+  lines: { defense: PortfolioLine; milieu: PortfolioLine; attaque: PortfolioLine }
+  total_portfolio_value_fcfa: number
+  total_value_with_cash_fcfa: number
+  balance_score: number
+  alerts: { type: string; severity: 'info' | 'warning'; message: string }[]
+}
+
+export interface PortfolioSuggestionCandidate {
+  company_id: number
+  symbol: string
+  name: string
+  sector: string | null
+  composite_score: number | null
+  coverage_percent: number
+  sub_scores: PortfolioSubScores
+  suggested_amount_fcfa: number | null
+}
+
+/** Un joueur de la proposition d'équipe automatique (api_portfolio.php, action 'propose_team'). */
+export interface PortfolioProposedPlayer extends PortfolioSuggestionCandidate {
+  /** Justification déterministe construite depuis les sous-scores — jamais générée par IA. */
+  reason: string
+  /** Règle de classement réellement déclenchée, avec les vrais chiffres du titre (vérifiable contre les sous-scores). */
+  role_rule: string
+}
+
+/**
+ * api_portfolio.php, action 'propose_team' — XI complet en 4-3-3 proposé
+ * par l'analyse (max 2 titres par secteur sur toute l'équipe), avec réserve
+ * gardien conseillée à 10% du budget. `notes` signale honnêtement une ligne
+ * incomplète plutôt que de forcer un titre inadapté.
+ */
+export interface PortfolioTeamProposal {
+  /** Id de la proposition historisée (portfolio_team_proposals) — notation par étoiles et suppression possibles. */
+  id: number
+  /** 'algorithme' = sélection déterministe ; 'ia' = équipe composée par l'IA (garde-fous serveur appliqués). */
+  origin: 'algorithme' | 'ia'
+  provider: string | null
+  model: string | null
+  /** Raisonnement global de l'IA (origin='ia' uniquement). */
+  commentary: string | null
+  rating?: number | null
+  created_at?: string
+  profile: 'prudent' | 'equilibre' | 'dynamique'
+  target_weights: { defense: number; milieu: number; attaque: number }
+  budget_fcfa: number | null
+  reserve_fcfa: number | null
+  invest_fcfa: number | null
+  formation: { defense: number; milieu: number; attaque: number }
+  team: {
+    defense: PortfolioProposedPlayer[]
+    milieu: PortfolioProposedPlayer[]
+    attaque: PortfolioProposedPlayer[]
+  }
+  /** Remplaçants par rôle (meilleurs candidats non retenus dans le XI) — un remplaçant hérite du montant du joueur qu'il remplace. */
+  bench: {
+    defense: PortfolioProposedPlayer[]
+    milieu: PortfolioProposedPlayer[]
+    attaque: PortfolioProposedPlayer[]
+  }
+  notes: string[]
+}
+
+/**
+ * Une proposition actionnable du coach IA (api_portfolio.php, action
+ * 'ai_review') — déjà validée côté serveur (un ajout référence forcément
+ * un titre du menu fourni à l'IA, un retrait/ajustement une position
+ * réellement détenue). Reste TOUJOURS à valider par l'utilisateur avant
+ * application.
+ */
+export interface PortfolioAiProposal {
+  action: 'ajouter' | 'retirer' | 'ajuster_montant' | 'ajuster_reserve'
+  company_id: number | null
+  holding_id: number | null
+  symbol: string | null
+  amount_fcfa: number | null
+  rationale: string
+}
+
+/** api_portfolio.php, action 'ai_review' — avis du coach IA sur l'équipe (historisé automatiquement). */
+export interface PortfolioAiReview {
+  id: number
+  created_at: string
+  provider: string
+  model: string
+  overall_opinion: string
+  strengths: string[]
+  weaknesses: string[]
+  proposals: PortfolioAiProposal[]
+  /** Propositions IA écartées par le garde-fou serveur (titre hors menu, position inexistante...). */
+  dropped_proposals_count: number
+  disclaimer: string
+}
+
+/** Résumé d'un avis historisé (api_portfolio.php, action 'list_reviews'). */
+export interface PortfolioAiReviewSummary {
+  id: number
+  provider: string
+  model: string
+  created_at: string
+  proposals_count: number
+  balance_score_at_review: number | null
+  holdings_count_at_review: number | null
+  opinion_excerpt: string
+}
+
+/**
+ * Avis historisé complet (api_portfolio.php, action 'get_review') — avec
+ * le snapshot de l'équipe AU MOMENT de l'avis (indispensable pour
+ * l'interpréter : l'équipe a pu changer depuis). Lecture seule : les
+ * propositions d'un avis passé ne sont jamais ré-applicables.
+ */
+export interface PortfolioAiReviewDetail extends PortfolioAiReview {
+  team_snapshot: PortfolioTeamResult | null
+}
+
+/** Résumé d'une proposition d'équipe historisée (api_portfolio.php, action 'list_team_proposals'). */
+export interface PortfolioTeamProposalSummary {
+  id: number
+  origin: 'algorithme' | 'ia'
+  provider: string | null
+  model: string | null
+  profile: string
+  budget_fcfa: number | null
+  rating: number | null
+  players_count: number
+  commentary_excerpt: string
+  created_at: string
+}
+
+/** api_portfolio.php, action 'suggestions'. */
+export interface PortfolioSuggestionsResult {
+  profile: 'prudent' | 'equilibre' | 'dynamique'
+  target_weights: { defense: number; milieu: number; attaque: number }
+  budget_fcfa: number | null
+  candidates: {
+    defense: PortfolioSuggestionCandidate[]
+    milieu: PortfolioSuggestionCandidate[]
+    attaque: PortfolioSuggestionCandidate[]
+  }
 }
 
 /**

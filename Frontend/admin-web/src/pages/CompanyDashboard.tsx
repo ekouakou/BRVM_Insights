@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
@@ -42,6 +42,7 @@ import type {
   RelativeStrengthSeries,
   ReportAnalysisStats,
   ReportSummary,
+  RecentTradingDates,
   RiskAdjustedResult,
   RiskMetricsRow,
   RsiDivergenceEvent,
@@ -50,9 +51,11 @@ import type {
   TechnicalIndicatorPoint,
   TotalVariationSeries,
 } from '../lib/types'
-import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, MarkdownBadge, AnalysisBadge, Modal, Select, StatTile, Tabs } from '../components/ui'
+import { AnalysisBadge, Button, Card, ErrorState, InfoPanel, Input, LoadingState, MarkdownBadge, Modal, SearchableSelect, Select, StatTile, Tabs } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 import { CompanyChatBot } from '../components/CompanyChatBot'
+import { CompanyMarketEvents } from '../components/CompanyMarketEvents'
+import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
 import { EyeIcon, IconButton, RetryIcon, TrashIcon } from '../components/icons'
 
 /** Mêmes seuils/couleurs que Quotes.tsx et Backtest.tsx (pas de composant Badge partagé dans ce projet, voir les autres pages). */
@@ -118,7 +121,7 @@ function actionTypeBadgeClass(type: string): string {
     case 'dividende':
       return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
     case 'augmentation_capital':
-      return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+      return 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
     case 'admission':
       return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
     case 'assemblee_generale':
@@ -160,6 +163,8 @@ const TABS = [
   { id: 'chat', label: 'Assistant IA' },
   { id: 'cours', label: 'Cours' },
   { id: 'fondamentaux', label: 'Fondamentaux' },
+  { id: 'evenements', label: 'Événements' },
+  { id: 'annonces', label: 'Annonces BRVM' },
   { id: 'operations', label: 'Opérations sur titres' },
   { id: 'rapports', label: 'Rapports' },
   { id: 'backtest', label: 'Backtest rapide' },
@@ -175,6 +180,11 @@ export function CompanyDashboard() {
   const initialSymbol = searchParams.get('symbol')
   const [activeTab, setActiveTab] = useState<TabId>('cours')
   const [companyId, setCompanyId] = useState<number | null>(null)
+  // Valeur de repli le temps que recentTradingDatesQuery ci-dessous réponde
+  // (voir l'effet plus bas) — remplacée par les 3 derniers jours de
+  // cotation RÉELS dès que connus (voir Quotes.tsx pour le détail : un
+  // calcul calendaire "aujourd'hui - N jours" se trompe dès qu'un jour
+  // férié tombe dans la fenêtre, constaté en base).
   const [startDate, setStartDate] = useState(daysAgoIso(7))
   const [endDate, setEndDate] = useState(todayIso())
   const [showSma, setShowSma] = useState({ sma_10: true, sma_20: true, sma_50: false })
@@ -204,14 +214,37 @@ export function CompanyDashboard() {
     [companiesQuery.data],
   )
 
-  // Reprend l'entreprise passée dans l'URL (?symbol=XXX, ex: lien depuis une
-  // autre page) dès que la liste des entreprises est chargée — une seule
-  // fois, pour ne pas reforcer la sélection si l'utilisateur en choisit une
-  // autre ensuite dans le Select ci-dessous.
+  // Calendrier de bourse réel (marché entier, pas par entreprise) pour fixer
+  // par défaut la période sur les 3 derniers jours de cotation — voir
+  // api_quotes.php::getRecentTradingDates().
+  const recentTradingDatesQuery = useQuery({
+    queryKey: ['recent-trading-dates'],
+    queryFn: () => callApi<RecentTradingDates>('api_quotes.php', 'recent_trading_dates', { count: 3 }),
+  })
+  // N'applique la période par défaut qu'une seule fois au chargement — ne
+  // doit jamais écraser un choix de date fait ensuite par l'utilisateur.
+  const appliedDefaultPeriod = useRef(false)
+  useEffect(() => {
+    if (!appliedDefaultPeriod.current && recentTradingDatesQuery.data?.start_date) {
+      setStartDate(recentTradingDatesQuery.data.start_date)
+      setEndDate(recentTradingDatesQuery.data.end_date ?? todayIso())
+      appliedDefaultPeriod.current = true
+    }
+  }, [recentTradingDatesQuery.data])
+
+  // Sélection par défaut dès que la liste des entreprises est chargée — une
+  // seule fois, pour ne pas reforcer la sélection si l'utilisateur en choisit
+  // une autre ensuite dans le Select ci-dessous. Priorité : entreprise passée
+  // dans l'URL (?symbol=XXX, ex: lien depuis une autre page) > dernière
+  // entreprise consultée (localStorage) > première entreprise de la liste.
   useMemo(() => {
-    if (companyId === null && initialSymbol && companies.length > 0) {
-      const match = companies.find((c) => c.symbol === initialSymbol)
-      if (match) setCompanyId(match.company_id)
+    if (companyId === null && companies.length > 0) {
+      const lastViewed = localStorage.getItem('brvm_dashboard_last_company')
+      const match =
+        (initialSymbol && companies.find((c) => c.symbol === initialSymbol)) ||
+        (lastViewed && companies.find((c) => c.symbol === lastViewed)) ||
+        companies[0]
+      setCompanyId(match.company_id)
     }
   }, [companies, companyId, initialSymbol])
 
@@ -220,6 +253,7 @@ export function CompanyDashboard() {
   function selectCompany(id: number | null) {
     setCompanyId(id)
     const company = companies.find((c) => c.company_id === id)
+    if (company) localStorage.setItem('brvm_dashboard_last_company', company.symbol)
     setSearchParams(company ? { symbol: company.symbol } : {}, { replace: true })
     setGlobalAnalysisReportIds([])
     setGlobalAnalysisDocumentIds([])
@@ -276,7 +310,8 @@ export function CompanyDashboard() {
   // Relevés intrajournaliers — voir Quotes.tsx pour le détail du principe
   // (un point par synchro, séances qui se suivent sur plusieurs jours), même
   // logique de rafraîchissement automatique quand la période affichée
-  // inclut aujourd'hui.
+  // inclut aujourd'hui. Même période que les autres sections (startDate/
+  // endDate, unique sélecteur en haut de page).
   const intradaySingleDay = startDate === endDate
   const intradayIsLive = endDate === todayIso()
   const intradayQuery = useQuery({
@@ -640,14 +675,11 @@ export function CompanyDashboard() {
         <div className="flex flex-wrap items-end gap-4">
           <label className="flex-1 min-w-[240px]">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
-            <Select value={companyId ?? ''} onChange={(e) => selectCompany(e.target.value ? Number(e.target.value) : null)}>
-              <option value="">— Choisir —</option>
-              {companies.map((c) => (
-                <option key={c.company_id} value={c.company_id}>
-                  {c.symbol} — {c.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={companyId !== null ? String(companyId) : ''}
+              onChange={(v) => selectCompany(v ? Number(v) : null)}
+              options={companies.map((c) => ({ value: String(c.company_id), label: `${c.symbol} — ${c.name}` }))}
+            />
           </label>
           <label className="w-40">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
@@ -913,15 +945,46 @@ export function CompanyDashboard() {
                       <LineChart data={intradayData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                         <XAxis dataKey="time" tick={{ fontSize: 11 }} minTickGap={30} />
-                        <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={60} tickFormatter={(v) => `${v}%`} />
-                        <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                        <YAxis yAxisId="percent" domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={60} tickFormatter={(v) => `${v}%`} />
+                        {/* Axe caché dédié au cours (FCFA) : sans lui, la ligne "price" (même
+                            si invisible) partagerait l'axe de la variation en % et l'étirerait
+                            à l'échelle du prix (des centaines/milliers de FCFA), écrasant la
+                            courbe de variation à plat près de 0 — bug constaté et corrigé. */}
+                        <YAxis yAxisId="price" domain={['auto', 'auto']} hide />
+                        <ReferenceLine yAxisId="percent" y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                         <Tooltip
-                          formatter={(value, name) =>
-                            name === 'variation_percent' ? [`${Number(value).toFixed(2)}%`, 'Variation'] : [value, name]
-                          }
-                          labelFormatter={(label) => (intradaySingleDay ? `Heure : ${label}` : `Date/heure : ${label}`)}
+                          // Contenu personnalisé plutôt que `formatter` : le formatter par défaut de
+                          // recharts colore chaque ligne d'infobulle avec le `stroke` de la Line
+                          // correspondante — impossible d'avoir une couleur différente de celle du
+                          // graphe (ici, la ligne "price" est transparente sur le graphe lui-même).
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || payload.length === 0) return null
+                            const variation = payload.find((p) => p.dataKey === 'variation_percent')?.value
+                            const price = payload.find((p) => p.dataKey === 'price')?.value
+                            return (
+                              <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                                <div className="mb-1 font-medium text-gray-500 dark:text-gray-400">
+                                  {intradaySingleDay ? `Heure : ${label}` : `Date/heure : ${label}`}
+                                </div>
+                                {variation !== undefined && (
+                                  <div className="text-gray-700 underline-offset-2 dark:text-gray-200">
+                                    Variation : {Number(variation).toFixed(2)}%
+                                  </div>
+                                )}
+                                {price !== undefined && (
+                                  <div className="text-red-600 dark:text-red-400">
+                                    Cours : {Number(price).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} FCFA
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          }}
                         />
-                        <Line type="monotone" dataKey="variation_percent" stroke="#4f46e5" dot strokeWidth={2} />
+                        <Line yAxisId="percent" type="monotone" dataKey="variation_percent" stroke="var(--chart-1)" dot strokeWidth={2} />
+                        {/* Ligne invisible : sert uniquement à faire apparaître le cours (FCFA) à côté
+                            de la variation dans l'infobulle au survol, sans tracer une 2e courbe sur
+                            une échelle différente (le cours n'est pas en %, il rendrait le graphe illisible). */}
+                        <Line yAxisId="price" type="monotone" dataKey="price" stroke="transparent" dot={false} activeDot={false} legendType="none" isAnimationActive={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   )}
@@ -975,18 +1038,18 @@ export function CompanyDashboard() {
                         <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
                         <Tooltip />
                         <Legend />
-                        <Line type="monotone" dataKey="close" name="Clôture" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="close" name="Clôture" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
                         {showSma.sma_10 && (
-                          <Line type="monotone" dataKey="sma_10" name="SMA 10" stroke="#eb6834" dot={false} strokeWidth={1.5} connectNulls />
+                          <Line type="monotone" dataKey="sma_10" name="SMA 10" stroke="var(--chart-5)" dot={false} strokeWidth={1.5} connectNulls />
                         )}
                         {showSma.sma_20 && (
-                          <Line type="monotone" dataKey="sma_20" name="SMA 20" stroke="#1baf7a" dot={false} strokeWidth={1.5} connectNulls />
+                          <Line type="monotone" dataKey="sma_20" name="SMA 20" stroke="var(--chart-4)" dot={false} strokeWidth={1.5} connectNulls />
                         )}
                         {showSma.sma_50 && (
-                          <Line type="monotone" dataKey="sma_50" name="SMA 50" stroke="#eda100" dot={false} strokeWidth={1.5} connectNulls />
+                          <Line type="monotone" dataKey="sma_50" name="SMA 50" stroke="var(--chart-5)" dot={false} strokeWidth={1.5} connectNulls />
                         )}
                         {showVwap && (
-                          <Line type="monotone" dataKey="vwap" name="VWAP (jour)" stroke="#e34948" dot={false} strokeWidth={1.5} strokeDasharray="4 2" connectNulls />
+                          <Line type="monotone" dataKey="vwap" name="VWAP (jour)" stroke="var(--chart-negative)" dot={false} strokeWidth={1.5} strokeDasharray="4 2" connectNulls />
                         )}
                         {(crossoversQuery.data ?? []).map((c, i) => {
                           const point = priceWithSma.find((p) => p.date === c.date)
@@ -1019,7 +1082,7 @@ export function CompanyDashboard() {
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                         <YAxis tick={{ fontSize: 11 }} width={70} />
                         <Tooltip />
-                        <Bar dataKey="volume" fill="#a5b4fc" />
+                        <Bar dataKey="volume" fill="var(--chart-soft)" />
                       </BarChart>
                     </ResponsiveContainer>
                   </Card>
@@ -1036,7 +1099,7 @@ export function CompanyDashboard() {
                           <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                           <YAxis tick={{ fontSize: 11 }} width={70} />
                           <Tooltip />
-                          <Line type="monotone" dataKey="obv" name="OBV" stroke="#4a3aa7" dot={false} strokeWidth={2} connectNulls />
+                          <Line type="monotone" dataKey="obv" name="OBV" stroke="var(--chart-3)" dot={false} strokeWidth={2} connectNulls />
                         </LineChart>
                       </ResponsiveContainer>
                     </Card>
@@ -1053,9 +1116,9 @@ export function CompanyDashboard() {
                             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                             <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={40} />
-                            <ReferenceLine y={25} stroke="#9ca3af" strokeDasharray="3 3" />
+                            <ReferenceLine y={25} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                             <Tooltip />
-                            <Line type="monotone" dataKey="adx_14" name="ADX" stroke="#2a78d6" dot={false} strokeWidth={2} connectNulls />
+                            <Line type="monotone" dataKey="adx_14" name="ADX" stroke="var(--chart-2)" dot={false} strokeWidth={2} connectNulls />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -1073,12 +1136,12 @@ export function CompanyDashboard() {
                             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                             <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={40} />
-                            <ReferenceLine y={80} stroke="#e34948" strokeDasharray="3 3" />
-                            <ReferenceLine y={20} stroke="#1baf7a" strokeDasharray="3 3" />
+                            <ReferenceLine y={80} stroke="var(--chart-negative)" strokeDasharray="3 3" />
+                            <ReferenceLine y={20} stroke="var(--chart-4)" strokeDasharray="3 3" />
                             <Tooltip />
                             <Legend />
-                            <Line type="monotone" dataKey="stoch_k" name="%K" stroke="#2a78d6" dot={false} strokeWidth={1.5} connectNulls />
-                            <Line type="monotone" dataKey="stoch_d" name="%D" stroke="#eda100" dot={false} strokeWidth={1.5} connectNulls />
+                            <Line type="monotone" dataKey="stoch_k" name="%K" stroke="var(--chart-2)" dot={false} strokeWidth={1.5} connectNulls />
+                            <Line type="monotone" dataKey="stoch_d" name="%D" stroke="var(--chart-5)" dot={false} strokeWidth={1.5} connectNulls />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -1094,9 +1157,9 @@ export function CompanyDashboard() {
                             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                             <YAxis tick={{ fontSize: 11 }} width={50} tickFormatter={(v: number) => `${v}%`} />
-                            <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                            <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                             <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, 'ROC']} />
-                            <Line type="monotone" dataKey="roc_12" name="ROC" stroke="#eb6834" dot={false} strokeWidth={2} connectNulls />
+                            <Line type="monotone" dataKey="roc_12" name="ROC" stroke="var(--chart-5)" dot={false} strokeWidth={2} connectNulls />
                           </LineChart>
                         </ResponsiveContainer>
                       </div>
@@ -1114,10 +1177,10 @@ export function CompanyDashboard() {
                             <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                             <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                             <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={40} />
-                            <ReferenceLine y={70} stroke="#e34948" strokeDasharray="3 3" />
-                            <ReferenceLine y={30} stroke="#1baf7a" strokeDasharray="3 3" />
+                            <ReferenceLine y={70} stroke="var(--chart-negative)" strokeDasharray="3 3" />
+                            <ReferenceLine y={30} stroke="var(--chart-4)" strokeDasharray="3 3" />
                             <Tooltip />
-                            <Line type="monotone" dataKey="rsi_14" name="RSI" stroke="#4a3aa7" dot={false} strokeWidth={2} connectNulls />
+                            <Line type="monotone" dataKey="rsi_14" name="RSI" stroke="var(--chart-3)" dot={false} strokeWidth={2} connectNulls />
                             {(divergenceQuery.data ?? []).map((d, i) => {
                               const point = advancedIndicatorsData.find((p) => p.date === d.date)
                               if (!point || point.rsi_14 === null) return null
@@ -1143,7 +1206,7 @@ export function CompanyDashboard() {
                 </>
               )}
 
-              <Link to="/quotes" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/quotes" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Voir les signaux techniques de toute la cote (classement, filtres) →
               </Link>
             </div>
@@ -1213,9 +1276,45 @@ export function CompanyDashboard() {
                 </>
               )}
 
-              <Link to="/fundamentals" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/fundamentals" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Voir les fondamentaux de toutes les entreprises →
               </Link>
+            </div>
+          )}
+
+          {activeTab === 'evenements' && (
+            <div className="flex flex-col gap-4">
+              <InfoPanel>
+                <p>
+                  <strong>À quoi sert cet onglet.</strong> Le cours d'une action réagit aux informations — annonces,
+                  résultats, contrats, changements de direction, litiges… Cet onglet constitue un <strong>journal
+                  daté</strong> de ces informations pour cette entreprise : tu y gardes une trace de ce que tu
+                  découvres (saisie manuelle), et tu peux demander à l'IA d'aller chercher sur internet les
+                  informations récentes — <strong>rien n'est enregistré sans ta relecture et ta confirmation</strong>,
+                  et le jugement d'impact (positif/négatif sur le cours) reste toujours le tien, jamais celui de
+                  l'IA. Avec le temps, ce journal devient un historique interprétable : « que savait-on, et quand ? »
+                </p>
+              </InfoPanel>
+              <CompanyMarketEvents companyId={companyId} companyName={selectedCompany?.name ?? ''} />
+            </div>
+          )}
+
+          {activeTab === 'annonces' && (
+            <div className="flex flex-col gap-4">
+              <InfoPanel>
+                <p>
+                  <strong>À quoi sert cet onglet.</strong> La BRVM publie les annonces officielles des émetteurs —
+                  convocations d'assemblées générales, projets de résolution, notations financières, avis de paiement
+                  de dividendes, communiqués, changements de dirigeants, franchissements de seuil — ainsi que les
+                  avis du marché et des publications économiques. Cet onglet les découvre automatiquement depuis
+                  brvm.org, télécharge les PDF, en extrait le texte, peut les <strong>convertir en markdown</strong>
+                  {' '}propre et les <strong>analyser par IA</strong> (résumé, points clés, dates et montants,
+                  intérêt pour l'investisseur) — exactement le même pipeline que les rapports financiers et les
+                  bulletins de cote. Le rattachement à l'entreprise se fait automatiquement depuis la colonne
+                  « Société » du site (badge « approx. » quand le rapprochement n'est pas certain).
+                </p>
+              </InfoPanel>
+              <CompanyAnnouncements companyId={companyId} />
             </div>
           )}
 
@@ -1274,7 +1373,7 @@ export function CompanyDashboard() {
                 </Card>
               )}
 
-              <Link to="/corporate-actions" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/corporate-actions" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Voir le calendrier complet des opérations sur titres →
               </Link>
             </div>
@@ -1353,8 +1452,8 @@ export function CompanyDashboard() {
                                 outerRadius={75}
                                 paddingAngle={2}
                               >
-                                <Cell fill="#4f46e5" />
-                                <Cell fill="#9ca3af" />
+                                <Cell fill="var(--chart-1)" />
+                                <Cell fill="var(--chart-muted)" />
                               </Pie>
                               <Legend />
                               <Tooltip />
@@ -1402,7 +1501,7 @@ export function CompanyDashboard() {
                               <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
                               <YAxis type="category" dataKey="category" tick={{ fontSize: 11 }} width={100} />
                               <Tooltip />
-                              <Bar dataKey="count" name="Occurrences" fill="#4f46e5" radius={[0, 4, 4, 0]} />
+                              <Bar dataKey="count" name="Occurrences" fill="var(--chart-1)" radius={[0, 4, 4, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -1419,7 +1518,7 @@ export function CompanyDashboard() {
                               <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
                               <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v: number) => `${(v / 1_000_000_000).toLocaleString('fr-FR')} Md`} />
                               <Tooltip formatter={(value: number) => `${value.toLocaleString('fr-FR')} FCFA`} labelFormatter={(_, items) => items[0]?.payload?.source_title ?? ''} />
-                              <Bar dataKey="revenue" name="Chiffre d'affaires" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="revenue" name="Chiffre d'affaires" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -1435,7 +1534,7 @@ export function CompanyDashboard() {
                               <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                               <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
                               <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v: number) => `${(v / 1_000_000_000).toLocaleString('fr-FR')} Md`} />
-                              <ReferenceLine y={0} stroke="#9ca3af" />
+                              <ReferenceLine y={0} stroke="var(--chart-muted)" />
                               <Tooltip formatter={(value: number) => `${value.toLocaleString('fr-FR')} FCFA`} labelFormatter={(_, items) => items[0]?.payload?.source_title ?? ''} />
                               <Bar dataKey="net_income" name="Résultat net" radius={[4, 4, 0, 0]}>
                                 {reportAnalysisStatsQuery.data.financial_trend.map((f) => (
@@ -1492,7 +1591,7 @@ export function CompanyDashboard() {
                         </label>
                         <Link
                           to={`/analysis?symbol=${selectedCompany?.symbol}&report_id=${r.id}`}
-                          className="shrink-0 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+                          className="shrink-0 text-xs text-gray-700 underline-offset-2 hover:underline dark:text-gray-200"
                         >
                           Analyser →
                         </Link>
@@ -1502,7 +1601,7 @@ export function CompanyDashboard() {
                 </Card>
               )}
 
-              <Link to="/reports" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/reports" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Voir/traiter tous les rapports de cette entreprise →
               </Link>
 
@@ -1721,15 +1820,15 @@ export function CompanyDashboard() {
                         <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                         <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                         <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={60} />
-                        <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="3 3" />
+                        <ReferenceLine y={100} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                         <Tooltip />
                         <Legend />
-                        <Line type="monotone" dataKey="strategy_equity_base100" name="Stratégie" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                        <Line type="monotone" dataKey="strategy_equity_base100" name="Stratégie" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
                         <Line
                           type="monotone"
                           dataKey="buy_hold_equity_base100"
                           name="Acheter & garder"
-                          stroke="#9ca3af"
+                          stroke="var(--chart-muted)"
                           dot={false}
                           strokeWidth={2}
                           strokeDasharray="4 2"
@@ -1738,7 +1837,7 @@ export function CompanyDashboard() {
                           type="monotone"
                           dataKey="short_equity_base100"
                           name="Vente à découvert"
-                          stroke="#e34948"
+                          stroke="var(--chart-negative)"
                           dot={false}
                           strokeWidth={2}
                           strokeDasharray="4 2"
@@ -1761,7 +1860,7 @@ export function CompanyDashboard() {
                 </>
               )}
 
-              <Link to="/backtest" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/backtest" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Régler la règle/les seuils sur la page Backtesting complète →
               </Link>
             </div>
@@ -1801,7 +1900,7 @@ export function CompanyDashboard() {
                       <Line
                         type="monotone"
                         dataKey="total_variation_percent"
-                        stroke="#eb6834"
+                        stroke="var(--chart-5)"
                         dot={false}
                         strokeWidth={2}
                       />
@@ -1843,9 +1942,9 @@ export function CompanyDashboard() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${v}%`} />
-                      <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                      <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                       <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Force relative']} />
-                      <Line type="monotone" dataKey="relative_strength" stroke="#4f46e5" dot={false} strokeWidth={2} connectNulls />
+                      <Line type="monotone" dataKey="relative_strength" stroke="var(--chart-1)" dot={false} strokeWidth={2} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
 
@@ -1891,7 +1990,7 @@ export function CompanyDashboard() {
                 </p>
               )}
 
-              <Link to="/statistics" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/statistics" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Comparer avec d'autres entreprises sur la page Statistiques →
               </Link>
             </div>
@@ -1968,15 +2067,15 @@ export function CompanyDashboard() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis tick={{ fontSize: 11 }} width={60} />
-                      <ReferenceLine y={200} stroke="#f59e0b" strokeDasharray="3 3" />
-                      <ReferenceLine y={2000} stroke="#10b981" strokeDasharray="3 3" />
+                      <ReferenceLine y={200} stroke="var(--chart-warning)" strokeDasharray="3 3" />
+                      <ReferenceLine y={2000} stroke="var(--chart-positive)" strokeDasharray="3 3" />
                       <Tooltip
                         formatter={(value, name, item) => {
                           const point = item.payload as (typeof liquidityHistory)[number]
                           return [`${Number(value).toLocaleString('fr-FR')} (${point.liquidity})`, 'Volume moyen (fenêtre 30j)']
                         }}
                       />
-                      <Line type="monotone" dataKey="avg_volume" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                      <Line type="monotone" dataKey="avg_volume" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
 
@@ -1988,7 +2087,7 @@ export function CompanyDashboard() {
                 </Card>
               )}
 
-              <Link to="/screener" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/screener" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Filtrer tout le marché sur plusieurs critères à la fois (screener complet) →
               </Link>
             </div>
@@ -2023,9 +2122,9 @@ export function CompanyDashboard() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={60} />
-                      <ReferenceLine y={100} stroke="#9ca3af" strokeDasharray="3 3" />
+                      <ReferenceLine y={100} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                       <Tooltip />
-                      <Line type="monotone" dataKey="index_value" stroke="#2a78d6" dot={false} strokeWidth={2} />
+                      <Line type="monotone" dataKey="index_value" stroke="var(--chart-2)" dot={false} strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
 
@@ -2046,9 +2145,9 @@ export function CompanyDashboard() {
                       <YAxis tick={{ fontSize: 11 }} width={40} />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="gainers" name="Hausses" stackId="breadth" fill="#1baf7a" />
-                      <Bar dataKey="unchanged" name="Inchangées" stackId="breadth" fill="#9ca3af" />
-                      <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="#e34948" />
+                      <Bar dataKey="gainers" name="Hausses" stackId="breadth" fill="var(--chart-4)" />
+                      <Bar dataKey="unchanged" name="Inchangées" stackId="breadth" fill="var(--chart-muted)" />
+                      <Bar dataKey="losers" name="Baisses" stackId="breadth" fill="var(--chart-negative)" />
                     </BarChart>
                   </ResponsiveContainer>
                 </Card>
@@ -2077,7 +2176,7 @@ export function CompanyDashboard() {
                 </Card>
               )}
 
-              <Link to="/market-health" className="text-sm text-indigo-600 hover:underline dark:text-indigo-400">
+              <Link to="/market-health" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Voir la performance de tous les secteurs et le détail qualité des données →
               </Link>
             </div>

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { callApi } from '../lib/apiClient'
 import type { Company, CompositeScoreRow, ScreenerRow } from '../lib/types'
-import { Card, ErrorState, InfoPanel, Input, LoadingState, Select, Tabs } from '../components/ui'
+import { Card, ErrorState, InfoPanel, Input, LoadingState, SearchableSelect, Select, Tabs } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function todayIso() {
@@ -197,12 +197,12 @@ export function Screener() {
               </label>
               <label className="w-52">
                 <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Secteur</span>
-                <Select value={sectorId} onChange={(e) => setSectorId(e.target.value)}>
-                  <option value="">Tous</option>
-                  {sectorOptions.map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </Select>
+                <SearchableSelect
+                  value={sectorId}
+                  onChange={setSectorId}
+                  placeholder="Tous"
+                  options={sectorOptions.map(([id, name]) => ({ value: String(id), label: name }))}
+                />
               </label>
             </div>
 
@@ -439,12 +439,12 @@ export function Screener() {
               </label>
               <label className="w-52">
                 <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Secteur</span>
-                <Select value={sectorId} onChange={(e) => setSectorId(e.target.value)}>
-                  <option value="">Tous</option>
-                  {sectorOptions.map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </Select>
+                <SearchableSelect
+                  value={sectorId}
+                  onChange={setSectorId}
+                  placeholder="Tous"
+                  options={sectorOptions.map(([id, name]) => ({ value: String(id), label: name }))}
+                />
               </label>
             </div>
             {startDate > endDate && (

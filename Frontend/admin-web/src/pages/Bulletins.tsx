@@ -359,8 +359,8 @@ export function Bulletins() {
                         outerRadius={75}
                         paddingAngle={2}
                       >
-                        <Cell fill="#4f46e5" />
-                        <Cell fill="#9ca3af" />
+                        <Cell fill="var(--chart-1)" />
+                        <Cell fill="var(--chart-muted)" />
                       </Pie>
                       <Legend />
                       <Tooltip />
@@ -409,9 +409,9 @@ export function Bulletins() {
                       <YAxis tick={{ fontSize: 11 }} width={40} allowDecimals={false} />
                       <Tooltip />
                       <Legend />
-                      <Bar dataKey="advancers_count" name="Hausses" stackId="breadth" fill="#059669" />
-                      <Bar dataKey="unchanged_count" name="Inchangés" stackId="breadth" fill="#9ca3af" />
-                      <Bar dataKey="decliners_count" name="Baisses" stackId="breadth" fill="#dc2626" />
+                      <Bar dataKey="advancers_count" name="Hausses" stackId="breadth" fill="var(--chart-positive)" />
+                      <Bar dataKey="unchanged_count" name="Inchangés" stackId="breadth" fill="var(--chart-muted)" />
+                      <Bar dataKey="decliners_count" name="Baisses" stackId="breadth" fill="var(--chart-negative)" />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -428,7 +428,7 @@ export function Bulletins() {
                       <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${(v / 1_000_000).toLocaleString('fr-FR')}M`} />
                       <Tooltip formatter={(value: number) => value.toLocaleString('fr-FR')} />
-                      <Bar dataKey="total_volume" name="Volume total" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="total_volume" name="Volume total" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -794,7 +794,7 @@ export function Bulletins() {
               </div>
 
               <div className="flex items-center gap-2">
-                <span className="inline-block rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                <span className="inline-block rounded-full bg-gray-200 px-3 py-1 text-xs font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-200">
                   {analyzeQuery.data.analysis.sentiment.verdict}
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400">{analyzeQuery.data.analysis.sentiment.rationale}</span>
@@ -869,8 +869,8 @@ export function Bulletins() {
               </div>
 
               {compareMutation.data.analysis.key_takeaways.length > 0 && (
-                <div className="rounded-md border border-indigo-200 bg-indigo-50 p-3 dark:border-indigo-900 dark:bg-indigo-950/40">
-                  <h3 className="mb-1 text-sm font-semibold text-indigo-700 dark:text-indigo-300">Points clés pour la décision</h3>
+                <div className="rounded-md border border-gray-300 bg-gray-100 p-3 dark:border-gray-700 dark:bg-gray-800/60">
+                  <h3 className="mb-1 text-sm font-semibold text-gray-800 dark:text-gray-200">Points clés pour la décision</h3>
                   <ul className="list-disc pl-4 text-sm text-gray-800 dark:text-gray-200">
                     {compareMutation.data.analysis.key_takeaways.map((k, i) => <li key={i}>{k}</li>)}
                   </ul>
@@ -916,7 +916,7 @@ export function Bulletins() {
                         <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} width={80} />
                         <Tooltip />
-                        <Bar dataKey="total_volume" fill="#4f46e5" name="Volume" />
+                        <Bar dataKey="total_volume" fill="var(--chart-1)" name="Volume" />
                       </BarChart>
                     </ResponsiveContainer>
                   </Card>
@@ -928,9 +928,9 @@ export function Bulletins() {
                         <YAxis tick={{ fontSize: 11 }} width={40} />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="advancers_count" stackId="a" fill="#10b981" name="Hausses" />
-                        <Bar dataKey="decliners_count" stackId="a" fill="#ef4444" name="Baisses" />
-                        <Bar dataKey="unchanged_count" stackId="a" fill="#9ca3af" name="Inchangés" />
+                        <Bar dataKey="advancers_count" stackId="a" fill="var(--chart-positive)" name="Hausses" />
+                        <Bar dataKey="decliners_count" stackId="a" fill="var(--chart-negative)" name="Baisses" />
+                        <Bar dataKey="unchanged_count" stackId="a" fill="var(--chart-muted)" name="Inchangés" />
                       </BarChart>
                     </ResponsiveContainer>
                   </Card>

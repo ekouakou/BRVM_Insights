@@ -579,3 +579,8 @@ Stack trace:
 [2026-08-11 16:35:15][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-08-11 16:35:15][INFO] Lock supprimé
 [2026-08-11 16:35:15] === Fin run_daily_sync.sh (code 0) ===
+[2026-08-12 07:37:49] === Démarrage run_daily_sync.sh ===
+[2026-08-12 07:37:57][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-12 07:37:57][INFO] Marché fermé, pas de synchronisation nécessaire
+[2026-08-12 07:37:57][INFO] Lock supprimé
+[2026-08-12 07:37:57] === Fin run_daily_sync.sh (code 1) ===

@@ -173,7 +173,7 @@ export function CompanyChatBot({
 
         {sendMutation.isPending && (
           <div className="flex items-center gap-2 self-start rounded-lg bg-white px-3 py-2 text-xs text-gray-500 shadow-sm dark:bg-gray-900 dark:text-gray-400">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-500" />
+            <span className="h-2 w-2 animate-pulse rounded-full bg-gray-900 dark:bg-gray-100 dark:text-gray-900" />
             L'assistant réfléchit et peut faire une recherche internet…
           </div>
         )}
@@ -195,7 +195,7 @@ export function CompanyChatBot({
           }}
           placeholder="Écris ta question ici (Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne)…"
           rows={2}
-          className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+          className="w-full resize-none rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 dark:focus:border-gray-300 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
         />
         <Button onClick={handleSend} disabled={!draft.trim() || sendMutation.isPending}>
           Envoyer
@@ -221,7 +221,7 @@ function ChatBubble({ message }: { message: CompanyChatMessage }) {
       <div
         className={`max-w-[85%] rounded-lg px-3 py-2 shadow-sm ${
           isUser
-            ? 'bg-indigo-600 text-white'
+            ? 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white'
             : 'bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100'
         }`}
       >
@@ -240,7 +240,7 @@ function ChatBubble({ message }: { message: CompanyChatMessage }) {
           {message.sources.map((s, i) => (
             <span key={s.url}>
               {i > 0 && ', '}
-              <a href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-indigo-600 dark:hover:text-indigo-400">
+              <a href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-black dark:hover:text-white">
                 {s.title || hostnameOf(s.url)}
               </a>
             </span>

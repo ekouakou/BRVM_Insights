@@ -56,7 +56,7 @@ export function AnalysisHistoryList<T extends AnalysisHistoryItem>({
               key={item.id}
               className={`overflow-hidden rounded-md border p-2 ${
                 selectedId === item.id
-                  ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/30'
+                  ? 'border-gray-400 bg-gray-100 dark:border-gray-700 dark:bg-gray-800/50'
                   : 'border-gray-200 dark:border-gray-800'
               }`}
             >

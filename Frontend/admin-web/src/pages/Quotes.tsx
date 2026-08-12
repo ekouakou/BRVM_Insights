@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ResponsiveContainer,
@@ -22,10 +22,11 @@ import type {
   CompanySignal,
   MaCrossoverEvent,
   OhlcPoint,
+  RecentTradingDates,
   RsiDivergenceEvent,
   TechnicalIndicatorPoint,
 } from '../lib/types'
-import { Card, ErrorState, InfoPanel, Input, LoadingState, Select, Tabs } from '../components/ui'
+import { Card, ErrorState, InfoPanel, Input, LoadingState, SearchableSelect, Select, Tabs } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 /** Couleur badge par score de signal composite (-2 à +2, voir api_signals.php). */
@@ -65,7 +66,13 @@ function daysAgoIso(n: number) {
 export function Quotes() {
   const [activeTab, setActiveTab] = useState<'charts' | 'signals'>('charts')
   const [companyId, setCompanyId] = useState<number | null>(null)
-  const [startDate, setStartDate] = useState(daysAgoIso(180))
+  // Valeur de repli le temps que recentTradingDatesQuery ci-dessous réponde
+  // (voir l'effet plus bas) — remplacée par les 3 derniers jours de
+  // cotation RÉELS dès que connus, un simple "il y a N jours calendaires"
+  // serait faux dès qu'un week-end ou un jour férié tombe dans la fenêtre
+  // (constaté en base : aucune cotation le lundi 03/08/2026, un jour ouvré
+  // classique — jour férié non prévisible par un calcul calendaire).
+  const [startDate, setStartDate] = useState(daysAgoIso(7))
   const [endDate, setEndDate] = useState(todayIso())
 
   // Dates pour l'onglet "Signaux techniques". Un signal est une lecture à un
@@ -87,6 +94,25 @@ export function Quotes() {
     queryKey: ['companies-list'],
     queryFn: () => callApi<Company[]>('api_companies.php', 'list', { per_page: 200, active: 1 }),
   })
+
+  // Calendrier de bourse réel (marché entier, pas par entreprise) pour fixer
+  // par défaut la période sur les 3 derniers jours de cotation — voir
+  // api_quotes.php::getRecentTradingDates() pour pourquoi un calcul
+  // calendaire (aujourd'hui - N jours) ne suffit pas.
+  const recentTradingDatesQuery = useQuery({
+    queryKey: ['recent-trading-dates'],
+    queryFn: () => callApi<RecentTradingDates>('api_quotes.php', 'recent_trading_dates', { count: 3 }),
+  })
+  // N'applique la période par défaut qu'une seule fois au chargement — ne
+  // doit jamais écraser un choix de date fait ensuite par l'utilisateur.
+  const appliedDefaultPeriod = useRef(false)
+  useEffect(() => {
+    if (!appliedDefaultPeriod.current && recentTradingDatesQuery.data?.start_date) {
+      setStartDate(recentTradingDatesQuery.data.start_date)
+      setEndDate(recentTradingDatesQuery.data.end_date ?? todayIso())
+      appliedDefaultPeriod.current = true
+    }
+  }, [recentTradingDatesQuery.data])
 
   const ohlcQuery = useQuery({
     queryKey: ['ohlc', companyId, startDate, endDate],
@@ -175,14 +201,15 @@ export function Quotes() {
   )
 
   // Relevés intrajournaliers (un point toutes les ~10 min pendant la séance)
-  // sur la même période que les graphes ci-dessus — contrairement à un jour
-  // unique, plusieurs journées de marché se suivent alors sur l'axe du
-  // temps (même action `compare` en granularity=intraday que la page
-  // Comparaison, mais restreinte à une seule entreprise ici). Sans
-  // rafraîchissement automatique, le graphe resterait figé sur les données
-  // chargées à l'ouverture de la page jusqu'au prochain rechargement manuel
-  // — inutile de reinterroger une période entièrement passée (immuable),
-  // donc seulement activé quand la période affichée inclut aujourd'hui.
+  // sur la même période que les graphes ci-dessus (startDate/endDate, unique
+  // sélecteur en haut de page) — contrairement à un jour unique, plusieurs
+  // journées de marché se suivent alors sur l'axe du temps (même action
+  // `compare` en granularity=intraday que la page Comparaison, mais
+  // restreinte à une seule entreprise ici). Sans rafraîchissement
+  // automatique, le graphe resterait figé sur les données chargées à
+  // l'ouverture de la page jusqu'au prochain rechargement manuel — inutile
+  // de reinterroger une période entièrement passée (immuable), donc
+  // seulement activé quand la période affichée inclut aujourd'hui.
   const intradaySingleDay = startDate === endDate
   const intradayIsLive = endDate === todayIso()
   const intradayQuery = useQuery({
@@ -199,6 +226,26 @@ export function Quotes() {
   })
 
   const companies = companiesQuery.data ?? []
+
+  // Sélection par défaut dès que la liste des entreprises est chargée — une
+  // seule fois, pour ne pas reforcer la sélection si l'utilisateur en choisit
+  // une autre ensuite. Priorité : dernière entreprise consultée sur cet écran
+  // (localStorage) > première entreprise de la liste (même comportement que
+  // le tableau de bord entreprise).
+  useEffect(() => {
+    if (companyId === null && companies.length > 0) {
+      const lastViewed = localStorage.getItem('brvm_quotes_last_company')
+      const match = (lastViewed && companies.find((c) => c.symbol === lastViewed)) || companies[0]
+      setCompanyId(match.company_id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companies, companyId])
+
+  function selectCompany(id: number | null) {
+    setCompanyId(id)
+    const company = companies.find((c) => c.company_id === id)
+    if (company) localStorage.setItem('brvm_quotes_last_company', company.symbol)
+  }
   // true dès qu'au moins une entreprise a un score_start non nul — sinon la
   // date de début choisie n'a produit aucune donnée exploitable (voir le
   // message d'avertissement ci-dessous).
@@ -316,17 +363,11 @@ export function Quotes() {
         <div className="flex flex-wrap items-end gap-4">
           <label className="flex-1 min-w-[220px]">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
-            <Select
-              value={companyId ?? ''}
-              onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">— Choisir —</option>
-              {companies.map((c) => (
-                <option key={c.company_id} value={c.company_id}>
-                  {c.symbol} — {c.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={companyId !== null ? String(companyId) : ''}
+              onChange={(v) => selectCompany(v ? Number(v) : null)}
+              options={companies.map((c) => ({ value: String(c.company_id), label: `${c.symbol} — ${c.name}` }))}
+            />
           </label>
 
           <label className="w-40">
@@ -386,19 +427,51 @@ export function Quotes() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                 <XAxis dataKey="time" tick={{ fontSize: 11 }} minTickGap={30} />
                 <YAxis
+                  yAxisId="percent"
                   domain={['auto', 'auto']}
                   tick={{ fontSize: 11 }}
                   width={60}
                   tickFormatter={(v) => `${v}%`}
                 />
-                <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                {/* Axe caché dédié au cours (FCFA) : sans lui, la ligne "price" (même
+                    si invisible) partagerait l'axe de la variation en % et l'étirerait
+                    à l'échelle du prix (des centaines/milliers de FCFA), écrasant la
+                    courbe de variation à plat près de 0 — bug constaté et corrigé. */}
+                <YAxis yAxisId="price" domain={['auto', 'auto']} hide />
+                <ReferenceLine yAxisId="percent" y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                 <Tooltip
-                  formatter={(value, name) =>
-                    name === 'variation_percent' ? [`${Number(value).toFixed(2)}%`, 'Variation'] : [value, name]
-                  }
-                  labelFormatter={(label) => (intradaySingleDay ? `Heure : ${label}` : `Date/heure : ${label}`)}
+                  // Contenu personnalisé plutôt que `formatter` : le formatter par défaut de
+                  // recharts colore chaque ligne d'infobulle avec le `stroke` de la Line
+                  // correspondante — impossible d'avoir une couleur différente de celle du
+                  // graphe (ici, la ligne "price" est transparente sur le graphe lui-même).
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload || payload.length === 0) return null
+                    const variation = payload.find((p) => p.dataKey === 'variation_percent')?.value
+                    const price = payload.find((p) => p.dataKey === 'price')?.value
+                    return (
+                      <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                        <div className="mb-1 font-medium text-gray-500 dark:text-gray-400">
+                          {intradaySingleDay ? `Heure : ${label}` : `Date/heure : ${label}`}
+                        </div>
+                        {variation !== undefined && (
+                          <div className="text-gray-700 underline-offset-2 dark:text-gray-200">
+                            Variation : {Number(variation).toFixed(2)}%
+                          </div>
+                        )}
+                        {price !== undefined && (
+                          <div className="text-red-600 dark:text-red-400">
+                            Cours : {Number(price).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} FCFA
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }}
                 />
-                <Line type="monotone" dataKey="variation_percent" stroke="#4f46e5" dot strokeWidth={2} />
+                <Line yAxisId="percent" type="monotone" dataKey="variation_percent" stroke="var(--chart-1)" dot strokeWidth={2} />
+                {/* Ligne invisible : sert uniquement à faire apparaître le cours (FCFA) à côté
+                    de la variation dans l'infobulle au survol, sans tracer une 2e courbe sur
+                    une échelle différente (le cours n'est pas en %, il rendrait le graphe illisible). */}
+                <Line yAxisId="price" type="monotone" dataKey="price" stroke="transparent" dot={false} activeDot={false} legendType="none" isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -452,18 +525,18 @@ export function Quotes() {
                 <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={70} />
                 <Tooltip />
                 <Legend />
-                <Line type="monotone" dataKey="close" name="Clôture" stroke="#4f46e5" dot={false} strokeWidth={2} />
+                <Line type="monotone" dataKey="close" name="Clôture" stroke="var(--chart-1)" dot={false} strokeWidth={2} />
                 {showSma.sma_10 && (
-                  <Line type="monotone" dataKey="sma_10" name="SMA 10" stroke="#eb6834" dot={false} strokeWidth={1.5} connectNulls />
+                  <Line type="monotone" dataKey="sma_10" name="SMA 10" stroke="var(--chart-5)" dot={false} strokeWidth={1.5} connectNulls />
                 )}
                 {showSma.sma_20 && (
-                  <Line type="monotone" dataKey="sma_20" name="SMA 20" stroke="#1baf7a" dot={false} strokeWidth={1.5} connectNulls />
+                  <Line type="monotone" dataKey="sma_20" name="SMA 20" stroke="var(--chart-4)" dot={false} strokeWidth={1.5} connectNulls />
                 )}
                 {showSma.sma_50 && (
-                  <Line type="monotone" dataKey="sma_50" name="SMA 50" stroke="#eda100" dot={false} strokeWidth={1.5} connectNulls />
+                  <Line type="monotone" dataKey="sma_50" name="SMA 50" stroke="var(--chart-5)" dot={false} strokeWidth={1.5} connectNulls />
                 )}
                 {showVwap && (
-                  <Line type="monotone" dataKey="vwap" name="VWAP (jour)" stroke="#e34948" dot={false} strokeWidth={1.5} strokeDasharray="4 2" connectNulls />
+                  <Line type="monotone" dataKey="vwap" name="VWAP (jour)" stroke="var(--chart-negative)" dot={false} strokeWidth={1.5} strokeDasharray="4 2" connectNulls />
                 )}
                 {(crossoversQuery.data ?? []).map((c, i) => {
                   const point = priceWithSma.find((p) => p.date === c.date)
@@ -516,7 +589,7 @@ export function Quotes() {
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                 <YAxis tick={{ fontSize: 11 }} width={70} />
                 <Tooltip />
-                <Bar dataKey="volume" fill="#a5b4fc" />
+                <Bar dataKey="volume" fill="var(--chart-soft)" />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -535,7 +608,7 @@ export function Quotes() {
                   <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                   <YAxis tick={{ fontSize: 11 }} width={70} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="obv" name="OBV" stroke="#4a3aa7" dot={false} strokeWidth={2} connectNulls />
+                  <Line type="monotone" dataKey="obv" name="OBV" stroke="var(--chart-3)" dot={false} strokeWidth={2} connectNulls />
                 </LineChart>
               </ResponsiveContainer>
             </Card>
@@ -565,9 +638,9 @@ Quatre indicateurs complémentaires au signal composite ci-dessus — plus techn
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={40} />
-                      <ReferenceLine y={25} stroke="#9ca3af" strokeDasharray="3 3" />
+                      <ReferenceLine y={25} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                       <Tooltip />
-                      <Line type="monotone" dataKey="adx_14" name="ADX" stroke="#2a78d6" dot={false} strokeWidth={2} connectNulls />
+                      <Line type="monotone" dataKey="adx_14" name="ADX" stroke="var(--chart-2)" dot={false} strokeWidth={2} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -591,12 +664,12 @@ Quatre indicateurs complémentaires au signal composite ci-dessus — plus techn
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={40} />
-                      <ReferenceLine y={80} stroke="#e34948" strokeDasharray="3 3" />
-                      <ReferenceLine y={20} stroke="#1baf7a" strokeDasharray="3 3" />
+                      <ReferenceLine y={80} stroke="var(--chart-negative)" strokeDasharray="3 3" />
+                      <ReferenceLine y={20} stroke="var(--chart-4)" strokeDasharray="3 3" />
                       <Tooltip />
                       <Legend />
-                      <Line type="monotone" dataKey="stoch_k" name="%K" stroke="#2a78d6" dot={false} strokeWidth={1.5} connectNulls />
-                      <Line type="monotone" dataKey="stoch_d" name="%D" stroke="#eda100" dot={false} strokeWidth={1.5} connectNulls />
+                      <Line type="monotone" dataKey="stoch_k" name="%K" stroke="var(--chart-2)" dot={false} strokeWidth={1.5} connectNulls />
+                      <Line type="monotone" dataKey="stoch_d" name="%D" stroke="var(--chart-5)" dot={false} strokeWidth={1.5} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -620,9 +693,9 @@ Quatre indicateurs complémentaires au signal composite ci-dessus — plus techn
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis tick={{ fontSize: 11 }} width={50} tickFormatter={(v: number) => `${v}%`} />
-                      <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />
+                      <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
                       <Tooltip formatter={(value) => [`${Number(value).toFixed(2)}%`, 'ROC']} />
-                      <Line type="monotone" dataKey="roc_12" name="ROC" stroke="#eb6834" dot={false} strokeWidth={2} connectNulls />
+                      <Line type="monotone" dataKey="roc_12" name="ROC" stroke="var(--chart-5)" dot={false} strokeWidth={2} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -651,10 +724,10 @@ Quatre indicateurs complémentaires au signal composite ci-dessus — plus techn
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} width={40} />
-                      <ReferenceLine y={70} stroke="#e34948" strokeDasharray="3 3" />
-                      <ReferenceLine y={30} stroke="#1baf7a" strokeDasharray="3 3" />
+                      <ReferenceLine y={70} stroke="var(--chart-negative)" strokeDasharray="3 3" />
+                      <ReferenceLine y={30} stroke="var(--chart-4)" strokeDasharray="3 3" />
                       <Tooltip />
-                      <Line type="monotone" dataKey="rsi_14" name="RSI" stroke="#4a3aa7" dot={false} strokeWidth={2} connectNulls />
+                      <Line type="monotone" dataKey="rsi_14" name="RSI" stroke="var(--chart-3)" dot={false} strokeWidth={2} connectNulls />
                       {(divergenceQuery.data ?? []).map((d, i) => {
                         const point = advancedIndicatorsData.find((p) => p.date === d.date)
                         if (!point || point.rsi_14 === null) return null

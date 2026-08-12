@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { callApi } from '../lib/apiClient'
 import type { Company, CorporateActionsListResult } from '../lib/types'
-import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, Select } from '../components/ui'
+import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, SearchableSelect, Select } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 const ACTION_TYPES = [
@@ -22,7 +22,7 @@ function actionTypeBadgeClass(type: string): string {
     case 'dividende':
       return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
     case 'augmentation_capital':
-      return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+      return 'bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
     case 'admission':
       return 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
     case 'assemblee_generale':
@@ -161,12 +161,12 @@ export function CorporateActions() {
         <div className="flex flex-wrap items-end gap-4">
           <label className="w-56">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
-            <Select value={companyId} onChange={(e) => setCompanyId(e.target.value)}>
-              <option value="">Toutes</option>
-              {companyOptions.map((c) => (
-                <option key={c.company_id} value={c.company_id}>{c.name}</option>
-              ))}
-            </Select>
+            <SearchableSelect
+              value={companyId}
+              onChange={setCompanyId}
+              placeholder="Toutes"
+              options={companyOptions.map((c) => ({ value: String(c.company_id), label: c.name }))}
+            />
           </label>
           <label className="w-52">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Type d'opération</span>

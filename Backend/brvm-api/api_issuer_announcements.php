@@ -113,6 +113,10 @@ class IssuerAnnouncementsAPI {
     private function discover($input) {
         $typeKey = $input['type'] ?? null;
         $pages = max(1, min(10, (int) ($input['pages'] ?? 2)));
+        // Lot de pagination : le frontend enchaîne les lots (start_page 0,
+        // 10, 20…) tant que has_more est true — couvre TOUT l'historique
+        // sans jamais dépasser le timeout FastCGI sur une seule requête.
+        $startPage = max(0, (int) ($input['start_page'] ?? 0));
 
         $typeKeys = $typeKey !== null && $typeKey !== ''
             ? [$typeKey]
@@ -131,9 +135,14 @@ class IssuerAnnouncementsAPI {
         $totalFound = 0;
         $newCount = 0;
         $newItems = [];
+        $hasMore = false;
 
         foreach ($typeKeys as $key) {
-            $items = $scraper->discover($key, $pages);
+            $batch = $scraper->discover($key, $pages, $startPage);
+            $items = $batch['items'];
+            if (!$batch['exhausted']) {
+                $hasMore = true;
+            }
             $totalFound += count($items);
 
             foreach ($items as $item) {
@@ -172,6 +181,8 @@ class IssuerAnnouncementsAPI {
                 'total_on_site' => $totalFound,
                 'new_count' => $newCount,
                 'new_announcements' => $newItems,
+                'has_more' => $hasMore,
+                'next_start_page' => $startPage + $pages,
             ],
         ];
     }

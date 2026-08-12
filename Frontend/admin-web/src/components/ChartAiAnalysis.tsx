@@ -193,7 +193,7 @@ export function ChartAiAnalysis({
       {shown && shown.status === 'success' && (
         <div className="mt-4 flex flex-col gap-3 text-sm">
           {shown.period && (
-            <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+            <p className="text-xs font-medium text-gray-700 underline-offset-2 dark:text-gray-200">
               Période analysée : {shown.period}
             </p>
           )}

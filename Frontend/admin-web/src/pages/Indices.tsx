@@ -147,7 +147,7 @@ export function Indices() {
                 onClick={() => setDisplayMode('percent')}
                 className={`rounded px-3 py-1.5 text-sm font-medium ${
                   displayMode === 'percent'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white'
                     : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
                 }`}
               >
@@ -158,7 +158,7 @@ export function Indices() {
                 onClick={() => setDisplayMode('close')}
                 className={`rounded px-3 py-1.5 text-sm font-medium ${
                   displayMode === 'close'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white'
                     : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
                 }`}
               >
@@ -204,7 +204,7 @@ export function Indices() {
                 width={60}
                 tickFormatter={(v: number) => (displayMode === 'percent' ? `${v}%` : String(v))}
               />
-              {displayMode === 'percent' && <ReferenceLine y={0} stroke="#9ca3af" strokeDasharray="3 3" />}
+              {displayMode === 'percent' && <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />}
               <Tooltip
                 formatter={(value, name) => [
                   displayMode === 'percent'

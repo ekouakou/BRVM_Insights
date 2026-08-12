@@ -73,35 +73,40 @@ class BRVMAnnouncementsScraper {
     ];
 
     /**
-     * Découvre les annonces d'un type sur les N premières pages du listing
-     * (pagination Drupal ?page=0..N-1 — les listings profonds comme les avis
-     * du marché ont 180+ pages d'historique, la découverte reste
-     * incrémentale : on ne remonte que ce qui est récent, l'appelant ignore
-     * les file_url déjà connus).
+     * Découvre les annonces d'un type sur un LOT de pages du listing
+     * (pagination Drupal ?page=N, à partir de $startPage). Les listings
+     * profonds (avis du marché : 180+ pages) ne tiennent pas dans une seule
+     * requête FastCGI — l'appelant enchaîne les lots tant que `exhausted`
+     * est false pour couvrir tout l'historique.
      *
-     * @return array<array{publish_date: ?string, company_name_raw: ?string, title: string, file_url: string}>
+     * @return array{items: array<array{publish_date: ?string, company_name_raw: ?string, title: string, file_url: string}>, exhausted: bool}
+     *         `exhausted` = true quand la fin du listing a été atteinte
+     *         (page vide ou injoignable) — il n'y a plus rien au-delà.
      */
-    public function discover(string $typeKey, int $maxPages = 2): array {
+    public function discover(string $typeKey, int $maxPages = 2, int $startPage = 0): array {
         if (!isset(self::TYPES[$typeKey])) {
             throw new Exception("Type d'annonce inconnu: $typeKey");
         }
         $type = self::TYPES[$typeKey];
 
         $items = [];
-        for ($page = 0; $page < $maxPages; $page++) {
+        $exhausted = false;
+        for ($page = $startPage; $page < $startPage + $maxPages; $page++) {
             $url = $type['url'] . ($page > 0 ? '?page=' . $page : '');
             $html = $this->fetchHTML($url);
             if (!$html) {
+                $exhausted = true;
                 break;
             }
             $pageItems = $this->parseListing($html, $type['parser']);
             if (empty($pageItems)) {
-                break; // au-delà de la dernière page, le listing est vide
+                $exhausted = true; // au-delà de la dernière page, le listing est vide
+                break;
             }
             $items = array_merge($items, $pageItems);
         }
 
-        return $items;
+        return ['items' => $items, 'exhausted' => $exhausted];
     }
 
     public function downloadFile(string $url, string $localPath): bool {

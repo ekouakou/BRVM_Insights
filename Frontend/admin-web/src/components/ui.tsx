@@ -1,8 +1,10 @@
+import { Children, isValidElement, useState } from 'react'
 import type { ReactNode } from 'react'
+import ReactSelect from 'react-select'
 
 export function Card({ title, children, className = '' }: { title?: string; children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900 ${className}`}>
+    <div className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-950 ${className}`}>
       {title && <h2 className="mb-3 text-sm font-semibold text-gray-500 dark:text-gray-400">{title}</h2>}
       {children}
     </div>
@@ -32,7 +34,7 @@ export function AnalysisBadge({ count, models }: { count: number; models: string
   if (!count) return null
   return (
     <span
-      className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+      className="ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-gray-200 text-gray-800 dark:bg-gray-800 dark:text-gray-200"
       title={`Analysé ${count} fois par l'IA — modèle(s) : ${models.join(', ')}`}
     >
       {`IA ×${count}`}
@@ -47,7 +49,7 @@ export function StatTile({ label, value, tone = 'default' }: { label: string; va
     : 'text-gray-900 dark:text-gray-100'
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950">
       <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
       <div className={`mt-1 text-xl font-semibold ${toneClass}`}>{value}</div>
     </div>
@@ -101,7 +103,7 @@ export function Button({
   const base = 'rounded-md px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50'
   const styles =
     variant === 'primary'
-      ? 'bg-indigo-600 text-white hover:bg-indigo-500'
+      ? 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white hover:bg-gray-700'
       : 'border border-gray-300 text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
 
   return (
@@ -115,7 +117,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 ${props.className ?? ''}`}
+      className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 dark:focus:border-gray-300 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 ${props.className ?? ''}`}
     />
   )
 }
@@ -209,7 +211,7 @@ export function Tabs({
           onClick={() => onChange(tab.id)}
           className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
             active === tab.id
-              ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+              ? 'border-gray-900 text-gray-700 underline-offset-2 dark:border-white dark:text-gray-200'
               : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
           }`}
         >
@@ -254,11 +256,131 @@ export function InfoPanel({ title = 'Comment lire cet écran ?', children }: { t
   )
 }
 
+/**
+ * Aplati les enfants d'un <option> JSX en libellé texte — les templates du
+ * type {c.symbol} — {c.name} arrivent en tableau de chaînes/nombres.
+ */
+function optionLabel(children: ReactNode): string {
+  return Children.toArray(children)
+    .map((c) => (typeof c === 'string' || typeof c === 'number' ? String(c) : ''))
+    .join('')
+    .trim()
+}
+
+/**
+ * Liste déroulante avec recherche intégrée (façon Select2) sur TOUTE
+ * l'application (demande utilisateur) : ce composant garde l'API du
+ * <select> natif (children <option>, onChange avec e.target.value) mais
+ * rend un react-select — les 40+ appels existants basculent sans être
+ * modifiés. L'<option value=""> devient le placeholder ET rend le champ
+ * effaçable (croix) ; sans option vide, pas de croix (une valeur est
+ * toujours choisie). Seul e.target.value est fourni au onChange — c'est le
+ * seul champ utilisé par l'app (vérifié sur tous les appels le 12/08/2026).
+ */
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const { value, defaultValue, onChange, disabled, children } = props
+
+  const options: SearchableSelectOption[] = []
+  let placeholder = '— Choisir —'
+  let hasEmptyOption = false
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child) || child.type !== 'option') return
+    const childProps = child.props as { value?: string | number; children?: ReactNode }
+    const optValue = String(childProps.value ?? '')
+    const label = optionLabel(childProps.children)
+    if (optValue === '') {
+      hasEmptyOption = true
+      if (label !== '') placeholder = label
+    } else {
+      options.push({ value: optValue, label })
+    }
+  })
+
+  // Support du mode non contrôlé (defaultValue) — un seul usage dans l'app,
+  // mais autant respecter le contrat du <select> natif.
+  const [internalValue, setInternalValue] = useState(defaultValue !== undefined ? String(defaultValue) : '')
+  const current = value !== undefined ? String(value) : internalValue
+  const selected = options.find((o) => o.value === current) ?? null
+
   return (
-    <select
-      {...props}
-      className={`w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 ${props.className ?? ''}`}
+    <ReactSelect<SearchableSelectOption>
+      unstyled
+      options={options}
+      value={selected}
+      isDisabled={disabled}
+      onChange={(opt) => {
+        const v = opt?.value ?? ''
+        if (value === undefined) setInternalValue(v)
+        // Événement synthétique minimal : seuls target.value est consommé
+        // par les appels existants (vérifié) — pas un vrai ChangeEvent.
+        onChange?.({ target: { value: v } } as unknown as React.ChangeEvent<HTMLSelectElement>)
+      }}
+      placeholder={placeholder}
+      isClearable={hasEmptyOption}
+      noOptionsMessage={() => 'Aucun résultat'}
+      classNames={selectClassNames}
+    />
+  )
+}
+
+export interface SearchableSelectOption {
+  value: string
+  label: string
+}
+
+/** Styles partagés Select/SearchableSelect (react-select unstyled + Tailwind, mode sombre compris). */
+const selectClassNames = {
+  control: ({ isFocused }: { isFocused: boolean }) =>
+    `w-full rounded-md border px-3 py-1 text-sm bg-white dark:bg-gray-800 dark:text-gray-100 ${
+      isFocused ? 'border-gray-900 dark:border-gray-300' : 'border-gray-300 dark:border-gray-700'
+    }`,
+  placeholder: () => 'text-gray-400 dark:text-gray-500',
+  input: () => 'text-sm dark:text-gray-100',
+  menu: () => 'mt-1 rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800 z-50',
+  menuList: () => 'max-h-60 overflow-y-auto py-1',
+  option: ({ isFocused, isSelected }: { isFocused: boolean; isSelected: boolean }) =>
+    `px-3 py-1.5 text-sm cursor-pointer ${
+      isSelected
+        ? 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 text-white'
+        : isFocused
+          ? 'bg-gray-100 dark:bg-gray-700 dark:text-gray-100'
+          : 'text-gray-700 dark:text-gray-200'
+    }`,
+  noOptionsMessage: () => 'px-3 py-2 text-sm text-gray-400 dark:text-gray-500',
+  clearIndicator: () => 'px-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 cursor-pointer',
+  dropdownIndicator: () => 'px-1 text-gray-400',
+  indicatorSeparator: () => 'hidden',
+  singleValue: () => 'dark:text-gray-100',
+}
+
+/**
+ * Variante à API directe (options en tableau, onChange(value)) — utilisée
+ * par les sélecteurs longs déjà migrés (entreprises, secteurs, types).
+ */
+export function SearchableSelect({
+  options,
+  value,
+  onChange,
+  placeholder = '— Choisir —',
+  isClearable = true,
+}: {
+  options: SearchableSelectOption[]
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  isClearable?: boolean
+}) {
+  const selected = options.find((o) => o.value === value) ?? null
+  return (
+    <ReactSelect<SearchableSelectOption>
+      unstyled
+      options={options}
+      value={selected}
+      onChange={(opt) => onChange(opt?.value ?? '')}
+      placeholder={placeholder}
+      isClearable={isClearable}
+      noOptionsMessage={() => 'Aucun résultat'}
+      classNames={selectClassNames}
     />
   )
 }
