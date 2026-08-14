@@ -1686,6 +1686,9 @@ export interface LiquidityRankingRow {
   last_book_date: string | null
   last_bid_qty: number | null
   last_ask_qty: number | null
+  /** Volume ÉCHANGÉ lors de la dernière séance cotée (transactions conclues). */
+  last_session_volume: number | null
+  last_session_date: string | null
 }
 
 export interface LiquidityRankingResult {

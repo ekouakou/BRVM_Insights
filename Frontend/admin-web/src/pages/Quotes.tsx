@@ -252,13 +252,26 @@ export function Quotes() {
   const signalsHasStartData = (signalsListQuery.data ?? []).some(
     (s) => s.score_start !== null && s.score_start !== undefined,
   )
-  const intradayData = (intradayQuery.data?.[0]?.data ?? []).map((p) => ({
+  const intradayData = (intradayQuery.data?.[0]?.data ?? []).map((p, i, arr) => ({
     // Un seul jour affiché : uniquement l'heure (HH:MM) sur l'axe X ; sur
     // plusieurs jours, la date reste dans la clé pour ne pas fusionner des
     // heures identiques de jours différents (même principe que Comparison.tsx).
     time: intradaySingleDay ? String(p.date).slice(11, 16) : String(p.date).slice(0, 16),
     price: Number(p.price),
     variation_percent: p.variation !== null ? Number(p.variation) : null,
+    // Volume CUMULÉ depuis l'ouverture (c'est ainsi que brvm.org le publie)
+    // et titres réellement échangés depuis le relevé précédent. Le delta est
+    // laissé à null au changement de journée et sur une baisse du cumul :
+    // avant ~9h10 la page affiche encore la séance de la VEILLE, un delta
+    // négatif ne signifie donc rien (même garde que ExecutionFlowBuilder).
+    volume_cumulative: p.volume !== null && p.volume !== undefined ? Number(p.volume) : null,
+    volume_delta: (() => {
+      const prev = arr[i - 1]
+      if (!prev || p.volume === null || p.volume === undefined || prev.volume === null || prev.volume === undefined) return null
+      if (String(prev.date).slice(0, 10) !== String(p.date).slice(0, 10)) return null
+      const delta = Number(p.volume) - Number(prev.volume)
+      return delta >= 0 ? delta : null
+    })(),
   }))
 
   // Fusionne le cours de clôture avec les moyennes mobiles du même jour —
@@ -448,6 +461,9 @@ export function Quotes() {
                     if (!active || !payload || payload.length === 0) return null
                     const variation = payload.find((p) => p.dataKey === 'variation_percent')?.value
                     const price = payload.find((p) => p.dataKey === 'price')?.value
+                    const point = payload[0]?.payload as
+                      | { volume_delta: number | null; volume_cumulative: number | null }
+                      | undefined
                     return (
                       <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900">
                         <div className="mb-1 font-medium text-gray-500 dark:text-gray-400">
@@ -461,6 +477,22 @@ export function Quotes() {
                         {price !== undefined && (
                           <div className="text-red-600 dark:text-red-400">
                             Cours : {Number(price).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} FCFA
+                          </div>
+                        )}
+                        {point && (
+                          <div className="mt-1 border-t border-gray-100 pt-1 text-gray-600 dark:border-gray-800 dark:text-gray-300">
+                            <div>
+                              Échangés sur ce créneau :{' '}
+                              {point.volume_delta !== null
+                                ? `${point.volume_delta.toLocaleString('fr-FR')} titre${point.volume_delta > 1 ? 's' : ''}`
+                                : '—'}
+                            </div>
+                            <div className="text-gray-500 dark:text-gray-400">
+                              Cumul depuis l'ouverture :{' '}
+                              {point.volume_cumulative !== null
+                                ? `${point.volume_cumulative.toLocaleString('fr-FR')} titres`
+                                : '—'}
+                            </div>
                           </div>
                         )}
                       </div>

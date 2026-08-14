@@ -99,6 +99,11 @@ const rankOn = (
   value: (r: LiquidityRankingRow) => number | null,
 ) => rankOnRows(rows, companyId, value)
 
+/** Date courte JJ/MM pour les libellés du bandeau (2026-08-06 → 06/08). */
+function frDate(iso: string) {
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+}
+
 /** « 1er », « 2e »… pour les rangs affichés dans le bandeau. */
 function ordinal(rank: number) {
   return rank === 1 ? '1er' : `${rank}e`
@@ -166,6 +171,19 @@ function SignalExplanation({ signal }: { signal: CompanySignal }) {
             ))}
           </ul>
         </div>
+      )}
+
+      {signal.indicators_used > 0 && signal.indicators_used <= 2 && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+          <strong>
+            Signal fragile : {signal.indicators_used} seul{signal.indicators_used > 1 ? 's' : ''} indicateur
+            {signal.indicators_used > 1 ? 's' : ''} disponible{signal.indicators_used > 1 ? 's' : ''}.
+          </strong>{' '}
+          Le libellé reste « {signal.label} » parce qu'il traduit la moyenne des votes, mais avec si peu
+          d'indicateurs cette moyenne ne vaut guère plus qu'un avis isolé. Les autres (RSI, MACD, Bollinger…)
+          demandent davantage d'historique de cours : ils apparaîtront à mesure que les séances s'accumulent, et le
+          signal gagnera alors en fiabilité.
+        </p>
       )}
 
       {signal.confidence_penalized_by_liquidity && (
@@ -366,6 +384,7 @@ export function CompanyDashboard() {
   const [searchParams, setSearchParams] = useSearchParams()
   const initialSymbol = searchParams.get('symbol')
   const [activeTab, setActiveTab] = useState<TabId>('cours')
+  const [showSignalHelp, setShowSignalHelp] = useState(false)
   const [companyId, setCompanyId] = useState<number | null>(null)
   // Valeur de repli le temps que recentTradingDatesQuery ci-dessous réponde
   // (voir l'effet plus bas) — remplacée par les 3 derniers jours de
@@ -485,6 +504,10 @@ export function CompanyDashboard() {
   )
   const forSaleStanding = useMemo(
     () => rankOn(liquidityRankingQuery.data?.rows ?? [], companyId, (r) => r.last_ask_qty),
+    [liquidityRankingQuery.data, companyId],
+  )
+  const tradedStanding = useMemo(
+    () => rankOn(liquidityRankingQuery.data?.rows ?? [], companyId, (r) => r.last_session_volume),
     [liquidityRankingQuery.data, companyId],
   )
   const myLiquidityRow = useMemo(
@@ -844,13 +867,31 @@ export function CompanyDashboard() {
   // timeOfDay (HH:MM, toujours extrait des mêmes positions du datetime
   // complet) sert au filtre heure début/fin ci-dessous, indépendamment de
   // "time" (le libellé affiché, qui inclut la date en mode multi-jours).
-  const intradayDataAll = (intradayQuery.data?.[0]?.data ?? []).map((p) => {
+  const intradayDataAll = (intradayQuery.data?.[0]?.data ?? []).map((p, i, arr) => {
     const timeOfDay = String(p.date).slice(11, 16)
+    // Volume CUMULÉ depuis l'ouverture (c'est ainsi que brvm.org le publie)
+    // et titres réellement échangés depuis le relevé précédent. Le delta est
+    // laissé à null au changement de journée et sur une baisse du cumul :
+    // avant ~9h10 la page affiche encore la séance de la VEILLE, un delta
+    // négatif ne signifie donc rien (même garde que ExecutionFlowBuilder).
+    const prev = arr[i - 1]
+    let volumeDelta: number | null = null
+    if (
+      prev &&
+      p.volume !== null && p.volume !== undefined &&
+      prev.volume !== null && prev.volume !== undefined &&
+      String(prev.date).slice(0, 10) === String(p.date).slice(0, 10)
+    ) {
+      const delta = Number(p.volume) - Number(prev.volume)
+      volumeDelta = delta >= 0 ? delta : null
+    }
     return {
       time: intradaySingleDay ? timeOfDay : String(p.date).slice(0, 16),
       timeOfDay,
       price: Number(p.price),
       variation_percent: p.variation !== null ? Number(p.variation) : null,
+      volume_cumulative: p.volume !== null && p.volume !== undefined ? Number(p.volume) : null,
+      volume_delta: volumeDelta,
     }
   })
   const intradayData = intradayDataAll.filter(
@@ -988,18 +1029,35 @@ export function CompanyDashboard() {
                 )
               )}
 
+              {/* Titres ÉCHANGÉS lors de la dernière séance : des transactions
+                  CONCLUES. À ne pas confondre avec « Titres en vente »
+                  ci-dessous, qui compte des ordres encore EN ATTENTE et
+                  provient d'un carnet publié à une autre date — d'où la date
+                  affichée dans les deux libellés. */}
+              {tradedStanding && (
+                <BannerStat
+                  label={`Titres échangés${myLiquidityRow?.last_session_date ? ` (${frDate(myLiquidityRow.last_session_date)})` : ''}`}
+                  value={new Intl.NumberFormat('fr-FR').format(tradedStanding.value)}
+                  rank={tradedStanding.rank}
+                  total={tradedStanding.total}
+                  tone="neutral"
+                  title={`Actions qui ont RÉELLEMENT changé de mains lors de la séance du ${myLiquidityRow?.last_session_date ?? '—'} : des transactions conclues. Rang 1 = le titre le plus échangé du marché. À ne pas confondre avec « Titres en vente », qui compte des ordres encore en attente. Cliquer pour ouvrir Flux & pression.`}
+                  onClick={() => setActiveTab('flux')}
+                />
+              )}
+
               {/* Titres proposés à la vente au dernier carnet publié : la file
                   de vendeurs devant vous si vous vouliez vendre. Rang 1 = le
                   plus de titres en attente (ton neutre : ce n'est ni bon ni
                   mauvais en soi, cela dépend si l'on achète ou si l'on vend). */}
               {forSaleStanding ? (
                 <BannerStat
-                  label="Titres en vente"
+                  label={`Titres en vente${myLiquidityRow?.last_book_date ? ` (${frDate(myLiquidityRow.last_book_date)})` : ''}`}
                   value={new Intl.NumberFormat('fr-FR').format(forSaleStanding.value)}
                   rank={forSaleStanding.rank}
                   total={forSaleStanding.total}
                   tone="neutral"
-                  title={`Titres proposés à la vente au meilleur prix, d'après le carnet du ${myLiquidityRow?.last_book_date ?? '—'}. C'est la file de vendeurs devant vous si vous vouliez vendre. Rang 1 = la plus grosse file du marché. Cliquer pour ouvrir le carnet.`}
+                  title={`Actions qui ATTENDENT un acheteur au meilleur prix de vente, d'après le carnet d'ordres publié le soir du ${myLiquidityRow?.last_book_date ?? '—'} : des intentions de vente, pas des transactions. C'est la file de vendeurs devant vous si vous vouliez vendre. Rang 1 = la plus grosse file du marché. Cliquer pour ouvrir le carnet.`}
                   onClick={() => setActiveTab('carnet')}
                 />
               ) : (
@@ -1083,13 +1141,25 @@ export function CompanyDashboard() {
                         : '—'}
                     </div>
                   </div>
-                  <span className={`rounded-full px-3 py-1 text-sm font-semibold ${signalBadgeClass(signalQuery.data.score)}`}>
+                  <button
+                    type="button"
+                    onClick={() => setShowSignalHelp(true)}
+                    title={`${signalQuery.data.label} — signal technique calculé à partir des cours passés. Cliquer pour comprendre ce que ça veut dire.`}
+                    className={`rounded-full px-3 py-1 text-sm font-semibold ${signalBadgeClass(signalQuery.data.score)}`}
+                  >
                     {signalQuery.data.label}
-                  </span>
+                    <span className="ml-1.5 opacity-70" aria-hidden="true">?</span>
+                  </button>
                 </>
               )}
             </div>
           </div>
+
+          {showSignalHelp && signalQuery.data && (
+            <Modal title="Comprendre le signal technique" onClose={() => setShowSignalHelp(false)}>
+              <SignalExplanation signal={signalQuery.data} />
+            </Modal>
+          )}
 
           <Tabs tabs={[...TABS]} active={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
 
@@ -1318,6 +1388,9 @@ export function CompanyDashboard() {
                             if (!active || !payload || payload.length === 0) return null
                             const variation = payload.find((p) => p.dataKey === 'variation_percent')?.value
                             const price = payload.find((p) => p.dataKey === 'price')?.value
+                            const point = payload[0]?.payload as
+                              | { volume_delta: number | null; volume_cumulative: number | null }
+                              | undefined
                             return (
                               <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900">
                                 <div className="mb-1 font-medium text-gray-500 dark:text-gray-400">
@@ -1331,6 +1404,22 @@ export function CompanyDashboard() {
                                 {price !== undefined && (
                                   <div className="text-red-600 dark:text-red-400">
                                     Cours : {Number(price).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} FCFA
+                                  </div>
+                                )}
+                                {point && (
+                                  <div className="mt-1 border-t border-gray-100 pt-1 text-gray-600 dark:border-gray-800 dark:text-gray-300">
+                                    <div>
+                                      Échangés sur ce créneau :{' '}
+                                      {point.volume_delta !== null
+                                        ? `${point.volume_delta.toLocaleString('fr-FR')} titre${point.volume_delta > 1 ? 's' : ''}`
+                                        : '—'}
+                                    </div>
+                                    <div className="text-gray-500 dark:text-gray-400">
+                                      Cumul depuis l'ouverture :{' '}
+                                      {point.volume_cumulative !== null
+                                        ? `${point.volume_cumulative.toLocaleString('fr-FR')} titres`
+                                        : '—'}
+                                    </div>
                                   </div>
                                 )}
                               </div>

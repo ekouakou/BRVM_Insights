@@ -874,6 +874,20 @@ class OrderBookAPI {
             $lastBy[(int) $l['company_id']] = $l;
         }
 
+        // Volume ÉCHANGÉ de la dernière séance cotée — à ne pas confondre
+        // avec la quantité résiduelle à la vente ci-dessus : l'un compte des
+        // transactions conclues, l'autre des ordres encore en attente.
+        $lastSession = $this->crud->executeCustomQuery(
+            "SELECT q.company_id, q.volume, q.trading_date
+             FROM stock_quotes q
+             JOIN (SELECT company_id, MAX(trading_date) AS m FROM stock_quotes GROUP BY company_id) t
+               ON t.company_id = q.company_id AND t.m = q.trading_date"
+        ) ?: [];
+        $sessionBy = [];
+        foreach ($lastSession as $s) {
+            $sessionBy[(int) $s['company_id']] = $s;
+        }
+
         $ctx = $this->buildScoreContext();
 
         $rows = [];
@@ -882,6 +896,7 @@ class OrderBookAPI {
             $f = $flowBy[$id] ?? null;
             $b = $bookBy[$id] ?? null;
             $l = $lastBy[$id] ?? null;
+            $ls = $sessionBy[$id] ?? null;
             $parts = $this->computeScoreParts($id, $ctx);
 
             $buy = $f !== null ? (int) $f['buy_volume'] : 0;
@@ -914,6 +929,10 @@ class OrderBookAPI {
                 'last_book_date' => $l !== null ? $l['snapshot_date'] : null,
                 'last_bid_qty' => $l !== null && $l['bid_residual_qty'] !== null ? (int) $l['bid_residual_qty'] : null,
                 'last_ask_qty' => $l !== null && $l['ask_residual_qty'] !== null ? (int) $l['ask_residual_qty'] : null,
+                // Transactions conclues lors de la dernière séance cotée
+                // (à distinguer de last_ask_qty, des ordres en attente).
+                'last_session_volume' => $ls !== null && $ls['volume'] !== null ? (int) $ls['volume'] : null,
+                'last_session_date' => $ls !== null ? $ls['trading_date'] : null,
             ];
         }
 
