@@ -129,6 +129,16 @@ class ChartAnalysisService {
             "échangé du jour (executed_volume_day) avant toute lecture, et formule les conclusions comme des " .
             "hypothèses (« compatible avec une absorption par le marché »), jamais comme des faits. bid_at_market/" .
             "ask_at_market=1 signalent des ordres « au marché » (quantité sans prix limite).",
+        'daily_ohlc' =>
+            "Cotations quotidiennes d'une entreprise en chandeliers (api_quotes.php, action 'ohlc') : pour chaque " .
+            "séance, cours d'ouverture, plus haut, plus bas, clôture, variation en %, nombre de titres échangés et " .
+            "valeur transigée en FCFA — toutes des données OBSERVÉES publiées par la BRVM. Un corps de chandelier " .
+            "vert signifie clôture au-dessus de l'ouverture, rouge en dessous ; la mèche relie le plus bas au plus " .
+            "haut de la séance. RÈGLE ABSOLUE : à la BRVM, beaucoup de séances ont plus haut = plus bas = clôture " .
+            "(un seul prix traité dans la journée) — ne commente PAS une amplitude nulle comme une stabilité " .
+            "remarquable, c'est le signe d'un titre peu animé. Distingue toujours le nombre de titres de la valeur " .
+            "transigée (500 titres à 29 000 F pèsent plus que 5 000 titres à 100 F). Ne prédis jamais le prochain " .
+            "mouvement à partir de figures chartistes.",
         'dividend_yield' =>
             "Dividendes des entreprises cotées (api_dividends.php) : montant par action et date de paiement " .
             "OBSERVÉS dans les Bulletins Officiels de la Cote, rendement CALCULÉ (dividende ÷ dernier cours de " .

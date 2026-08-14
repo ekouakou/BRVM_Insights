@@ -61,6 +61,7 @@ import { CompanyMarketEvents } from '../components/CompanyMarketEvents'
 import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
 import { ExecutionFlowPanel, OrderBookLiquidityPanel } from '../components/CompanyOrderBook'
 import { CompanyDividends } from '../components/CompanyDividends'
+import { DailyQuotesChart } from '../components/DailyQuotesChart'
 import { EyeIcon, IconButton, RetryIcon, TrashIcon } from '../components/icons'
 
 /** Mêmes seuils/couleurs que Quotes.tsx et Backtest.tsx (pas de composant Badge partagé dans ce projet, voir les autres pages). */
@@ -1522,16 +1523,18 @@ export function CompanyDashboard() {
                     />
                   </Card>
 
-                  <Card title="Volume">
-                    <ResponsiveContainer width="100%" height={140}>
-                      <BarChart data={ohlcQuery.data}>
-                        <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
-                        <YAxis tick={{ fontSize: 11 }} width={70} />
-                        <Tooltip />
-                        <Bar dataKey="volume" fill="var(--chart-soft)" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </Card>
+                  {/* Chandeliers + activité (valeur transigée / volume) : remplace
+                      l'ancienne carte "Volume" qui n'affichait que le nombre de
+                      titres, alors que stock_quotes contient aussi l'ouverture, le
+                      plus haut, le plus bas et la valeur transigée. */}
+                  <DailyQuotesChart data={ohlcQuery.data} symbol={selectedCompany?.symbol ?? ''} />
+
+                  <ChartAiAnalysis
+                    chartType="daily_ohlc"
+                    parameters={{ company_id: companyId, start_date: startDate, end_date: endDate }}
+                    data={ohlcQuery.data}
+                    companyIdsForReports={companyId ? [companyId] : []}
+                  />
 
                   {hasAdvancedIndicator('obv') && (
                     <Card title="On-Balance Volume (OBV)">

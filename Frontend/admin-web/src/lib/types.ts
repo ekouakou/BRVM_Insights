@@ -106,6 +106,10 @@ export interface OhlcPoint {
   low: string | number
   close: string | number
   volume: string | number
+  /** Champs stock_quotes ajoutés pour le graphe en chandeliers (DailyQuotesChart). */
+  previous_close?: string | number | null
+  turnover?: string | number | null
+  variation_percent?: string | number | null
 }
 
 /** Taux de rotation du flottant sur une période (api_quotes.php, action share_turnover). */

@@ -538,7 +538,10 @@ class QuotesAPI {
                 high_price as high,
                 low_price as low,
                 close_price as close,
-                volume
+                volume,
+                previous_close,
+                turnover,
+                variation_percent
             FROM stock_quotes
             WHERE company_id = ?
         ";
