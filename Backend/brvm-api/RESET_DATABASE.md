@@ -60,7 +60,11 @@ DROP VIEW IF EXISTS volume_leaders;
 -- même après suppression des tables qu'elles concernaient.
 DROP TABLE IF EXISTS schema_migrations;
 
--- Tables, dans un ordre quelconque grâce à FOREIGN_KEY_CHECKS=0 ci-dessus
+-- Tables, dans un ordre quelconque grâce à FOREIGN_KEY_CHECKS=0 ci-dessus.
+-- ⚠️ Cette liste doit être complétée à CHAQUE nouvelle migration créant une
+-- table : une table oubliée ici survit à la « remise à zéro » et provoque un
+-- #1050 "already exists" au réimport (constaté par le passé avec la
+-- procédure stockée et les vues, d'où les DROP séparés ci-dessus).
 DROP TABLE IF EXISTS
     admin_sessions,
     admin_users,
@@ -70,6 +74,21 @@ DROP TABLE IF EXISTS
     company_document_contents,
     company_documents,
     chart_analyses,
+    -- Migrations 017/018/020 : Mon Équipe BRVM (portefeuille simulé)
+    portfolio_ai_reviews,
+    portfolio_team_proposals,
+    portfolio_thesis,
+    portfolio_cash_reserve,
+    portfolio_holdings,
+    -- Migration 019 : journal d'informations de marché
+    company_market_events,
+    -- Migration 021 : annonces émetteurs BRVM
+    issuer_announcement_analyses,
+    issuer_announcement_contents,
+    issuer_announcements,
+    -- Migration 022 : carnet d'ordres & liquidité
+    intraday_execution_flow,
+    order_book_snapshots,
     market_bulletin_corporate_actions,
     market_bulletin_comparisons,
     market_bulletin_analyses,

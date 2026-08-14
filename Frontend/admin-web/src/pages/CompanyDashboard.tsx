@@ -25,6 +25,9 @@ import type {
   BacktestResult,
   ChartAnalysisResult,
   Company,
+  DividendRankingResult,
+  LiquidityRankingResult,
+  LiquidityRankingRow,
   CompanyDocumentAnalysis,
   CompanyDocumentDetail,
   CompanyDocumentSummary,
@@ -68,6 +71,185 @@ function signalBadgeClass(score: number | null) {
   if (score === 0) return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
   if (score === -1) return 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300'
   return 'bg-red-600 text-white'
+}
+
+/**
+ * Rang d'une entreprise sur un critère du classement marché, les entreprises
+ * non classables (valeur nulle) étant retirées du décompte plutôt que
+ * comptées comme des zéros. Retourne null si l'entreprise elle-même n'est
+ * pas classable.
+ */
+function rankOnRows<T extends { company_id: number }>(
+  rows: T[],
+  companyId: number | null,
+  value: (r: T) => number | null,
+): { value: number; rank: number; total: number } | null {
+  const ranked = rows
+    .map((r) => ({ r, v: value(r) }))
+    .filter((x): x is { r: T; v: number } => x.v !== null)
+    .sort((a, b) => b.v - a.v)
+  const index = ranked.findIndex((x) => x.r.company_id === companyId)
+  if (index < 0) return null
+  return { value: ranked[index].v, rank: index + 1, total: ranked.length }
+}
+
+const rankOn = (
+  rows: LiquidityRankingRow[],
+  companyId: number | null,
+  value: (r: LiquidityRankingRow) => number | null,
+) => rankOnRows(rows, companyId, value)
+
+/** « 1er », « 2e »… pour les rangs affichés dans le bandeau. */
+function ordinal(rank: number) {
+  return rank === 1 ? '1er' : `${rank}e`
+}
+
+/** Ce que veut dire chaque libellé du badge de signal technique. */
+const SIGNAL_MEANINGS: Record<number, string> = {
+  2: "La plupart des indicateurs techniques pointent dans le même sens haussier.",
+  1: "Les indicateurs techniques penchent plutôt du côté d'une hausse, sans unanimité.",
+  0: "Les indicateurs techniques se contredisent ou restent neutres : aucune direction dominante.",
+  [-1]: "Les indicateurs techniques penchent plutôt du côté d'une baisse, sans unanimité.",
+  [-2]: "La plupart des indicateurs techniques pointent dans le même sens baissier.",
+}
+
+/**
+ * Infobulle du badge de signal : explique CE QUE le badge mesure, d'où il
+ * vient (moyenne des indicateurs techniques, ramenée sur une échelle de -2
+ * à +2), le détail indicateur par indicateur, et surtout ce qu'il n'est
+ * pas — un conseil d'achat ou de vente.
+ */
+function SignalExplanation({ signal }: { signal: CompanySignal }) {
+  const meaning = signal.score !== null ? SIGNAL_MEANINGS[signal.score] : null
+  const details = Object.entries(signal.details ?? {})
+
+  return (
+    <div className="flex flex-col gap-2 text-sm">
+      <div>
+        <span className="text-base font-semibold">{signal.label}</span>
+        {signal.score !== null && (
+          <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">score {signal.score} sur une échelle de −2 à +2</span>
+        )}
+      </div>
+
+      {meaning && <p className="text-gray-700 dark:text-gray-300">{meaning}</p>}
+
+      <p className="text-gray-700 dark:text-gray-300">
+        <strong>D'où vient ce badge.</strong> L'application calcule plusieurs indicateurs techniques à partir de
+        l'historique des cours (moyennes mobiles, RSI, MACD, bandes de Bollinger…). Chacun vote : +1 s'il est
+        haussier, −1 s'il est baissier, 0 s'il est neutre. La moyenne de ces votes est ramenée sur une échelle de
+        −2 à +2, ce qui donne les cinq libellés : Vente forte, Vente, Neutre, Achat, Achat fort.
+        {signal.indicators_used > 0 && ` Ici, ${signal.indicators_used} indicateur${signal.indicators_used > 1 ? 's ont' : ' a'} pu être calculé${signal.indicators_used > 1 ? 's' : ''}.`}
+      </p>
+
+      {details.length > 0 && (
+        <div>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            Le vote de chaque indicateur
+          </div>
+          <ul className="flex flex-col gap-0.5">
+            {details.map(([key, d]) => (
+              <li key={key} className="flex items-baseline gap-2">
+                <span
+                  className={`inline-block w-6 shrink-0 text-center text-xs font-semibold ${
+                    d.signal > 0
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : d.signal < 0
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-gray-400'
+                  }`}
+                >
+                  {d.signal > 0 ? '+1' : d.signal < 0 ? '−1' : '0'}
+                </span>
+                <span className="text-gray-700 dark:text-gray-300">{d.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {signal.confidence_penalized_by_liquidity && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+          <strong>Signal atténué volontairement.</strong> Ce titre est illiquide : son cours peut rester figé faute
+          d'acheteur ou de vendeur, ce qui trompe les indicateurs techniques (ils supposent un cours qui reflète
+          l'offre et la demande du jour). Le signal a donc été ramené de « fort » à « simple ».
+        </p>
+      )}
+
+      {signal.liquidity && (
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Liquidité du titre : <strong>{signal.liquidity}</strong>
+          {signal.atr_14 !== null && signal.atr_14 !== undefined && ` · agitation récente (ATR) : ${signal.atr_14}`}
+        </p>
+      )}
+
+      <p className="rounded-md bg-gray-50 px-2 py-1.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+        <strong>Ce que ce badge n'est pas.</strong> Ce n'est ni un conseil d'achat ou de vente, ni une prévision.
+        Il résume uniquement ce que disent des formules appliquées aux cours passés — il ignore complètement les
+        résultats de l'entreprise, ses dividendes, l'actualité et le contexte de marché. Un « Vente forte » sur une
+        entreprise solide peut simplement signaler un titre qui vient de beaucoup monter et qui souffle.
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Tuile compacte du bandeau résumé : une valeur, son rang sur le marché, et
+ * un clic qui renvoie vers l'onglet détaillé correspondant.
+ */
+function BannerStat({
+  label,
+  value,
+  rank,
+  total,
+  tone = 'neutral',
+  title,
+  onClick,
+}: {
+  label: string
+  value: string
+  rank?: number
+  total?: number
+  tone?: 'neutral' | 'positive' | 'warning' | 'negative'
+  title?: string
+  onClick?: () => void
+}) {
+  const valueClass =
+    tone === 'positive'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : tone === 'negative'
+        ? 'text-red-600 dark:text-red-400'
+        : tone === 'warning'
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-gray-900 dark:text-gray-100'
+
+  const content = (
+    <>
+      <div className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">{label}</div>
+      <div className={`text-lg font-semibold tabular-nums ${valueClass}`}>{value}</div>
+      <div className="text-[11px] text-gray-500 dark:text-gray-400">
+        {rank !== undefined && total !== undefined ? `${ordinal(rank)} / ${total} du marché` : '—'}
+      </div>
+    </>
+  )
+
+  if (!onClick) {
+    return (
+      <div className="rounded-md border border-dashed border-gray-200 px-3 py-1 text-right dark:border-gray-800" title={title}>
+        {content}
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="rounded-md border border-gray-200 px-3 py-1 text-right hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+    >
+      {content}
+    </button>
+  )
 }
 
 function verdictBadgeClass(verdict: string | null) {
@@ -271,6 +453,72 @@ export function CompanyDashboard() {
     enabled: !!companyId,
     retry: false,
   })
+
+  // Rendement du dividende et rang sur le marché, affichés dans le bandeau
+  // résumé. Même clé de cache que l'onglet Dividendes (CompanyDividends) :
+  // le classement complet du marché n'est donc chargé qu'une seule fois.
+  const dividendRankingQuery = useQuery({
+    queryKey: ['dividend-ranking', 24],
+    queryFn: () => callApi<DividendRankingResult>('api_dividends.php', 'ranking', { months: 24 }),
+  })
+  const dividendStanding = useMemo(() => {
+    const rows = (dividendRankingQuery.data?.rows ?? []).filter((r) => r.yield_percent !== null)
+    const index = rows.findIndex((r) => r.company_id === companyId)
+    if (index < 0) return null
+    return { row: rows[index], rank: index + 1, total: rows.length }
+  }, [dividendRankingQuery.data, companyId])
+
+  // Carnet & liquidité du marché entier, pour situer l'entreprise dans le
+  // bandeau. Période volontairement indépendante du sélecteur de dates de la
+  // page : le bandeau doit rester stable quand on change la fenêtre des
+  // graphes (le score de liquidité est de toute façon calculé sur 45-90 j,
+  // et les titres en vente viennent du dernier carnet publié).
+  const liquidityRankingQuery = useQuery({
+    queryKey: ['ob-ranking-banner'],
+    queryFn: () => callApi<LiquidityRankingResult>('api_order_book.php', 'ranking', {}),
+  })
+
+  /** Rang de l'entreprise sur un critère, en ignorant les non-classables. */
+  const liquidityStanding = useMemo(
+    () => rankOn(liquidityRankingQuery.data?.rows ?? [], companyId, (r) => r.liquidity_score),
+    [liquidityRankingQuery.data, companyId],
+  )
+  const forSaleStanding = useMemo(
+    () => rankOn(liquidityRankingQuery.data?.rows ?? [], companyId, (r) => r.last_ask_qty),
+    [liquidityRankingQuery.data, companyId],
+  )
+  const myLiquidityRow = useMemo(
+    () => (liquidityRankingQuery.data?.rows ?? []).find((r) => r.company_id === companyId) ?? null,
+    [liquidityRankingQuery.data, companyId],
+  )
+
+  // Performance et volatilité de TOUTES les entreprises sur la période
+  // choisie, pour afficher la valeur de l'entreprise ET son rang dans le
+  // bandeau. Contrairement au rendement et à la liquidité (fenêtres fixes),
+  // ces deux chiffres SUIVENT le sélecteur de dates de la page — c'est le
+  // sens même de « sur la période ».
+  // Note : `net_return_percent` est exactement le même calcul que la
+  // « performance » de l'écran Classements — (dernier cours − premier
+  // cours) / premier cours — d'où une seule tuile et non deux.
+  const marketPerfQuery = useQuery({
+    queryKey: ['dashboard-perf-market', startDate, endDate, companies.length],
+    queryFn: () =>
+      callApi<RiskAdjustedResult[]>('api_quotes.php', 'risk_adjusted', {
+        company_ids: companies.map((c) => c.company_id),
+        start_date: startDate,
+        end_date: endDate,
+      }),
+    enabled: companies.length > 0 && startDate <= endDate,
+  })
+
+  const perfStanding = useMemo(
+    () => rankOnRows(marketPerfQuery.data ?? [], companyId, (r) => r.net_return_percent),
+    [marketPerfQuery.data, companyId],
+  )
+  const volatilityStanding = useMemo(
+    () => rankOnRows(marketPerfQuery.data ?? [], companyId, (r) => r.total_volatility_percent),
+    [marketPerfQuery.data, companyId],
+  )
 
   const ohlcQuery = useQuery({
     queryKey: ['dashboard-ohlc', companyId, startDate, endDate],
@@ -714,29 +962,133 @@ export function CompanyDashboard() {
                 <div className="text-xs text-gray-500 dark:text-gray-400">{selectedCompany.sector_name}</div>
               )}
             </div>
-            {signalQuery.data && (
-              <>
-                <div className="ml-auto text-right">
-                  <div className="text-lg font-semibold tabular-nums">{signalQuery.data.close_price ?? '—'} FCFA</div>
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
+              {/* Rendement du dividende + rang sur le marché (voir onglet
+                  Dividendes pour le détail des versements). */}
+              {dividendStanding ? (
+                <BannerStat
+                  label="Rendement"
+                  value={`${dividendStanding.row.yield_percent}%`}
+                  rank={dividendStanding.rank}
+                  total={dividendStanding.total}
+                  tone="positive"
+                  title={`Dernier dividende : ${dividendStanding.row.last_amount} FCFA par action, versé le ${dividendStanding.row.last_date}. Cliquer pour voir le détail.`}
+                  onClick={() => setActiveTab('dividendes')}
+                />
+              ) : (
+                dividendRankingQuery.data && (
                   <div
-                    className={`text-sm tabular-nums ${
-                      Number(signalQuery.data.variation_percent) > 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : Number(signalQuery.data.variation_percent) < 0
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-gray-500'
-                    }`}
+                    className="rounded-md border border-dashed border-gray-200 px-3 py-1 text-right dark:border-gray-800"
+                    title="Aucun dividende trouvé dans les bulletins déjà analysés — ce qui ne prouve pas que l'entreprise n'en verse pas."
                   >
-                    {signalQuery.data.variation_percent !== null
-                      ? `${Number(signalQuery.data.variation_percent) > 0 ? '+' : ''}${Number(signalQuery.data.variation_percent).toFixed(2)}%`
-                      : '—'}
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Rendement</div>
+                    <div className="text-lg font-semibold tabular-nums text-gray-400 dark:text-gray-500">—</div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">dividende non connu</div>
                   </div>
-                </div>
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${signalBadgeClass(signalQuery.data.score)}`}>
-                  {signalQuery.data.label}
-                </span>
-              </>
-            )}
+                )
+              )}
+
+              {/* Titres proposés à la vente au dernier carnet publié : la file
+                  de vendeurs devant vous si vous vouliez vendre. Rang 1 = le
+                  plus de titres en attente (ton neutre : ce n'est ni bon ni
+                  mauvais en soi, cela dépend si l'on achète ou si l'on vend). */}
+              {forSaleStanding ? (
+                <BannerStat
+                  label="Titres en vente"
+                  value={new Intl.NumberFormat('fr-FR').format(forSaleStanding.value)}
+                  rank={forSaleStanding.rank}
+                  total={forSaleStanding.total}
+                  tone="neutral"
+                  title={`Titres proposés à la vente au meilleur prix, d'après le carnet du ${myLiquidityRow?.last_book_date ?? '—'}. C'est la file de vendeurs devant vous si vous vouliez vendre. Rang 1 = la plus grosse file du marché. Cliquer pour ouvrir le carnet.`}
+                  onClick={() => setActiveTab('carnet')}
+                />
+              ) : (
+                liquidityRankingQuery.data && (
+                  <div
+                    className="rounded-md border border-dashed border-gray-200 px-3 py-1 text-right dark:border-gray-800"
+                    title="Aucun vendeur en attente au dernier carnet publié, ou aucun carnet disponible pour ce titre."
+                  >
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Titres en vente</div>
+                    <div className="text-lg font-semibold tabular-nums text-gray-400 dark:text-gray-500">—</div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">aucun vendeur en attente</div>
+                  </div>
+                )
+              )}
+
+              {/* Performance et volatilité SUR LA PÉRIODE choisie en haut de
+                  page — elles changent donc avec le sélecteur de dates,
+                  contrairement au rendement et à la liquidité. */}
+              {perfStanding && (
+                <BannerStat
+                  label="Perf. période"
+                  value={`${perfStanding.value > 0 ? '+' : ''}${perfStanding.value}%`}
+                  rank={perfStanding.rank}
+                  total={perfStanding.total}
+                  tone={perfStanding.value > 0 ? 'positive' : perfStanding.value < 0 ? 'negative' : 'neutral'}
+                  title={`Évolution du cours du ${startDate} au ${endDate} : (dernier cours − premier cours) ÷ premier cours. Rang 1 = la meilleure performance du marché sur cette même période. Change avec le sélecteur de dates ci-dessus. Cliquer pour ouvrir Performance & risque.`}
+                  onClick={() => setActiveTab('risque')}
+                />
+              )}
+
+              {volatilityStanding && (
+                <BannerStat
+                  label="Volatilité"
+                  value={`${volatilityStanding.value}%`}
+                  rank={volatilityStanding.rank}
+                  total={volatilityStanding.total}
+                  tone={volatilityStanding.rank <= Math.ceil(volatilityStanding.total / 3) ? 'warning' : 'neutral'}
+                  title={`Volatilité totale sur la période : somme des variations de cours enregistrées séance après séance, du ${startDate} au ${endDate}. Mesure l'agitation du titre, pas sa direction. Rang 1 = le titre le plus agité du marché. Cliquer pour ouvrir Performance & risque.`}
+                  onClick={() => setActiveTab('risque')}
+                />
+              )}
+
+              {liquidityStanding ? (
+                <BannerStat
+                  label="Liquidité"
+                  value={`${liquidityStanding.value}/100`}
+                  rank={liquidityStanding.rank}
+                  total={liquidityStanding.total}
+                  tone={liquidityStanding.value >= 70 ? 'positive' : liquidityStanding.value >= 45 ? 'warning' : 'neutral'}
+                  title={`Facilité à revendre ce titre sans attendre ni brader (score estimé 0-100, couverture ${myLiquidityRow?.coverage_percent ?? '—'}%). Rang 1 = le titre le plus liquide du marché. Cliquer pour ouvrir le détail.`}
+                  onClick={() => setActiveTab('carnet')}
+                />
+              ) : (
+                liquidityRankingQuery.data && (
+                  <div
+                    className="rounded-md border border-dashed border-gray-200 px-3 py-1 text-right dark:border-gray-800"
+                    title="Pas assez d'historique récent pour calculer un score de liquidité pour ce titre."
+                  >
+                    <div className="text-[11px] uppercase tracking-wide text-gray-400 dark:text-gray-500">Liquidité</div>
+                    <div className="text-lg font-semibold tabular-nums text-gray-400 dark:text-gray-500">—</div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">non calculable</div>
+                  </div>
+                )
+              )}
+
+              {signalQuery.data && (
+                <>
+                  <div className="text-right">
+                    <div className="text-lg font-semibold tabular-nums">{signalQuery.data.close_price ?? '—'} FCFA</div>
+                    <div
+                      className={`text-sm tabular-nums ${
+                        Number(signalQuery.data.variation_percent) > 0
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : Number(signalQuery.data.variation_percent) < 0
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-gray-500'
+                      }`}
+                    >
+                      {signalQuery.data.variation_percent !== null
+                        ? `${Number(signalQuery.data.variation_percent) > 0 ? '+' : ''}${Number(signalQuery.data.variation_percent).toFixed(2)}%`
+                        : '—'}
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-sm font-semibold ${signalBadgeClass(signalQuery.data.score)}`}>
+                    {signalQuery.data.label}
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
           <Tabs tabs={[...TABS]} active={activeTab} onChange={(id) => setActiveTab(id as TabId)} />
