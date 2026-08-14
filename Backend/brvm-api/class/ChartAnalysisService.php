@@ -109,6 +109,67 @@ class ChartAnalysisService {
             "'index_variation_percent' (identique pour toutes les entreprises à une date donnée) : appuie-toi " .
             "dessus pour distinguer un titre qui surperforme un marché déjà haussier d'un titre qui ne fait " .
             "que reculer moins vite qu'un marché baissier.",
+        'execution_flow' =>
+            "Flux d'exécution intraday d'une entreprise (api_order_book.php, action 'execution_flow') : le volume " .
+            "publié par brvm.org pendant la séance étant CUMULATIF, chaque intervalle (~10 min) porte le nombre " .
+            "d'actions réellement échangées (executed_volume, un CALCUL exact sur des cumuls observés — pas une " .
+            "estimation), le cours en fin d'intervalle, et un sens estimé par tick rule (pressure_side 'achat' si " .
+            "le prix a monté pendant l'intervalle, 'vente' s'il a baissé, null sinon). RÈGLE ABSOLUE : distingue " .
+            "toujours les volumes échangés (faits) du sens acheteur/vendeur (estimation heuristique faillible, " .
+            "surtout à ~10 min d'échantillonnage) — ne présente jamais la pression comme un décompte d'ordres " .
+            "réels. is_closing_auction=1 marque le fixing de clôture (écart entre dernier cumul et volume officiel).",
+        'order_book_liquidity' =>
+            "Photographies quotidiennes du carnet d'ordres en FIN de séance (api_order_book.php, action " .
+            "'snapshots'), extraites du Bulletin Officiel de la Cote : quantités résiduelles et meilleures limites " .
+            "à l'achat (bid) et à la vente (ask), cours de référence, spread, ratio d'équilibre " .
+            "(imbalance_ratio = demande / (demande + offre), > 0,5 = demande dominante). Seule photographie " .
+            "publique du carnet BRVM — ni temps réel, ni profondeur au-delà de la meilleure limite. RÈGLE " .
+            "ABSOLUE : une baisse de l'offre résiduelle entre deux séances ne prouve PAS des achats — elle peut " .
+            "venir d'exécutions, d'annulations ou de modifications d'ordres ; confronte-la au volume réellement " .
+            "échangé du jour (executed_volume_day) avant toute lecture, et formule les conclusions comme des " .
+            "hypothèses (« compatible avec une absorption par le marché »), jamais comme des faits. bid_at_market/" .
+            "ask_at_market=1 signalent des ordres « au marché » (quantité sans prix limite).",
+        'dividend_yield' =>
+            "Dividendes des entreprises cotées (api_dividends.php) : montant par action et date de paiement " .
+            "OBSERVÉS dans les Bulletins Officiels de la Cote, rendement CALCULÉ (dividende ÷ dernier cours de " .
+            "clôture). Fournis : classement par rendement, prochains détachements, saisonnalité mensuelle et " .
+            "couverture des données. RÈGLE ABSOLUE : la couverture est partielle (seuls les bulletins déjà " .
+            "analysés) — une entreprise absente de la liste n'est PAS une entreprise sans dividende, dis-le " .
+            "explicitement. Rappelle qu'un rendement élevé peut venir d'un cours qui a chuté plutôt que d'une " .
+            "hausse du dividende, et que le cours baisse mécaniquement du montant du dividende le jour du " .
+            "détachement (ce n'est pas une perte). Ne projette jamais un dividende futur à partir d'un seul " .
+            "versement passé.",
+        'volatility_analysis' =>
+            "Volatilité et risque des entreprises cotées (api_volatility.php) : volatilité annualisée (écart-type " .
+            "des variations quotidiennes × √250), volatilité glissante, recul maximal depuis un sommet " .
+            "(drawdown), amplitude moyenne haut-bas, performance de la période et nuage risque/rendement. Tous " .
+            "ces chiffres sont CALCULÉS sur les cours observés. RÈGLE ABSOLUE : la volatilité décrit l'agitation " .
+            "PASSÉE, ce n'est jamais une prévision — n'annonce pas de mouvement futur. Vérifie systématiquement " .
+            "le champ returns_count / low_confidence : sur un historique court, un seul jour agité fait bondir la " .
+            "volatilité, dis-le au lieu de commenter le chiffre comme s'il était stable. Explique en langage " .
+            "simple (agitation du cours, secousses, patience nécessaire) plutôt qu'en jargon statistique.",
+        'liquidity_ranking' =>
+            "Classement de TOUTES les entreprises actives sur une dimension du moteur de liquidité " .
+            "(api_order_book.php, action 'ranking') : facilité de vente (score 0-100 estimé), pression vendeuse ou " .
+            "acheteuse en % des échanges classés (tick rule), titres en attente à la vente / à l'achat au carnet de " .
+            "fin de séance, volume réellement échangé, spread moyen. Le critère de tri actif est fourni dans " .
+            "'criterion'. RÈGLE ABSOLUE : commente le classement affiché sans inventer de causes (une pression " .
+            "vendeuse élevée décrit le sens des échanges observés, elle n'explique pas POURQUOI) ; rappelle que " .
+            "les pressions sont estimées et qu'un titre peu échangé peut afficher des pourcentages extrêmes sur " .
+            "très peu de transactions — vérifie le volume avant de conclure. Les entreprises non classables sont " .
+            "absentes de la liste, ne les traite jamais comme des zéros.",
+        'liquidity_comparison' =>
+            "Comparaison inter-entreprises de liquidité (api_order_book.php, action 'compare') : pour chaque " .
+            "entreprise sélectionnée, un score de liquidité 0-100 ESTIMÉ (pondération : valeur échangée 25%, " .
+            "régularité des échanges 20%, spread 20%, profondeur du carnet 15%, absorption des ventes 10%, " .
+            "stabilité du spread 10% — sous-scores volume/profondeur en percentile du marché, donc relatifs aux " .
+            "autres titres cotés) et des séries quotidiennes CALCULÉES : volume exécuté (delta des cumuls " .
+            "observés), spread % et équilibre du carnet en fin de séance (imbalance_ratio = demande / (demande + " .
+            "offre), > 0,5 = demande dominante). RÈGLE ABSOLUE : le score est une estimation relative au marché " .
+            "sur l'historique récent, pas une garantie d'exécution — dis pour chaque entreprise ce qui tire son " .
+            "score vers le haut ou le bas en citant les sous-scores fournis, et rappelle qu'un titre peu liquide " .
+            "peut bloquer un vendeur plusieurs séances. Ne jamais interpréter une baisse d'offre résiduelle comme " .
+            "des achats certains (exécutions et annulations indistinguables).",
         'market_indices' =>
             "Cours de clôture quotidien officiel d'un ou plusieurs indices BRVM (BRVM-COMPOSITE — l'ensemble " .
             "des sociétés cotées, pondérées par capitalisation boursière — BRVM-30, BRVM-PRESTIGE, " .

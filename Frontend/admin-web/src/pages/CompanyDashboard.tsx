@@ -56,6 +56,8 @@ import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 import { CompanyChatBot } from '../components/CompanyChatBot'
 import { CompanyMarketEvents } from '../components/CompanyMarketEvents'
 import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
+import { ExecutionFlowPanel, OrderBookLiquidityPanel } from '../components/CompanyOrderBook'
+import { CompanyDividends } from '../components/CompanyDividends'
 import { EyeIcon, IconButton, RetryIcon, TrashIcon } from '../components/icons'
 
 /** Mêmes seuils/couleurs que Quotes.tsx et Backtest.tsx (pas de composant Badge partagé dans ce projet, voir les autres pages). */
@@ -162,9 +164,12 @@ const TABS = [
   { id: 'globale', label: 'Analyse IA globale' },
   { id: 'chat', label: 'Assistant IA' },
   { id: 'cours', label: 'Cours' },
+  { id: 'flux', label: 'Flux & pression' },
+  { id: 'carnet', label: 'Carnet & liquidité' },
   { id: 'fondamentaux', label: 'Fondamentaux' },
   { id: 'evenements', label: 'Événements' },
   { id: 'annonces', label: 'Annonces BRVM' },
+  { id: 'dividendes', label: 'Dividendes' },
   { id: 'operations', label: 'Opérations sur titres' },
   { id: 'rapports', label: 'Rapports' },
   { id: 'backtest', label: 'Backtest rapide' },
@@ -1279,6 +1284,64 @@ export function CompanyDashboard() {
               <Link to="/fundamentals" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
                 Voir les fondamentaux de toutes les entreprises →
               </Link>
+            </div>
+          )}
+
+          {activeTab === 'flux' && companyId !== null && (
+            <div className="flex flex-col gap-4">
+              <InfoPanel>
+                <p>
+                  <strong>À quoi sert cet onglet.</strong> Le volume publié par la BRVM pendant la séance est un{' '}
+                  <strong>cumul</strong> : la différence entre deux relevés (~10 min) donne donc les actions{' '}
+                  <strong>réellement échangées</strong> dans l'intervalle — des faits, pas des suppositions. Le sens
+                  (acheteurs ou vendeurs à l'initiative) est en revanche <strong>estimé 🟧</strong> par la direction du
+                  prix (tick rule) : un prix qui monte pendant l'intervalle suggère une initiative acheteuse, un prix
+                  qui baisse une initiative vendeuse. Le carnet d'ordres en continu n'est pas public à la BRVM — cet
+                  onglet montre ce qui est observable (les exécutions), l'onglet « Carnet &amp; liquidité » montre la
+                  photographie de fin de séance publiée au Bulletin Officiel. La période vient du sélecteur de dates en
+                  haut de page ; le créneau horaire se règle ci-dessous.
+                </p>
+              </InfoPanel>
+              <ExecutionFlowPanel companyId={companyId} startDate={startDate} endDate={endDate} />
+            </div>
+          )}
+
+          {activeTab === 'carnet' && companyId !== null && (
+            <div className="flex flex-col gap-4">
+              <InfoPanel>
+                <p>
+                  <strong>À quoi sert cet onglet.</strong> Chaque soir, le Bulletin Officiel de la Cote publie pour
+                  chaque action les <strong>meilleures limites</strong> du carnet : combien de titres attendent à
+                  l'achat et à la vente, et à quels prix. Cet onglet en fait une série temporelle : évolution de
+                  l'offre et de la demande, spread, équilibre, <strong>taux d'absorption</strong> (l'offre affichée la
+                  veille a-t-elle trouvé preneur ?) et un <strong>score de liquidité 0-100</strong> qui répond à la
+                  question clé : « si je possède N actions, le marché peut-il les absorber rapidement ? ». Attention à
+                  ne jamais sur-interpréter : une baisse de l'offre peut venir d'exécutions <em>ou</em> d'annulations —
+                  chaque lecture est confrontée aux volumes réellement échangés, et chaque chiffre porte sa nature
+                  (🟦 observé, 🟨 calculé, 🟧 estimé).
+                </p>
+              </InfoPanel>
+              <OrderBookLiquidityPanel companyId={companyId} startDate={startDate} endDate={endDate} />
+            </div>
+          )}
+
+          {activeTab === 'dividendes' && companyId !== null && (
+            <div className="flex flex-col gap-4">
+              <InfoPanel>
+                <p>
+                  <strong>À quoi sert cet onglet.</strong> Un dividende, c'est la part du bénéfice que l'entreprise
+                  reverse à ses actionnaires. Tu trouves ici <strong>tous les versements connus de cette
+                  entreprise</strong> (graphe et tableau détaillé), et sa place parmi{' '}
+                  <strong>tous les rendements du marché</strong> pour savoir si elle paie bien comparée aux autres.
+                </p>
+                <p>
+                  Le <strong>rendement</strong> rapporte le dividende au cours actuel : c'est ce que te
+                  rapporterait ton argent au prix d'aujourd'hui. Deux rappels : le jour du détachement, le cours
+                  baisse mécaniquement d'environ le montant versé (ce n'est pas une chute) ; et les montants
+                  affichés sont bruts, avant l'IRVM (10 à 12 % selon ta situation).
+                </p>
+              </InfoPanel>
+              <CompanyDividends companyId={companyId} symbol={selectedCompany?.symbol ?? ''} />
             </div>
           )}
 

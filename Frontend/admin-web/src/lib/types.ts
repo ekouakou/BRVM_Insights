@@ -1449,3 +1449,483 @@ export interface CompanyChatMessage {
   sources: { title: string | null; url: string }[]
   created_at: string
 }
+
+// ---------------------------------------------------------------------------
+// Carnet d'ordres & liquidité (api_order_book.php — voir TODO_CARNET_ORDRES.md)
+// Convention d'étiquetage : 🟦 observé (lu à la source), 🟨 calculé
+// (arithmétique exacte), 🟧 estimé (hypothèse explicite) — le backend
+// renvoie ces natures, le frontend DOIT les afficher.
+// ---------------------------------------------------------------------------
+
+/** Photographie du carnet fin de séance (Bulletin Officiel de la Cote). */
+export interface OrderBookSnapshotRow {
+  id: number
+  company_id: number
+  snapshot_datetime: string
+  snapshot_date: string
+  source: string
+  bulletin_id: number | null
+  best_bid_price: string | null
+  best_ask_price: string | null
+  bid_at_market: number
+  ask_at_market: number
+  bid_residual_qty: number | null
+  ask_residual_qty: number | null
+  reference_price: string | null
+  spread_abs: string | null
+  spread_percent: string | null
+  imbalance_ratio: string | null
+  delta_bid_qty: number | null
+  delta_ask_qty: number | null
+  executed_volume_day: number | null
+  reading: string | null
+}
+
+export interface OrderBookSnapshotsResult {
+  snapshots: OrderBookSnapshotRow[]
+  source: string
+}
+
+/** Intervalle d'exécution intraday (delta du volume cumulé brvm.org). */
+export interface ExecutionIntervalRow {
+  trading_date: string
+  interval_start: string
+  interval_end: string
+  price_start: string | number | null
+  price_end: string | number | null
+  executed_volume: number
+  executed_value: string | number | null
+  price_direction: number
+  pressure_side: 'achat' | 'vente' | null
+  is_closing_auction: number
+  live: number
+}
+
+export interface ExecutionFlowResult {
+  intervals: ExecutionIntervalRow[]
+  note: string
+}
+
+export interface PressureDayRow {
+  trading_date: string
+  total_volume: string
+  buy_volume: string
+  sell_volume: string
+  neutral_volume: string
+  total_value: string | null
+  net_volume: number
+  dominant: 'achat' | 'vente' | 'equilibre'
+}
+
+export interface PressureResult {
+  days: PressureDayRow[]
+  note: string
+}
+
+export interface HeatmapCell {
+  trading_date: string
+  slot: string
+  executed_volume: string
+  net_pressure: string
+}
+
+export interface HeatmapResult {
+  cells: HeatmapCell[]
+  slot_minutes: number
+  note: string
+}
+
+export interface AbsorptionDayRow {
+  trading_date: string
+  offered_prev_close: number | null
+  executed_volume: number | null
+  absorption_rate_percent: number | null
+  reading: string | null
+}
+
+export interface AbsorptionResult {
+  days: AbsorptionDayRow[]
+  note: string
+}
+
+export interface OrderBookTimelineEvent {
+  datetime: string
+  kind: 'execution' | 'cloture' | 'carnet'
+  nature: string
+  label: string
+  value: number
+}
+
+export interface OrderBookTimelineResult {
+  events: OrderBookTimelineEvent[]
+}
+
+export interface LiquiditySellEstimate {
+  quantity: number
+  median_daily_volume?: number
+  active_days_basis?: number
+  estimated_hours?: number | null
+  estimated_sessions?: number | null
+  last_bid_residual?: { date: string; qty: number } | null
+  formula?: string
+  estimate?: null
+  reason?: string
+}
+
+export interface LiquidityScoreResult {
+  score: number | null
+  coverage_percent: number
+  sub_scores: Record<string, number | null>
+  weights: Record<string, number>
+  details: Record<string, Record<string, number | string>>
+  sell_estimate: LiquiditySellEstimate | null
+  verdict: string
+  disclaimer: string
+}
+
+export interface OrderBookAnomalyRow {
+  date: string
+  metric: string
+  value: number
+  unit: string
+  average: number
+  z_score: number
+  direction: 'hausse' | 'baisse'
+}
+
+export interface OrderBookAnomaliesResult {
+  anomalies: OrderBookAnomalyRow[]
+  threshold: number
+  note: string
+}
+
+/** Données réelles autour du dernier fixing de clôture (action fixing_preview). */
+export interface FixingPreviewResult {
+  last_fixing: {
+    trading_date: string
+    fixing_volume: number
+    fixing_price: number | null
+    day_volume: number | null
+    fixing_share_percent: number | null
+    coverage_caveat: boolean
+  } | null
+  residual_book: {
+    snapshot_date: string
+    best_bid_price: string | null
+    best_ask_price: string | null
+    bid_at_market: number
+    ask_at_market: number
+    bid_residual_qty: number | null
+    ask_residual_qty: number | null
+    reference_price: string | null
+    spread_percent: string | null
+    imbalance_ratio: string | null
+  } | null
+  same_date: boolean
+  next_session: {
+    reference_price: string | null
+    spread_percent: string | null
+    imbalance_ratio: string | null
+    immediate_sell_capacity: { qty: number; price: string | null; at_market: number } | null
+    immediate_buy_capacity: { qty: number; price: string | null; at_market: number } | null
+  } | null
+  note: string
+}
+
+/** Comparateur de liquidité inter-entreprises (action compare). */
+export interface LiquidityCompareCompany {
+  company_id: number
+  symbol: string
+  name: string
+  score: number | null
+  coverage_percent: number
+  sub_scores: Record<string, number | null>
+}
+
+export interface LiquidityCompareSeriesDay {
+  date: string
+  executed_volume: number | null
+  buy_volume: number | null
+  sell_volume: number | null
+  net_pressure: number | null
+  /** Pression nette normalisée -100..+100 : comparable entre titres de tailles différentes. */
+  net_pressure_percent: number | null
+  spread_percent: number | null
+  imbalance_ratio: number | null
+  bid_residual_qty: number | null
+  ask_residual_qty: number | null
+}
+
+export interface LiquidityCompareResult {
+  companies: LiquidityCompareCompany[]
+  series: { company_id: number; days: LiquidityCompareSeriesDay[] }[]
+  weights: Record<string, number>
+  note: string
+}
+
+/** Classement marché sur les dimensions du moteur de liquidité (action ranking). */
+export interface LiquidityRankingRow {
+  company_id: number
+  symbol: string
+  name: string
+  liquidity_score: number | null
+  coverage_percent: number
+  sub_scores: Record<string, number | null>
+  executed_volume: number
+  executed_value: number
+  active_days: number
+  buy_volume: number
+  sell_volume: number
+  net_pressure: number
+  sell_pressure_percent: number | null
+  buy_pressure_percent: number | null
+  avg_ask_qty: number | null
+  avg_bid_qty: number | null
+  avg_spread_percent: number | null
+  avg_imbalance: number | null
+  last_book_date: string | null
+  last_bid_qty: number | null
+  last_ask_qty: number | null
+}
+
+export interface LiquidityRankingResult {
+  rows: LiquidityRankingRow[]
+  weights: Record<string, number>
+  period: { start_date: string; end_date: string }
+  note: string
+}
+
+// ---------------------------------------------------------------------------
+// Dividendes (api_dividends.php) et volatilité (api_volatility.php)
+// ---------------------------------------------------------------------------
+
+export interface DividendCoverage {
+  distinct_payments: number
+  companies: number
+  first_date: string | null
+  last_date: string | null
+  bulletins_processed: number
+}
+
+export interface DividendRankingRow {
+  company_id: number
+  symbol: string
+  name: string
+  total_amount: number
+  payments: number
+  last_amount: number | null
+  last_date: string | null
+  first_date: string | null
+  last_price: number | null
+  price_date: string | null
+  yield_percent: number | null
+  total_yield_percent: number | null
+}
+
+export interface DividendRankingResult {
+  rows: DividendRankingRow[]
+  without_dividend: { company_id: number; symbol: string; name: string }[]
+  months: number
+  coverage: DividendCoverage
+  note: string
+}
+
+export interface DividendCalendarEntry {
+  company_id: number
+  symbol: string
+  name: string
+  event_date: string
+  amount: number
+  currency: string
+  description: string | null
+  days_from_today: number
+}
+
+export interface DividendCalendarResult {
+  upcoming: DividendCalendarEntry[]
+  past: DividendCalendarEntry[]
+  monthly: { month: string; total_amount: number; payments: number }[]
+  coverage: DividendCoverage
+  note: string
+}
+
+export interface VolatilityRow {
+  company_id: number
+  symbol: string
+  name: string
+  trading_days: number
+  returns_count: number
+  low_confidence: boolean
+  daily_volatility_percent: number | null
+  annualized_volatility_percent: number | null
+  avg_amplitude_percent: number | null
+  max_drawdown_percent: number | null
+  max_drawdown_peak_date: string | null
+  max_drawdown_trough_date: string | null
+  net_return_percent: number | null
+}
+
+export interface VolatilityRankingResult {
+  rows: VolatilityRow[]
+  skipped: { symbol: string; name: string; trading_days: number }[]
+  period: { start_date: string; end_date: string }
+  min_reliable_returns: number
+  note: string
+}
+
+export interface VolatilitySeriesPoint {
+  date: string
+  close: number
+  rolling_volatility_percent: number | null
+  drawdown_percent: number | null
+}
+
+export interface VolatilitySeriesResult {
+  series: {
+    company_id: number
+    symbol: string
+    name: string
+    returns_count: number
+    low_confidence: boolean
+    window_reached: boolean
+    points: VolatilitySeriesPoint[]
+  }[]
+  window: number
+  min_reliable_returns: number
+  note: string
+}
+
+export interface RiskReturnPoint {
+  company_id: number
+  symbol: string
+  name: string
+  volatility_percent: number
+  return_percent: number | null
+  max_drawdown_percent: number | null
+  returns_count: number
+  low_confidence: boolean
+  return_per_risk: number | null
+}
+
+export interface RiskReturnResult {
+  points: RiskReturnPoint[]
+  skipped: { symbol: string; trading_days: number }[]
+  period: { start_date: string; end_date: string }
+  min_reliable_returns: number
+  note: string
+}
+
+export interface VolatilityDistributionResult {
+  symbol?: string
+  name?: string
+  bins: { from: number; to: number; count: number }[]
+  returns_count: number
+  low_confidence: boolean
+  var_percent: number | null
+  cvar_percent: number | null
+  confidence?: number
+  worst_day: { date: string; variation_percent: number } | null
+  best_day: { date: string; variation_percent: number } | null
+  note: string
+}
+
+/** Comparaison des dividendes entre entreprises (api_dividends.php, action compare). */
+export interface DividendComparePayment {
+  event_date: string
+  amount: number
+  yield_percent: number | null
+  description: string | null
+}
+
+export interface DividendCompareCompany {
+  company_id: number
+  symbol: string
+  name: string
+  last_price: number | null
+  price_date: string | null
+  payments: DividendComparePayment[]
+  payments_count: number
+  total_amount: number
+  last_amount: number | null
+  last_date: string | null
+  yield_percent: number | null
+  total_yield_percent: number | null
+}
+
+export interface DividendCompareResult {
+  companies: DividendCompareCompany[]
+  months: number
+  coverage: DividendCoverage
+  note: string
+}
+
+/** Simulateur de file d'attente et de stratégie de vente (api_order_book.php, action sell_simulation). */
+export interface SellSimulationResult {
+  company: { company_id: number; symbol: string; name: string }
+  quantity: number
+  group_quantity: number
+  book: {
+    snapshot_date: string
+    best_bid_price: number | null
+    best_ask_price: number | null
+    bid_residual_qty: number | null
+    ask_residual_qty: number | null
+    reference_price: number | null
+    spread_percent: number | null
+    bid_at_market: number
+    ask_at_market: number
+  } | null
+  tick_size: number | null
+  median_daily_volume: number | null
+  active_days_basis: number
+  queue_position: {
+    status: 'premier' | 'derriere' | 'inconnu'
+    ahead_of_me: number | null
+    sessions_to_reach_front: number | null
+    buyers_waiting: number | null
+  }
+  scenarios: {
+    immediate: {
+      price: number
+      served_immediately: number | null
+      remaining_after: number | null
+      cost_per_share: number | null
+      total_cost: number | null
+      cost_percent: number | null
+      queue_ahead: number
+    } | null
+    queue: {
+      price: number
+      queue_ahead: number | null
+      sessions_to_reach_front: number | null
+      sessions_to_complete: number | null
+      cost_per_share: number
+      total_cost: number
+    } | null
+    undercut: {
+      price: number
+      jumped_ahead_of: number | null
+      cost_per_share: number
+      total_cost: number
+      cost_percent: number
+      still_above_bid: boolean | null
+      sessions_to_complete: number | null
+    } | null
+  }
+  daily_limit: { percent: number; floor_price: number | null; max_undercut_per_share: number | null }
+  group_impact: {
+    total_to_sell: number
+    median_daily_volume: number
+    days_of_volume: number
+    percent_of_daily_volume: number
+    level: 'faible' | 'modere' | 'eleve' | 'critique'
+    my_share_percent: number | null
+  } | null
+  stagger: {
+    tranche_per_session: number
+    sessions_needed: number
+    group_sessions_needed: number
+    basis_percent_of_daily_volume: number
+  } | null
+  limits: string[]
+}

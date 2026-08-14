@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { callApi } from '../lib/apiClient'
 import type { Company, CorporateActionsListResult } from '../lib/types'
-import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, SearchableSelect, Select } from '../components/ui'
+import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, SearchableSelect, Select, Tabs } from '../components/ui'
+import { DividendCharts } from '../components/DividendCharts'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 const ACTION_TYPES = [
@@ -46,6 +47,7 @@ export function CorporateActions() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [extractingId, setExtractingId] = useState<number | null>(null)
+  const [activeTab, setActiveTab] = useState<'liste' | 'dividendes'>('liste')
 
   const companiesQuery = useQuery({
     queryKey: ['companies-list'],
@@ -98,6 +100,39 @@ export function CorporateActions() {
           des Bulletins Officiels de la Cote déjà traités.
         </p>
       </div>
+
+      <Tabs
+        tabs={[
+          { id: 'liste', label: 'Toutes les opérations' },
+          { id: 'dividendes', label: 'Dividendes (graphes)' },
+        ]}
+        active={activeTab}
+        onChange={(id) => setActiveTab(id as 'liste' | 'dividendes')}
+      />
+
+      {activeTab === 'dividendes' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Un dividende, c'est la part du bénéfice qu'une entreprise
+              reverse à ses actionnaires. La question utile pour l'investisseur n'est pas « combien ? » mais
+              « combien par rapport au prix que je paie ? » — c'est le <strong>rendement</strong>. Cet onglet le
+              calcule pour chaque entreprise, montre les <strong>prochains détachements</strong> et la période de
+              l'année où les paiements tombent.
+            </p>
+            <p>
+              Deux mises en garde : le jour du détachement, le cours de l'action baisse mécaniquement d'environ le
+              montant du dividende (ce n'est pas une chute du titre) ; et un rendement très élevé vient parfois
+              d'un cours qui s'est effondré, pas d'une entreprise généreuse. La couverture dépend du nombre de
+              bulletins déjà analysés — elle est affichée en haut de l'onglet.
+            </p>
+          </InfoPanel>
+          <DividendCharts />
+        </>
+      )}
+
+      {activeTab === 'liste' && (
+      <>
 
       <InfoPanel>
         <p>
@@ -265,6 +300,8 @@ export function CorporateActions() {
             disabled={rows.length === 0}
           />
         </Card>
+      )}
+      </>
       )}
     </div>
   )

@@ -4,6 +4,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveCo
 import { callApi } from '../lib/apiClient'
 import type { PerformanceRankingRow, RecentTradingDates, VolumeRankingRow } from '../lib/types'
 import { Card, ErrorState, InfoPanel, Input, LoadingState, Tabs } from '../components/ui'
+import { LiquidityRankingPanel } from '../components/LiquidityRanking'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 
 function fmt(n: string | number | null | undefined, digits = 0): string {
@@ -50,7 +51,7 @@ function SelectionHeader({
 }
 
 export function VolumeRanking() {
-  const [activeTab, setActiveTab] = useState<'volume' | 'performance'>('volume')
+  const [activeTab, setActiveTab] = useState<'volume' | 'performance' | 'liquidite'>('volume')
   // Valeur de repli le temps que recentTradingDatesQuery ci-dessous réponde
   // (voir l'effet plus bas) — remplacée par les 3 derniers jours de
   // cotation RÉELS dès que connus (voir Quotes.tsx pour le détail : un
@@ -147,10 +148,34 @@ export function VolumeRanking() {
         tabs={[
           { id: 'volume', label: 'Par volume' },
           { id: 'performance', label: 'Par performance' },
+          { id: 'liquidite', label: 'Liquidité & pression' },
         ]}
         active={activeTab}
-        onChange={(id) => setActiveTab(id as 'volume' | 'performance')}
+        onChange={(id) => setActiveTab(id as 'volume' | 'performance' | 'liquidite')}
       />
+
+      {activeTab === 'liquidite' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Classer les entreprises non pas sur leur cours, mais sur la{' '}
+              <strong>facilité à y entrer et en sortir</strong>. Choisis un critère ci-dessous : quels titres se
+              revendent le plus facilement, lesquels subissent le plus de <strong>pression vendeuse</strong> (les
+              vendeurs mènent les échanges) ou <strong>acheteuse</strong>, lesquels ont le plus de titres qui{' '}
+              <strong>attendent au carnet</strong> à la vente ou à l'achat, et lesquels coûtent le moins cher en{' '}
+              <strong>spread</strong>.
+            </p>
+            <p>
+              Ces classements viennent du moteur de carnet d'ordres : les volumes sont reconstitués depuis les
+              relevés intraday, le carnet vient du Bulletin Officiel de la Cote publié chaque soir. Le sens
+              acheteur/vendeur est <em>estimé</em> par la direction du prix — utile pour repérer une tendance, jamais
+              un décompte d'ordres réels. Le détail d'une entreprise est dans les onglets « Flux &amp; pression » et
+              « Carnet &amp; liquidité » de son tableau de bord.
+            </p>
+          </InfoPanel>
+          <LiquidityRankingPanel startDate={startDate} endDate={endDate} />
+        </>
+      )}
 
       {activeTab === 'volume' && (
         <>

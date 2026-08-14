@@ -76,6 +76,23 @@ class BRVMSyncService {
 
         $stats['touched_company_ids'] = array_values(array_unique($touchedCompanyIds));
 
+        // Consolidation du flux d'exécution intraday (TODO_CARNET_ORDRES.md) :
+        // après 14h45 (séance close), transforme les cumuls de la journée en
+        // intervalles persistés. buildPending() ne fait rien tant qu'il n'est
+        // pas l'heure, et rien non plus si la journée est déjà consolidée —
+        // l'appeler à chaque sync est donc quasi gratuit. Jamais bloquant
+        // pour la synchronisation elle-même.
+        try {
+            require_once __DIR__ . '/ExecutionFlowBuilder.php';
+            $builder = new ExecutionFlowBuilder($this->crud);
+            $consolidated = $builder->buildPending($today);
+            if (!empty($consolidated)) {
+                $stats['execution_flow_consolidated'] = count($consolidated);
+            }
+        } catch (Exception $e) {
+            $stats['errors'][] = 'Consolidation flux exécution: ' . $e->getMessage();
+        }
+
         return $stats;
     }
 

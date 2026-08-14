@@ -237,3 +237,45 @@
 [2026-08-12 07:37:57][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
 [2026-08-12 07:37:57][INFO] Marché fermé, pas de synchronisation nécessaire
 [2026-08-12 07:37:57][INFO] Lock supprimé
+[2026-08-13 16:35:06][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-13 16:35:06][INFO] Lock créé
+[2026-08-13 16:35:06][INFO] Synchronisation des cotations...
+[2026-08-13 16:35:08][INFO] Cotations: Traités=47, Insérés=47, Mis à jour=0, Échoués=0
+[2026-08-13 16:35:08][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-13 16:35:08][INFO] Synchronisation des indices...
+[2026-08-13 16:35:10][INFO] Indices: Traités=12, Insérés=12, Mis à jour=0, Échoués=0
+[2026-08-13 16:35:10][INFO] Temps d'exécution total: 3.52s
+[2026-08-13 16:35:10][WARNING] Notification push non envoyée: Request is malformed: Failed to parse app_id from request
+[2026-08-13 16:35:10][INFO] Nettoyage des données antérieures à 2024-08-13
+[2026-08-13 16:35:10][INFO] Anciennes cotations supprimées
+[2026-08-13 16:35:10][INFO] Anciens logs supprimés
+[2026-08-13 16:35:10][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-13 16:35:10][INFO] Lock supprimé
+[2026-08-14 09:14:09][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-14 09:14:09][INFO] Lock créé
+[2026-08-14 09:14:09][INFO] Synchronisation des cotations...
+[2026-08-14 09:14:24][INFO] Cotations: Traités=47, Insérés=47, Mis à jour=0, Échoués=0
+[2026-08-14 09:14:25][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-14 09:14:25][INFO] Synchronisation des indices...
+[2026-08-14 09:14:39][INFO] Indices: Traités=12, Insérés=12, Mis à jour=0, Échoués=0
+[2026-08-14 09:14:39][INFO] Temps d'exécution total: 31.88s
+[2026-08-14 09:14:45][WARNING] Notification push non envoyée: Request is malformed: Failed to parse app_id from request
+[2026-08-14 09:14:45][INFO] Nettoyage des données antérieures à 2024-08-14
+[2026-08-14 09:14:45][INFO] Anciennes cotations supprimées
+[2026-08-14 09:14:45][INFO] Anciens logs supprimés
+[2026-08-14 09:14:45][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-14 09:14:46][INFO] Lock supprimé
+[2026-08-14 16:35:11][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-14 16:35:11][INFO] Lock créé
+[2026-08-14 16:35:11][INFO] Synchronisation des cotations...
+[2026-08-14 16:35:13][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-08-14 16:35:13][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-14 16:35:13][INFO] Synchronisation des indices...
+[2026-08-14 16:35:15][INFO] Indices: Traités=12, Insérés=0, Mis à jour=12, Échoués=0
+[2026-08-14 16:35:15][INFO] Temps d'exécution total: 4.5s
+[2026-08-14 16:35:16][WARNING] Notification push non envoyée: Request is malformed: Failed to parse app_id from request
+[2026-08-14 16:35:16][INFO] Nettoyage des données antérieures à 2024-08-14
+[2026-08-14 16:35:16][INFO] Anciennes cotations supprimées
+[2026-08-14 16:35:16][INFO] Anciens logs supprimés
+[2026-08-14 16:35:16][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-14 16:35:16][INFO] Lock supprimé

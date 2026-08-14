@@ -19,6 +19,8 @@ import { Button, Card, ErrorState, InfoPanel, Input, LoadingState, Select, StarR
 import { IconButton, TrashIcon } from '../components/icons'
 import { groupCompaniesBySector, useCompanyColors, usePersistedSelection } from '../lib/companyGroups'
 import { SelectedCompanyColors } from '../components/CompanyColorPicker'
+import { LiquidityComparisonPanel } from '../components/LiquidityComparison'
+import { DividendComparisonPanel } from '../components/DividendComparison'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 import { AnalysisHistoryList } from '../components/AnalysisHistoryList'
 import { AI_MODELS, type AiProvider } from '../lib/aiModels'
@@ -172,7 +174,7 @@ export function Comparison() {
   // qui est "comparaison entre entreprises" vit ici, plus dans la page
   // Cotations (qui reste dédiée à une entreprise à la fois).
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'price' | 'volume' | 'turnover' | 'reports'>('price')
+  const [activeTab, setActiveTab] = useState<'price' | 'volume' | 'turnover' | 'liquidite' | 'dividendes' | 'reports'>('price')
   const [selected, setSelected] = usePersistedSelection('brvm_comparison_selection')
   const { colorFor, setColor, overrides: colorOverrides } = useCompanyColors()
   const [historyOverride, setHistoryOverride] = useState<ComparisonResult | null>(null)
@@ -443,10 +445,12 @@ export function Comparison() {
           { id: 'price', label: 'Cours' },
           { id: 'volume', label: 'Volumes' },
           { id: 'turnover', label: 'Rotation du flottant' },
+          { id: 'liquidite', label: 'Liquidité & carnet' },
+          { id: 'dividendes', label: 'Dividendes' },
           { id: 'reports', label: 'Rapports (IA)' },
         ]}
         active={activeTab}
-        onChange={(id) => setActiveTab(id as 'price' | 'volume' | 'turnover' | 'reports')}
+        onChange={(id) => setActiveTab(id as 'price' | 'volume' | 'turnover' | 'liquidite' | 'dividendes' | 'reports')}
       />
 
       {activeTab === 'price' && (
@@ -800,6 +804,55 @@ export function Comparison() {
           )}
         </Card>
       )}
+        </>
+      )}
+
+      {activeTab === 'liquidite' && selected.length > 0 && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Comparer la <strong>liquidité réelle</strong> des entreprises
+              sélectionnées — c'est-à-dire la facilité à acheter ou vendre leurs titres sans rester bloqué ni faire
+              bouger le prix. Quatre angles : le <strong>score de liquidité 0-100</strong> (estimé, pondéré sur 6
+              sous-scores : volume échangé, régularité, spread, profondeur du carnet, absorption des ventes,
+              stabilité), le <strong>volume réellement exécuté</strong> par séance (calculé depuis les cumuls
+              intraday de brvm.org), le <strong>spread</strong> de fin de séance et l'<strong>équilibre du
+              carnet</strong> (qui domine la file d'attente, acheteurs ou vendeurs). Un titre au score élevé se
+              revend en heures ; un titre au score faible peut bloquer un vendeur plusieurs séances — détail par
+              entreprise dans l'onglet « Carnet &amp; liquidité » de son tableau de bord.
+            </p>
+            <p>
+              Les scores sont calculés sur l'historique récent (fenêtres de 45 à 90 jours, indépendantes de la
+              période affichée) ; les trois graphes temporels suivent la période sélectionnée en haut de page. Les
+              couleurs par entreprise sont celles des pipettes ci-dessus.
+            </p>
+          </InfoPanel>
+          <LiquidityComparisonPanel
+            companies={companies}
+            selectedIds={selected}
+            colorFor={colorFor}
+            startDate={startDate}
+            endDate={endDate}
+          />
+        </>
+      )}
+
+      {activeTab === 'dividendes' && selected.length > 0 && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Comparer ce que les entreprises sélectionnées{' '}
+              <strong>reversent à leurs actionnaires</strong>. Le chiffre à regarder n'est pas le montant en francs
+              mais le <strong>rendement</strong> : le dividende rapporté au prix de l'action. Une action à 22 375 F
+              qui verse 1 707 F rapporte 7,6 %, alors qu'une action à 17 450 F qui verse 420 F ne rapporte que
+              2,4 % — seul le rendement est comparable entre titres de prix différents.
+            </p>
+            <p>
+              Les entreprises sans dividende connu restent affichées et signalées : leur absence de versement dans
+              les bulletins analysés ne prouve pas qu'elles n'en versent jamais. Montants bruts, avant l'IRVM.
+            </p>
+          </InfoPanel>
+          <DividendComparisonPanel companies={companies} selectedIds={selected} colorFor={colorFor} />
         </>
       )}
 

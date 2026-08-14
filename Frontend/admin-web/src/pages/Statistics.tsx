@@ -17,6 +17,7 @@ import { Card, ErrorState, InfoPanel, Input, LoadingState, Tabs } from '../compo
 import { groupCompaniesBySector, useCompanyColors, usePersistedSelection } from '../lib/companyGroups'
 import { SelectedCompanyColors } from '../components/CompanyColorPicker'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
+import { VolatilityCharts } from '../components/VolatilityCharts'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -30,7 +31,7 @@ function daysAgoIso(n: number) {
 
 type DisplayMode = 'total' | 'split' | 'both'
 
-type StatsTab = 'total_variation' | 'correlation' | 'risk_adjusted' | 'relative_strength' | 'risk_metrics_advanced'
+type StatsTab = 'total_variation' | 'correlation' | 'risk_adjusted' | 'relative_strength' | 'risk_metrics_advanced' | 'volatilite'
 
 export function Statistics() {
   const [activeTab, setActiveTab] = useState<StatsTab>('total_variation')
@@ -345,6 +346,7 @@ export function Statistics() {
           { id: 'risk_adjusted', label: 'Performance ajustée au risque' },
           { id: 'relative_strength', label: 'Force relative vs indice' },
           { id: 'risk_metrics_advanced', label: 'Métriques de risque avancées' },
+          { id: 'volatilite', label: 'Volatilité (graphes)' },
         ]}
         active={activeTab}
         onChange={(id) => setActiveTab(id as StatsTab)}
@@ -752,6 +754,34 @@ export function Statistics() {
       {selected.length > 0 && relativeStrengthQuery.data && relativeStrengthChartData.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">Aucune donnée pour la sélection sur cette période.</p>
       )}
+        </>
+      )}
+
+      {activeTab === 'volatilite' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> La <strong>volatilité</strong>, c'est l'agitation du cours :
+              à quel point il monte et descend d'un jour à l'autre. Un titre très volatil peut rapporter beaucoup…
+              ou faire peur en chemin. Cet onglet met ce risque en images, là où les autres onglets ne donnaient que
+              des tableaux : classement de toutes les entreprises, <strong>volatilité glissante</strong> (le titre
+              devient-il plus nerveux ?), <strong>courbe de recul depuis le plus haut</strong> (« si j'avais acheté
+              au pire moment… »), <strong>nuage risque/rendement</strong> et{' '}
+              <strong>distribution des variations quotidiennes</strong>.
+            </p>
+            <p>
+              Le classement et le nuage couvrent tout le marché ; les courbes détaillées portent sur les
+              entreprises cochées ci-dessus, dans leurs couleurs. Rappel important : la volatilité décrit le
+              <strong> passé</strong>, elle ne prédit pas le prochain mouvement.
+            </p>
+          </InfoPanel>
+          <VolatilityCharts
+            companies={companies}
+            selectedIds={selected}
+            colorFor={colorFor}
+            startDate={startDate}
+            endDate={endDate}
+          />
         </>
       )}
 
