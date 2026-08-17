@@ -19,6 +19,7 @@ import { PriceAlerts } from './pages/PriceAlerts'
 import { VolumeRanking } from './pages/VolumeRanking'
 import { Screener } from './pages/Screener'
 import { Fundamentals } from './pages/Fundamentals'
+import { ManualFinancials } from './pages/ManualFinancials'
 import { Backtest } from './pages/Backtest'
 import { CorporateActions } from './pages/CorporateActions'
 import { Indices } from './pages/Indices'
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/price-alerts" element={<Protected><PriceAlerts /></Protected>} />
         <Route path="/screener" element={<Protected><Screener /></Protected>} />
         <Route path="/fundamentals" element={<Protected><Fundamentals /></Protected>} />
+        <Route path="/manual-financials" element={<Protected><ManualFinancials /></Protected>} />
         <Route path="/backtest" element={<Protected><Backtest /></Protected>} />
         <Route path="/corporate-actions" element={<Protected><CorporateActions /></Protected>} />
         <Route path="/indices" element={<Protected><Indices /></Protected>} />

@@ -43,6 +43,7 @@ import type {
   PriceJumpIssue,
   ReconciliationIssue,
   RelativeStrengthSeries,
+  ReportAnalysis,
   ReportAnalysisStats,
   ReportSummary,
   RecentTradingDates,
@@ -53,6 +54,7 @@ import type {
   SectorPerformanceSeries,
   TechnicalIndicatorPoint,
   TotalVariationSeries,
+  ValuationModel,
 } from '../lib/types'
 import { AnalysisBadge, Button, Card, ErrorState, InfoPanel, Input, LoadingState, MarkdownBadge, Modal, SearchableSelect, Select, StatTile, Tabs } from '../components/ui'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
@@ -61,8 +63,10 @@ import { CompanyMarketEvents } from '../components/CompanyMarketEvents'
 import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
 import { ExecutionFlowPanel, OrderBookLiquidityPanel } from '../components/CompanyOrderBook'
 import { CompanyDividends } from '../components/CompanyDividends'
+import { FundamentalsDetailPanel, REPORT_TYPE_LABELS } from '../components/FundamentalsDetailPanel'
+import { FinancialsEditForm } from '../components/FinancialsEditForm'
 import { DailyQuotesChart } from '../components/DailyQuotesChart'
-import { EyeIcon, IconButton, RetryIcon, TrashIcon } from '../components/icons'
+import { EditIcon, EyeIcon, IconButton, RetryIcon, TrashIcon } from '../components/icons'
 
 /** Mêmes seuils/couleurs que Quotes.tsx et Backtest.tsx (pas de composant Badge partagé dans ce projet, voir les autres pages). */
 function signalBadgeClass(score: number | null) {
@@ -271,7 +275,7 @@ function BannerStat({
   )
 }
 
-function verdictBadgeClass(verdict: string | null) {
+function verdictBadgeClass(verdict: string | null | undefined) {
   switch (verdict) {
     case 'sous-coté':
       return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
@@ -384,7 +388,12 @@ export function CompanyDashboard() {
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const initialSymbol = searchParams.get('symbol')
-  const [activeTab, setActiveTab] = useState<TabId>('cours')
+  // Permet un lien direct vers un onglet précis (ex. depuis la page Fondamentaux : /company?symbol=ABJC&tab=fondamentaux)
+  // — appliqué une seule fois au montage, comme initialSymbol ci-dessus.
+  const initialTab = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<TabId>(
+    () => (TABS.some((t) => t.id === initialTab) ? (initialTab as TabId) : 'cours'),
+  )
   const [showSignalHelp, setShowSignalHelp] = useState(false)
   const [companyId, setCompanyId] = useState<number | null>(null)
   // Valeur de repli le temps que recentTradingDatesQuery ci-dessous réponde
@@ -411,6 +420,12 @@ export function CompanyDashboard() {
   const [globalAnalysisDocumentIds, setGlobalAnalysisDocumentIds] = useState<number[]>([])
   const [compareAnalysisIds, setCompareAnalysisIds] = useState<number[]>([])
   const [includeDocumentsInStats, setIncludeDocumentsInStats] = useState(false)
+  // '' = pas de filtre (comportement par défaut : dernier rapport connu) —
+  // voir fundamentalsHistoryQuery/displayedFundamentals plus bas.
+  const [fundamentalsHistoryYear, setFundamentalsHistoryYear] = useState('')
+  const [fundamentalsHistoryReportType, setFundamentalsHistoryReportType] = useState('')
+  const [fundamentalsHistoryProvider, setFundamentalsHistoryProvider] = useState('')
+  const [editingFinancials, setEditingFinancials] = useState(false)
 
   const companiesQuery = useQuery({
     queryKey: ['companies-list'],
@@ -465,6 +480,10 @@ export function CompanyDashboard() {
     setGlobalAnalysisReportIds([])
     setGlobalAnalysisDocumentIds([])
     setCompareAnalysisIds([])
+    setFundamentalsHistoryYear('')
+    setFundamentalsHistoryReportType('')
+    setFundamentalsHistoryProvider('')
+    setEditingFinancials(false)
   }
 
   const signalQuery = useQuery({
@@ -613,6 +632,75 @@ export function CompanyDashboard() {
     queryFn: () => callApi<FundamentalsRow[]>('api_fundamentals.php', 'list', {}),
   })
   const fundamentals = fundamentalsQuery.data?.find((r) => r.company_id === companyId) ?? null
+
+  // Tout l'historique d'analyses réussies de cette entreprise (pas
+  // seulement son dernier rapport) — alimente les filtres "Année"/"Type de
+  // rapport" ci-dessous pour consulter un exercice/rapport spécifique.
+  // Chargé seulement quand l'onglet Fondamentaux est ouvert.
+  const fundamentalsHistoryQuery = useQuery({
+    queryKey: ['fundamentals-history', companyId],
+    queryFn: () => callApi<FundamentalsRow[]>('api_fundamentals.php', 'history', { company_id: companyId }),
+    enabled: !!companyId && activeTab === 'fondamentaux',
+  })
+  const fundamentalsHistory = fundamentalsHistoryQuery.data ?? []
+  const fundamentalsHistoryYears = useMemo(
+    () =>
+      Array.from(new Set(fundamentalsHistory.map((r) => (r.source_publish_date ? Number(r.source_publish_date.slice(0, 4)) : null))))
+        .filter((y): y is number => y !== null)
+        .sort((a, b) => b - a),
+    [fundamentalsHistory],
+  )
+  const fundamentalsHistoryReportTypes = useMemo(
+    () => Array.from(new Set(fundamentalsHistory.map((r) => r.source_report_type))).sort(),
+    [fundamentalsHistory],
+  )
+  // Un même rapport peut être analysé par plusieurs IA (fournisseur+modèle) — ce
+  // filtre permet de choisir laquelle afficher, notamment pour comparer leurs
+  // extractions sur un même rapport. Clé composite "provider::model" car les deux
+  // vont toujours ensemble (un provider seul ne désigne pas une analyse précise).
+  const fundamentalsHistoryProviders = useMemo(
+    () =>
+      Array.from(new Set(fundamentalsHistory.filter((r) => r.source_provider && r.source_model).map((r) => `${r.source_provider}::${r.source_model}`))).sort(),
+    [fundamentalsHistory],
+  )
+  // Le plus récent rapport correspondant aux filtres (fundamentalsHistory
+  // est déjà trié publish_date DESC par le backend) ; sans filtre actif, on
+  // reste sur le dernier rapport connu (fundamentals) — comportement par défaut inchangé.
+  const filteredFundamentalsHistory = fundamentalsHistory.filter(
+    (r) =>
+      (fundamentalsHistoryYear === '' || r.source_publish_date?.slice(0, 4) === fundamentalsHistoryYear) &&
+      (fundamentalsHistoryReportType === '' || r.source_report_type === fundamentalsHistoryReportType) &&
+      (fundamentalsHistoryProvider === '' || `${r.source_provider}::${r.source_model}` === fundamentalsHistoryProvider),
+  )
+  const historyFilterActive = fundamentalsHistoryYear !== '' || fundamentalsHistoryReportType !== '' || fundamentalsHistoryProvider !== ''
+  const displayedFundamentals = historyFilterActive ? (filteredFundamentalsHistory[0] ?? null) : fundamentals
+
+  // Chargé seulement quand l'onglet Fondamentaux est ouvert (pas à chaque
+  // visite du tableau de bord) — implique un calcul de bêta sur l'historique
+  // de cours, plus coûteux que le reste des données déjà chargées. Recalculé
+  // quand les filtres Année/Type changent : le DCF/DDM doit refléter les
+  // chiffres du rapport consulté, pas toujours le dernier. Voir
+  // FundamentalsDetailPanel (composant partagé avec la page Fondamentaux).
+  const valuationQuery = useQuery({
+    queryKey: ['company-valuation', companyId, displayedFundamentals?.source_report_id],
+    queryFn: () => callApi<ValuationModel>('api_valuation.php', 'compute', { company_id: companyId, fundamentals: displayedFundamentals }),
+    enabled: !!companyId && displayedFundamentals !== null && activeTab === 'fondamentaux',
+  })
+
+  // Pré-remplit le formulaire "Modifier" avec les chiffres BRUTS (key_financials/valuation_assessment tels
+  // qu'extraits par l'IA) de l'analyse EXACTEMENT affichée — pas juste "la dernière" comme sur la page Rapports :
+  // ici l'utilisateur peut avoir choisi un rapport/IA précis via les filtres Année/Type/IA ci-dessus, la
+  // correction doit porter sur CETTE analyse-là, sinon elle porterait sur une autre sans que ce soit visible.
+  const editFinancialsQuery = useQuery({
+    queryKey: ['report-analysis-exact', displayedFundamentals?.source_report_id, displayedFundamentals?.source_provider, displayedFundamentals?.source_model],
+    queryFn: () =>
+      callApi<ReportAnalysis | null>('api_report_analysis.php', 'get', {
+        report_id: displayedFundamentals?.source_report_id,
+        provider: displayedFundamentals?.source_provider,
+        model: displayedFundamentals?.source_model,
+      }),
+    enabled: editingFinancials && displayedFundamentals !== null,
+  })
 
   const corporateActionsQuery = useQuery({
     queryKey: ['dashboard-corporate-actions', companyId],
@@ -1684,49 +1772,110 @@ export function CompanyDashboard() {
 
               {fundamentals && (
                 <>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Chiffres extraits par IA du rapport « {fundamentals.source_report_title} » ({fundamentals.source_publish_date ?? '?'},
-                    {' '}{fundamentals.source_report_type}) — pas un calcul déterministe, voir la page Fondamentaux pour le détail.
-                  </p>
+                  {/* Filtres Année/Type de rapport — permettent de consulter l'historique complet des analyses de
+                      CETTE entreprise (fundamentalsHistoryQuery), pas seulement son dernier rapport connu. */}
+                  {(fundamentalsHistoryYears.length > 1 || fundamentalsHistoryReportTypes.length > 1 || fundamentalsHistoryProviders.length > 1) && (
+                    <div className="flex flex-wrap items-center gap-3 text-sm">
+                      <label className="flex items-center gap-2">
+                        <span className="text-gray-500 dark:text-gray-400">Année :</span>
+                        <div className="w-48">
+                          <SearchableSelect
+                            options={fundamentalsHistoryYears.map((y) => ({ value: String(y), label: String(y) }))}
+                            value={fundamentalsHistoryYear}
+                            onChange={setFundamentalsHistoryYear}
+                            placeholder="Toutes"
+                          />
+                        </div>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <span className="text-gray-500 dark:text-gray-400">Type de rapport :</span>
+                        <div className="w-56">
+                          <SearchableSelect
+                            options={fundamentalsHistoryReportTypes.map((t) => ({ value: t, label: REPORT_TYPE_LABELS[t] ?? t }))}
+                            value={fundamentalsHistoryReportType}
+                            onChange={setFundamentalsHistoryReportType}
+                            placeholder="Tous"
+                          />
+                        </div>
+                      </label>
+                      {/* Un même rapport peut être analysé par plusieurs IA — ce filtre permet de choisir
+                          laquelle afficher, pour comparer leurs extractions sur un même rapport. */}
+                      {fundamentalsHistoryProviders.length > 1 && (
+                        <label className="flex items-center gap-2">
+                          <span className="text-gray-500 dark:text-gray-400">IA :</span>
+                          <div className="w-56">
+                            <SearchableSelect
+                              options={fundamentalsHistoryProviders.map((pm) => {
+                                const [provider, model] = pm.split('::')
+                                return { value: pm, label: `${provider} (${model})` }
+                              })}
+                              value={fundamentalsHistoryProvider}
+                              onChange={setFundamentalsHistoryProvider}
+                              placeholder="Toutes"
+                            />
+                          </div>
+                        </label>
+                      )}
+                      {historyFilterActive && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setFundamentalsHistoryYear('')
+                            setFundamentalsHistoryReportType('')
+                            setFundamentalsHistoryProvider('')
+                          }}
+                          className="text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+                        >
+                          Revenir au dernier rapport connu
+                        </button>
+                      )}
+                    </div>
+                  )}
 
-                  <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-sm font-semibold ${verdictBadgeClass(fundamentals.valuation_verdict)}`}>
-                      {fundamentals.valuation_verdict ?? 'Verdict indisponible'}
-                    </span>
-                    {fundamentals.valuation_rationale && (
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{fundamentals.valuation_rationale}</span>
-                    )}
-                  </div>
+                  {historyFilterActive && displayedFundamentals === null && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Aucun rapport analysé ne correspond à ces filtres pour cette entreprise.
+                    </p>
+                  )}
 
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                    <StatTile label="Chiffre d'affaires" value={fmt(fundamentals.revenue, 0)} />
-                    <StatTile
-                      label="Croissance CA"
-                      value={pct(fundamentals.revenue_growth_percent)}
-                      tone={toneFor(fundamentals.revenue_growth_percent)}
-                    />
-                    <StatTile label="Résultat net" value={fmt(fundamentals.net_income, 0)} />
-                    <StatTile label="Marge nette" value={pct(fundamentals.net_margin_percent)} />
-                    <StatTile label="ROE" value={pct(fundamentals.roe_percent)} />
-                    <StatTile label="ROA" value={pct(fundamentals.roa_percent)} />
-                    <StatTile label="PER" value={fmt(fundamentals.pe_ratio, 1)} />
-                    <StatTile label="P/B" value={fmt(fundamentals.price_to_book, 2)} />
-                    <StatTile label="Rendement dividende" value={pct(fundamentals.dividend_yield_percent)} />
-                    <StatTile label="Dette/CP" value={fmt(fundamentals.debt_to_equity, 2)} />
-                    <StatTile label="PEG" value={fmt(fundamentals.peg_ratio, 2)} />
-                    <StatTile label="EV/EBITDA" value={fmt(fundamentals.ev_to_ebitda, 2)} />
-                  </div>
+                  {displayedFundamentals && (
+                    <>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          Chiffres extraits par IA du rapport « {displayedFundamentals.source_report_title} »
+                          {' '}({displayedFundamentals.source_publish_date ?? '?'}, {displayedFundamentals.source_report_type})
+                          {displayedFundamentals.source_provider && (
+                            <> · analysé par <strong>{displayedFundamentals.source_provider}</strong> ({displayedFundamentals.source_model})</>
+                          )}
+                          {historyFilterActive && (
+                            <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                              Vue historique
+                            </span>
+                          )}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setEditingFinancials(true)}
+                          className="flex shrink-0 items-center gap-1 text-xs text-indigo-600 hover:underline dark:text-indigo-400"
+                        >
+                          <EditIcon /> Modifier
+                        </button>
+                      </div>
 
-                  <ChartAiAnalysis
-                    chartType="fundamentals"
-                    parameters={{ selected_company_ids: [companyId] }}
-                    data={[fundamentals]}
-                  />
+                      <FundamentalsDetailPanel row={displayedFundamentals} valuationQuery={valuationQuery} />
+
+                      <ChartAiAnalysis
+                        chartType="fundamentals"
+                        parameters={{ selected_company_ids: [companyId] }}
+                        data={[displayedFundamentals]}
+                      />
+                    </>
+                  )}
                 </>
               )}
 
               <Link to="/fundamentals" className="text-sm text-gray-700 underline-offset-2 hover:underline dark:text-gray-200">
-                Voir les fondamentaux de toutes les entreprises →
+                Comparer avec les fondamentaux de toutes les entreprises →
               </Link>
             </div>
           )}
@@ -2024,7 +2173,7 @@ export function CompanyDashboard() {
                               <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                               <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
                               <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v: number) => `${(v / 1_000_000_000).toLocaleString('fr-FR')} Md`} />
-                              <Tooltip formatter={(value: number) => `${value.toLocaleString('fr-FR')} FCFA`} labelFormatter={(_, items) => items[0]?.payload?.source_title ?? ''} />
+                              <Tooltip formatter={(value) => `${Number(value).toLocaleString('fr-FR')} FCFA`} labelFormatter={(_, items) => items[0]?.payload?.source_title ?? ''} />
                               <Bar dataKey="revenue" name="Chiffre d'affaires" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
@@ -2042,7 +2191,7 @@ export function CompanyDashboard() {
                               <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
                               <YAxis tick={{ fontSize: 11 }} width={70} tickFormatter={(v: number) => `${(v / 1_000_000_000).toLocaleString('fr-FR')} Md`} />
                               <ReferenceLine y={0} stroke="var(--chart-muted)" />
-                              <Tooltip formatter={(value: number) => `${value.toLocaleString('fr-FR')} FCFA`} labelFormatter={(_, items) => items[0]?.payload?.source_title ?? ''} />
+                              <Tooltip formatter={(value) => `${Number(value).toLocaleString('fr-FR')} FCFA`} labelFormatter={(_, items) => items[0]?.payload?.source_title ?? ''} />
                               <Bar dataKey="net_income" name="Résultat net" radius={[4, 4, 0, 0]}>
                                 {reportAnalysisStatsQuery.data.financial_trend.map((f) => (
                                   <Cell key={`${f.source_type}-${f.source_id}`} fill={f.net_income !== null && f.net_income < 0 ? '#dc2626' : '#059669'} />
@@ -2577,7 +2726,7 @@ export function CompanyDashboard() {
                       <ReferenceLine y={200} stroke="var(--chart-warning)" strokeDasharray="3 3" />
                       <ReferenceLine y={2000} stroke="var(--chart-positive)" strokeDasharray="3 3" />
                       <Tooltip
-                        formatter={(value, name, item) => {
+                        formatter={(value, _name, item) => {
                           const point = item.payload as (typeof liquidityHistory)[number]
                           return [`${Number(value).toLocaleString('fr-FR')} (${point.liquidity})`, 'Volume moyen (fenêtre 30j)']
                         }}
@@ -2854,6 +3003,26 @@ export function CompanyDashboard() {
             </div>
           )}
         </Modal>
+      )}
+
+      {editingFinancials && displayedFundamentals && (
+        editFinancialsQuery.isLoading ? (
+          <Modal title="Données financières" onClose={() => setEditingFinancials(false)}>
+            <LoadingState label="Chargement de l'analyse à corriger…" />
+          </Modal>
+        ) : (
+          <FinancialsEditForm
+            reportId={displayedFundamentals.source_report_id}
+            reportTitle={displayedFundamentals.source_report_title}
+            initialKeyFinancials={editFinancialsQuery.data?.analysis?.key_financials ?? null}
+            initialValuationAssessment={editFinancialsQuery.data?.analysis?.valuation_assessment ?? null}
+            onClose={() => setEditingFinancials(false)}
+            onSaved={() => {
+              queryClient.invalidateQueries({ queryKey: ['fundamentals-list'] })
+              queryClient.invalidateQueries({ queryKey: ['fundamentals-history', companyId] })
+            }}
+          />
+        )
       )}
     </div>
   )

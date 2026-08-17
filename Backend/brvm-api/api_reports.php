@@ -153,6 +153,13 @@ class ReportsAPI {
             'publish_date DESC, id DESC'
         );
 
+        // Exclut les rapports SYNTHÉTIQUES créés par la saisie manuelle sans
+        // rapport existant (voir ReportAnalysisService::saveManualFinancials())
+        // — aucun PDF, aucun texte à traiter, n'ont rien à faire dans le
+        // pipeline de traitement de cette page ; gérés depuis la page dédiée
+        // "Saisie manuelle" à la place.
+        $reports = array_values(array_filter($reports, fn($r) => $r['report_type'] !== 'manuel'));
+
         $markdownStatusByReportId = [];
         $analysesByReportId = [];
         if (!empty($reports)) {

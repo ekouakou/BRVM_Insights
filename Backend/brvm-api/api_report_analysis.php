@@ -48,6 +48,9 @@ class ReportAnalysisAPI {
                 case 'analyze':
                     return $this->analyze($input);
 
+                case 'save_manual':
+                    return $this->saveManual($input);
+
                 case 'get':
                     return $this->get($input);
 
@@ -97,6 +100,37 @@ class ReportAnalysisAPI {
             // Erreur fournisseur IA/réseau/config : pas un crash serveur, juste un échec d'analyse
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Saisie manuelle (correction ou création) des données financières d'un
+     * rapport — voir ReportAnalysisService::saveManualFinancials(). N'appelle
+     * aucun fournisseur IA ; utilisée aussi bien pour ajuster des chiffres déjà
+     * extraits par IA que pour saisir des données pour une entreprise sans
+     * aucun rapport (report_id absent/0 : company_id requis à la place, un
+     * rapport synthétique est alors créé pour servir d'ancrage).
+     */
+    private function saveManual($input) {
+        $reportId = (int) ($input['report_id'] ?? 0);
+        $companyId = (int) ($input['company_id'] ?? 0);
+        if (!$reportId && !$companyId) {
+            throw new Exception("report_id ou company_id requis");
+        }
+
+        $keyFinancials = is_array($input['key_financials'] ?? null) ? $input['key_financials'] : [];
+        $valuationAssessment = is_array($input['valuation_assessment'] ?? null) ? $input['valuation_assessment'] : [];
+        $reportTitle = isset($input['report_title']) && $input['report_title'] !== '' ? (string) $input['report_title'] : null;
+
+        $service = new ReportAnalysisService($this->crud);
+        $result = $service->saveManualFinancials(
+            $reportId ?: null,
+            $keyFinancials,
+            $valuationAssessment,
+            $companyId ?: null,
+            $reportTitle
+        );
+
+        return ['success' => true, 'data' => $result];
     }
 
     /**

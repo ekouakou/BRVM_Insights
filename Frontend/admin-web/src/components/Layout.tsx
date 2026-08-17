@@ -51,6 +51,7 @@ const NAV_ITEMS = [
   { to: '/price-alerts', label: 'Alertes de prix' },
   { to: '/screener', label: 'Screener' },
   { to: '/fundamentals', label: 'Fondamentaux' },
+  { to: '/manual-financials', label: 'Saisie manuelle' },
   { to: '/backtest', label: 'Backtesting' },
   { to: '/corporate-actions', label: 'Opérations sur titres' },
   { to: '/indices', label: 'Indices' },

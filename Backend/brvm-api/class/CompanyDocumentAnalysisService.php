@@ -372,6 +372,7 @@ avant/après, pas de balises markdown) :
   "company_overview": "activité, positionnement, actionnariat si mentionnés dans le texte, sinon null",
   "key_financials": {
     "currency": "FCFA",
+    "period_end_date": "date de clôture de l'exercice ou de la période couverte par CES CHIFFRES, au format YYYY-MM-DD (ex: 'exercice clos le 31 décembre 2024' -> '2024-12-31', 'premier semestre 2025' -> '2025-06-30', '1er trimestre 2026' -> '2026-03-31') — JAMAIS la date de publication du document, toujours la date de fin de la période financière que ces chiffres couvrent. null si le texte ne permet pas de la déterminer avec certitude.",
     "revenue": nombre ou null,
     "revenue_prior_year": nombre ou null,
     "revenue_growth_percent": nombre ou null (calculé si les deux valeurs ci-dessus sont connues),
@@ -387,24 +388,25 @@ avant/après, pas de balises markdown) :
     "operating_cash_flow": "flux de trésorerie d'exploitation SI mentionné dans le texte, sinon null",
     "capex": "investissements (capex) SI mentionnés dans le texte, sinon null",
     "free_cash_flow": "free cash flow = operating_cash_flow - capex, calculé seulement si les deux sont connus, sinon null",
-    "total_debt": nombre ou null,
-    "total_equity": nombre ou null,
-    "debt_to_equity": nombre ou null,
+    "total_debt": "dette financière portant intérêt (emprunts, obligations émises, dettes bancaires) — voir la note 'Banques et établissements financiers' plus bas pour ce que ce champ signifie pour ce secteur, nombre ou null",
+    "total_equity": "capitaux propres part du groupe (aussi appelés 'fonds propres' dans certains rapports, notamment bancaires) — cherche ce montant même s'il n'est pas sur la même ligne/page que le résultat net (souvent dans le bilan ou un tableau de variation des capitaux propres), nombre ou null",
+    "total_assets": "total du bilan / total actif — nécessaire pour calculer roa_percent ci-dessous, nombre ou null",
+    "debt_to_equity": nombre ou null (total_debt / total_equity, calculé si les deux sont connus même si non énoncé explicitement),
     "interest_expense": "charges financières/frais d'intérêt SI mentionnées, sinon null",
     "interest_coverage_ratio": "EBIT ou EBITDA / interest_expense, calculé seulement si les deux sont connus, sinon null",
     "debt_to_ebitda": nombre ou null (total_debt / ebitda),
-    "current_assets": nombre ou null,
-    "current_liabilities": nombre ou null,
+    "current_assets": "actifs courants/circulants SI le bilan de cette entreprise est classé en courant/non courant, sinon null (une banque ou un établissement financier n'a en général pas cette distinction : ne pas l'inventer)",
+    "current_liabilities": "passifs courants/circulants, mêmes règles que current_assets ci-dessus",
     "current_ratio": nombre ou null (current_assets / current_liabilities),
     "quick_ratio": "ratio de liquidité immédiate SI le détail des stocks est connu (current_assets - stocks) / current_liabilities, sinon null",
     "working_capital": nombre ou null (current_assets - current_liabilities),
-    "cash_position": nombre ou null,
+    "cash_position": "trésorerie / disponibilités / équivalents de trésorerie (peut aussi apparaître comme 'liquidités' ou, pour une banque, 'caisse et banques centrales'), nombre ou null",
     "receivable_days": "délai clients en jours SI calculable (créances / CA * 365), sinon null",
     "payable_days": "délai fournisseurs en jours SI calculable, sinon null",
     "inventory_days": "délai de rotation des stocks en jours SI calculable, sinon null",
     "dividend_per_share": nombre ou null,
-    "roe_percent": nombre ou null,
-    "roa_percent": "rentabilité des actifs = net_income / total actifs, SI le total actif est connu, sinon null"
+    "roe_percent": "rentabilité des capitaux propres = net_income / total_equity * 100, calculé si total_equity est connu même si ce pourcentage n'est pas énoncé tel quel dans le texte, sinon null",
+    "roa_percent": "rentabilité des actifs = net_income / total_assets * 100, calculé si total_assets est connu même si non énoncé explicitement, sinon null"
   },
   "financial_analysis": "analyse détaillée en plusieurs phrases des chiffres ci-dessus : tendance N/N-1, rentabilité à chaque étage du compte de résultat (marge brute -> opérationnelle -> nette), structure financière, points marquants",
   "growth_trends": "analyse de la trajectoire pluriannuelle si le document fournit un historique sur 3 ans ou plus (CAGR du chiffre d'affaires et du résultat net, régularité ou volatilité de la croissance) ; si seules deux années sont disponibles, le préciser explicitement ; null si aucune série historique n'est présente",
@@ -425,12 +427,13 @@ avant/après, pas de balises markdown) :
   "valuation_assessment": {
     "shares_outstanding": "nombre d'actions en circulation SI mentionné dans le texte (capital social, actionnariat...), sinon null — ne jamais deviner",
     "eps": "bénéfice net par action = net_income / shares_outstanding, calculé seulement si shares_outstanding est connu, sinon null",
-    "book_value_per_share": "capitaux propres / shares_outstanding, calculé seulement si shares_outstanding est connu, sinon null",
+    "book_value_per_share": "capitaux propres / shares_outstanding, calculé si total_equity ET shares_outstanding sont TOUS LES DEUX connus (pas seulement shares_outstanding), sinon null",
     "pe_ratio": "PER = cours de clôture fourni ci-dessus / eps, calculé seulement si eps est connu, sinon null",
     "price_to_book": "cours de clôture / book_value_per_share, calculé seulement si book_value_per_share est connu, sinon null",
     "ev_to_ebitda": "(capitalisation boursière + total_debt - cash_position) / ebitda, calculé seulement si shares_outstanding et ebitda sont connus, sinon null",
     "dividend_yield_percent": "rendement du dividende = dividend_per_share / cours de clôture * 100, si dividend_per_share est connu, sinon null",
     "payout_ratio_percent": "taux de distribution = dividend_per_share * shares_outstanding / net_income * 100, calculé seulement si les trois sont connus, sinon null",
+    "free_float_percent": "pourcentage du capital détenu par le public (flottant), c'est-à-dire hors actionnaires de référence/stratégiques (État, groupe fondateur, actionnaire majoritaire, autres sociétés du même groupe...) — UNIQUEMENT si la répartition de l'actionnariat est donnée avec des pourcentages précis dans le texte, sinon null. Ne jamais estimer ou déduire un flottant approximatif.",
     "verdict": "sous-coté | surcoté | correctement valorisé | indéterminable (indéterminable si shares_outstanding est inconnu)",
     "rationale": "justification factuelle du verdict : précise la base de comparaison utilisée (multiples usuels pour ce secteur à la BRVM, évolution récente du titre, niveau du rendement du dividende...). Jamais une recommandation d'achat/vente."
   },
@@ -445,6 +448,10 @@ avant/après, pas de balises markdown) :
 
 Règles impératives :
 - N'invente JAMAIS un chiffre absent du texte : mets null plutôt que d'extrapoler. Ceci s'applique en particulier à "shares_outstanding" : ne devine jamais un nombre d'actions non mentionné explicitement.
+- Avant de mettre un champ de key_financials à null, vérifie tout le document, pas seulement le compte de résultat principal : les bilans, tableaux de flux de trésorerie, notes annexes, tableaux "chiffres clés"/"faits marquants" en début de document et communiqués de résultats contiennent souvent des montants qui n'apparaissent nulle part ailleurs.
+- Les libellés varient d'un document à l'autre pour la même notion : "capitaux propres" = "fonds propres" ; "trésorerie" = "disponibilités" = "liquidités" (ou, pour une banque, "caisse et banques centrales") ; "résultat d'exploitation" = "résultat opérationnel" ; "EBITDA" = "EBE"/"excédent brut d'exploitation" ; "dette financière" = "emprunts" = "dettes financières". Reconnais ces équivalences plutôt que de renvoyer null faute de correspondance exacte du terme.
+- Calcule un ratio dérivé (ex. roe_percent, roa_percent, debt_to_equity) dès que ses composants sont connus, même si le ratio lui-même n'est écrit nulle part dans le texte tel quel — ne le laisse null que si un des composants manque réellement.
+- Banques et établissements financiers : leur bilan n'est pas classé en actifs/passifs "courants" — laisse current_assets/current_liabilities/current_ratio/quick_ratio/working_capital à null plutôt que de forcer une distinction absente de leurs états financiers. Pour total_debt, ne compte que la dette financière portant intérêt (emprunts, obligations émises) — jamais les dépôts de la clientèle, qui ne sont pas un endettement au sens de ce ratio.
 - Distingue clairement ce qui est extrait du texte de ce que tu calcules à partir de ces chiffres (financial_analysis et cash_flow_analysis doivent expliciter les calculs).
 - Reste factuel et neutre : jamais de recommandation d'achat/vente explicite (investment_thesis et valuation_assessment présentent une lecture factuelle, pas une conclusion).
 - N'inclus dans "glossary" que les termes techniques que tu as réellement utilisés ailleurs dans la réponse.

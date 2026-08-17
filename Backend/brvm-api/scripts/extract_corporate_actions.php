@@ -18,6 +18,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/../class/DbConnect.php';
 require_once __DIR__ . '/../class/DynamiqueCrud.php';
 require_once __DIR__ . '/../class/AiClientInterface.php';
+require_once __DIR__ . '/../class/AiChatClientInterface.php';
 require_once __DIR__ . '/../class/GeminiClient.php';
 require_once __DIR__ . '/../class/AnthropicClient.php';
 require_once __DIR__ . '/../class/GrokClient.php';

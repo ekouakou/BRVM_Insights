@@ -58,6 +58,8 @@ export function Bulletins() {
   const [showComparison, setShowComparison] = useState(false)
   const [lookupDate, setLookupDate] = useState('')
   const [showRawText, setShowRawText] = useState(false)
+  const [isEditingMarkdown, setIsEditingMarkdown] = useState(false)
+  const [editedMarkdown, setEditedMarkdown] = useState('')
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({})
   const markdownFileInput = useRef<HTMLInputElement | null>(null)
   const queryClient = useQueryClient()
@@ -105,6 +107,22 @@ export function Bulletins() {
       queryClient.invalidateQueries({ queryKey: ['bulletins-list'] })
     },
   })
+
+  /**
+   * Enregistre une correction saisie directement dans l'app — réutilise
+   * l'action 'upload_markdown' déjà existante (voir uploadMarkdownMutation
+   * ci-dessus, jusqu'ici réservée à l'import d'un fichier .md externe) en
+   * empaquetant le texte corrigé dans un File synthétique côté client :
+   * aucun changement backend nécessaire, même pattern que sur la page Rapports.
+   */
+  function saveEditedMarkdown() {
+    if (!viewQuery.data) return
+    const file = new File([editedMarkdown], `bulletin-${viewQuery.data.publish_date}.md`, { type: 'text/markdown' })
+    uploadMarkdownMutation.mutate(
+      { id: viewQuery.data.id, file },
+      { onSuccess: () => setIsEditingMarkdown(false) },
+    )
+  }
 
   function downloadMarkdownFile(publishDate: string, markdown: string) {
     const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' })
@@ -427,7 +445,7 @@ export function Bulletins() {
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
                       <XAxis dataKey="publish_date" tick={{ fontSize: 11 }} minTickGap={30} />
                       <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${(v / 1_000_000).toLocaleString('fr-FR')}M`} />
-                      <Tooltip formatter={(value: number) => value.toLocaleString('fr-FR')} />
+                      <Tooltip formatter={(value) => Number(value).toLocaleString('fr-FR')} />
                       <Bar dataKey="total_volume" name="Volume total" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -649,7 +667,7 @@ export function Bulletins() {
       {viewBulletinId !== null && (
         <Modal
           title="Consulter le bulletin"
-          onClose={() => { setViewBulletinId(null); setShowRawText(false) }}
+          onClose={() => { setViewBulletinId(null); setShowRawText(false); setIsEditingMarkdown(false) }}
         >
           {viewQuery.isLoading && <LoadingState />}
           {viewQuery.error && <ErrorState message={(viewQuery.error as Error).message} />}
@@ -663,7 +681,7 @@ export function Bulletins() {
                     {viewQuery.data.char_count ? ` · ${viewQuery.data.char_count.toLocaleString('fr-FR')} caractères extraits` : ''}
                   </p>
                 </div>
-                {viewQuery.data.markdown_status === 'success' && (
+                {viewQuery.data.markdown_status === 'success' && !isEditingMarkdown && (
                   <Button variant="secondary" onClick={() => setShowRawText((v) => !v)}>
                     {showRawText ? 'Voir la version formatée' : 'Voir le texte brut'}
                   </Button>
@@ -695,6 +713,18 @@ export function Bulletins() {
                     Télécharger le markdown
                   </Button>
                 )}
+                {viewQuery.data.markdown_status === 'success' && viewQuery.data.formatted_markdown && !isEditingMarkdown && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditedMarkdown(viewQuery.data!.formatted_markdown!)
+                      setShowRawText(false)
+                      setIsEditingMarkdown(true)
+                    }}
+                  >
+                    Corriger
+                  </Button>
+                )}
                 <input
                   type="file"
                   accept=".md,.markdown,.txt"
@@ -709,7 +739,7 @@ export function Bulletins() {
                 <Button
                   variant="secondary"
                   onClick={() => markdownFileInput.current?.click()}
-                  disabled={uploadMarkdownMutation.isPending}
+                  disabled={uploadMarkdownMutation.isPending || isEditingMarkdown}
                 >
                   <span className="flex items-center gap-2">
                     <UploadIcon />
@@ -730,7 +760,28 @@ export function Bulletins() {
                 <ErrorState message={viewQuery.data.markdown_error ?? "Échec du formatage markdown"} />
               )}
 
-              {viewQuery.data.markdown_status === 'success' && viewQuery.data.formatted_markdown && !showRawText ? (
+              {isEditingMarkdown ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Corrige directement le texte markdown ci-dessous (tableaux, chiffres, coquilles d'extraction...),
+                    puis enregistre — remplace la version actuelle, même effet qu'un import de fichier .md.
+                  </p>
+                  <textarea
+                    value={editedMarkdown}
+                    onChange={(e) => setEditedMarkdown(e.target.value)}
+                    rows={20}
+                    className="w-full rounded-md border border-gray-300 p-3 font-mono text-xs focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button onClick={saveEditedMarkdown} disabled={uploadMarkdownMutation.isPending || editedMarkdown.trim() === ''}>
+                      {uploadMarkdownMutation.isPending ? 'Enregistrement…' : 'Enregistrer la correction'}
+                    </Button>
+                    <Button variant="secondary" onClick={() => setIsEditingMarkdown(false)} disabled={uploadMarkdownMutation.isPending}>
+                      Annuler
+                    </Button>
+                  </div>
+                </div>
+              ) : viewQuery.data.markdown_status === 'success' && viewQuery.data.formatted_markdown && !showRawText ? (
                 <div className="max-h-[60vh] overflow-y-auto rounded-md border border-gray-200 p-3 dark:border-gray-800">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}

@@ -5,9 +5,10 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BarChart, Bar, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
 import { callApi, reportDownloadUrl, uploadFile } from '../lib/apiClient'
-import type { BackfillCompanyProgress, ComparisonResult, CompanyMatchResult, DiscoverResult, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
+import type { BackfillCompanyProgress, ComparisonResult, CompanyMatchResult, DiscoverResult, ReportAnalysis, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
 import { AnalysisBadge, Button, Card, ErrorState, LoadingState, MarkdownBadge, Modal, StatTile, Table } from '../components/ui'
-import { BoltIcon, CloseIcon, EyeIcon, IconButton, InfoIcon, RetryIcon, UploadIcon } from '../components/icons'
+import { BoltIcon, CloseIcon, EditIcon, EyeIcon, IconButton, InfoIcon, RetryIcon, UploadIcon } from '../components/icons'
+import { FinancialsEditForm } from '../components/FinancialsEditForm'
 
 interface BackfillProgress {
   by_company: BackfillCompanyProgress[]
@@ -22,6 +23,7 @@ export function Reports() {
   const [transportErrors, setTransportErrors] = useState<Record<number, string>>({})
   const [openErrorId, setOpenErrorId] = useState<number | null>(null)
   const [viewReportId, setViewReportId] = useState<number | null>(null)
+  const [editFinancialsReportId, setEditFinancialsReportId] = useState<number | null>(null)
   const [bulkProcessing, setBulkProcessing] = useState(false)
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null)
   const [bulkDiscovering, setBulkDiscovering] = useState(false)
@@ -30,6 +32,8 @@ export function Reports() {
   const [bulkFormatting, setBulkFormatting] = useState(false)
   const [bulkFormatProgress, setBulkFormatProgress] = useState<{ done: number; total: number; failed: number } | null>(null)
   const [showRawText, setShowRawText] = useState(false)
+  const [isEditingMarkdown, setIsEditingMarkdown] = useState(false)
+  const [editedMarkdown, setEditedMarkdown] = useState('')
   const [bulkAllRunning, setBulkAllRunning] = useState(false)
   const [bulkAllStatus, setBulkAllStatus] = useState<string | null>(null)
   const [bulkAllSummary, setBulkAllSummary] = useState<{
@@ -68,6 +72,15 @@ export function Reports() {
     refetchInterval: (query) => (query.state.data?.markdown_status === 'processing' ? 4000 : false),
   })
 
+  // Pré-remplit le formulaire de saisie manuelle avec la dernière analyse
+  // connue (IA ou manuelle précédente, peu importe) — formulaire vide si le
+  // rapport n'a encore aucune analyse.
+  const editFinancialsQuery = useQuery({
+    queryKey: ['report-analysis-latest', editFinancialsReportId],
+    queryFn: () => callApi<ReportAnalysis | null>('api_report_analysis.php', 'get', { report_id: editFinancialsReportId }),
+    enabled: editFinancialsReportId !== null,
+  })
+
   const formatMarkdownMutation = useMutation({
     mutationFn: (id: number) => callApi<{ id: number; status: string }>('api_reports.php', 'format_markdown', { id }),
     onSuccess: () => {
@@ -83,6 +96,23 @@ export function Reports() {
       queryClient.invalidateQueries({ queryKey: ['reports-list', selectedSymbol] })
     },
   })
+
+  /**
+   * Enregistre une correction saisie directement dans l'app — réutilise
+   * l'action 'upload_markdown' déjà existante (voir uploadMarkdownMutation
+   * ci-dessus, jusqu'ici réservée à l'import d'un fichier .md externe) en
+   * empaquetant le texte corrigé dans un File synthétique côté client :
+   * aucun changement backend nécessaire, le serveur ne fait pas la
+   * différence entre un fichier importé et une correction tapée à l'écran.
+   */
+  function saveEditedMarkdown() {
+    if (!viewQuery.data) return
+    const file = new File([editedMarkdown], `${viewQuery.data.title || 'rapport'}.md`, { type: 'text/markdown' })
+    uploadMarkdownMutation.mutate(
+      { id: viewQuery.data.id, file },
+      { onSuccess: () => setIsEditingMarkdown(false) },
+    )
+  }
 
   function downloadMarkdownFile(title: string, markdown: string) {
     const safeName = title.replace(/[^A-Za-z0-9._-]+/g, '_').slice(0, 80)
@@ -589,6 +619,12 @@ export function Reports() {
                               <BoltIcon />
                             </IconButton>
                           )}
+                          <IconButton
+                            title="Saisir/corriger les données financières manuellement"
+                            onClick={() => setEditFinancialsReportId(r.id)}
+                          >
+                            <EditIcon />
+                          </IconButton>
                           {!extracted && (
                             <IconButton
                               title={failed ? 'Réessayer' : 'Traiter (télécharger + extraire le texte)'}
@@ -653,7 +689,7 @@ export function Reports() {
       {viewReportId !== null && (
         <Modal
           title="Consulter le rapport"
-          onClose={() => { setViewReportId(null); setShowRawText(false) }}
+          onClose={() => { setViewReportId(null); setShowRawText(false); setIsEditingMarkdown(false) }}
         >
           {viewQuery.isLoading && <LoadingState />}
           {viewQuery.error && <ErrorState message={(viewQuery.error as Error).message} />}
@@ -667,7 +703,7 @@ export function Reports() {
                     {viewQuery.data.char_count ? ` · ${viewQuery.data.char_count.toLocaleString('fr-FR')} caractères extraits` : ''}
                   </p>
                 </div>
-                {viewQuery.data.markdown_status === 'success' && (
+                {viewQuery.data.markdown_status === 'success' && !isEditingMarkdown && (
                   <Button variant="secondary" onClick={() => setShowRawText((v) => !v)}>
                     {showRawText ? 'Voir la version formatée' : 'Voir le texte brut'}
                   </Button>
@@ -699,6 +735,18 @@ export function Reports() {
                     Télécharger le markdown
                   </Button>
                 )}
+                {viewQuery.data.markdown_status === 'success' && viewQuery.data.formatted_markdown && !isEditingMarkdown && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setEditedMarkdown(viewQuery.data!.formatted_markdown!)
+                      setShowRawText(false)
+                      setIsEditingMarkdown(true)
+                    }}
+                  >
+                    Corriger
+                  </Button>
+                )}
                 <input
                   type="file"
                   accept=".md,.markdown,.txt"
@@ -713,7 +761,7 @@ export function Reports() {
                 <Button
                   variant="secondary"
                   onClick={() => markdownFileInput.current?.click()}
-                  disabled={uploadMarkdownMutation.isPending}
+                  disabled={uploadMarkdownMutation.isPending || isEditingMarkdown}
                 >
                   <span className="flex items-center gap-2">
                     <UploadIcon />
@@ -734,7 +782,28 @@ export function Reports() {
                 <ErrorState message={viewQuery.data.markdown_error ?? "Échec du formatage markdown"} />
               )}
 
-              {viewQuery.data.markdown_status === 'success' && viewQuery.data.formatted_markdown && !showRawText ? (
+              {isEditingMarkdown ? (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Corrige directement le texte markdown ci-dessous (tableaux, chiffres, coquilles d'extraction...),
+                    puis enregistre — remplace la version actuelle, même effet qu'un import de fichier .md.
+                  </p>
+                  <textarea
+                    value={editedMarkdown}
+                    onChange={(e) => setEditedMarkdown(e.target.value)}
+                    rows={20}
+                    className="w-full rounded-md border border-gray-300 p-3 font-mono text-xs focus:border-indigo-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button onClick={saveEditedMarkdown} disabled={uploadMarkdownMutation.isPending || editedMarkdown.trim() === ''}>
+                      {uploadMarkdownMutation.isPending ? 'Enregistrement…' : 'Enregistrer la correction'}
+                    </Button>
+                    <Button variant="secondary" onClick={() => setIsEditingMarkdown(false)} disabled={uploadMarkdownMutation.isPending}>
+                      Annuler
+                    </Button>
+                  </div>
+                </div>
+              ) : viewQuery.data.markdown_status === 'success' && viewQuery.data.formatted_markdown && !showRawText ? (
                 <div className="max-h-[60vh] overflow-y-auto rounded-md border border-gray-200 p-3 dark:border-gray-800">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -766,6 +835,26 @@ export function Reports() {
             </div>
           )}
         </Modal>
+      )}
+
+      {editFinancialsReportId !== null && (
+        editFinancialsQuery.isLoading ? (
+          <Modal title="Données financières" onClose={() => setEditFinancialsReportId(null)}>
+            <LoadingState label="Chargement de la dernière analyse connue…" />
+          </Modal>
+        ) : (
+          <FinancialsEditForm
+            reportId={editFinancialsReportId}
+            reportTitle={reportsQuery.data?.find((r) => r.id === editFinancialsReportId)?.title ?? `Rapport #${editFinancialsReportId}`}
+            initialKeyFinancials={editFinancialsQuery.data?.analysis?.key_financials ?? null}
+            initialValuationAssessment={editFinancialsQuery.data?.analysis?.valuation_assessment ?? null}
+            onClose={() => setEditFinancialsReportId(null)}
+            onSaved={() => {
+              queryClient.invalidateQueries({ queryKey: ['reports-list'] })
+              queryClient.invalidateQueries({ queryKey: ['report-analysis-latest', editFinancialsReportId] })
+            }}
+          />
+        )
       )}
 
       {showReportComparison && (

@@ -339,18 +339,49 @@ class ChartAnalysisService {
             "pas un calibrage statistique sur l'historique du marché — à présenter comme un outil de tri rapide, " .
             "jamais comme une note financière académique.",
         'fundamentals' =>
-            "Ratios fondamentaux (PER, PEG, Price/Book, ROE, ROA, marges, EV/EBITDA, rendement du dividende, " .
-            "payout ratio...) par entreprise sélectionnée (api_fundamentals.php, action 'list'). " .
-            "IMPORTANT — nature de la donnée, différente des indicateurs techniques déjà analysés ailleurs dans " .
-            "cette application (calcul déterministe sur des cours en base) : ces ratios sont EXTRAITS PAR IA du " .
-            "texte du dernier rapport financier de chaque entreprise déjà traité avec succès (états financiers, " .
-            "rapport annuel/semestriel/trimestriel), pas calculés depuis une source structurée fiable. Un champ " .
-            "vide signifie que le rapport source ne divulguait pas l'élément nécessaire (ex. nombre d'actions en " .
-            "circulation rarement précisé, rendant PER/EPS/P-B incalculables même sur un rapport bien traité) — " .
-            "pas une erreur. La date du rapport source (source_publish_date) doit toujours être mentionnée : un " .
-            "chiffre correct pour l'exercice couvert par le rapport peut être ancien par rapport à aujourd'hui. " .
-            "'peg_ratio' est le seul champ calculé ici (PER ÷ croissance du chiffre d'affaires), tous les autres " .
-            "proviennent tels quels de l'extraction IA du rapport.",
+            "Ratios fondamentaux complets par entreprise sélectionnée (api_fundamentals.php, action 'list', voir " .
+            "FundamentalsAPI::buildRatios()) : compte de résultat, rentabilité (ROE/ROA), rotation/efficacité " .
+            "(rotation des actifs/créances/fournisseurs/stocks), structure financière et solvabilité (dette " .
+            "nette et ses dérivés, couverture des intérêts), liquidité/BFR, cash-flow (FCF, FCF Yield), ratios " .
+            "par action, valorisation (PER, PEG en 2 variantes, P/B, P/CA, P/CF, EV/EBITDA, EV/EBIT, EV/CA, " .
+            "EV/FCF), dividende (rendement, payout, rétention, couverture), et comparables sectoriels " .
+            "('sector_median_*'/'*_vs_sector_percent' — médiane des AUTRES entreprises du même secteur ayant une " .
+            "donnée pour ce multiple précis ; null si moins de 2 pairs disponibles ; 'sector_peer_count' donne " .
+            "toujours ce nombre de pairs). " .
+            "IMPORTANT — nature de la donnée : la base (key_financials/valuation_assessment) est EXTRAITE PAR IA " .
+            "du texte du dernier rapport financier de chaque entreprise déjà traité avec succès, PAS calculée " .
+            "depuis une source structurée fiable — différent des indicateurs techniques déjà analysés ailleurs " .
+            "dans cette application (calcul déterministe sur des cours en base). Un champ vide signifie que le " .
+            "rapport source ne divulguait pas l'élément nécessaire (ex. nombre d'actions en circulation rarement " .
+            "précisé, rendant PER/EPS/P-B/tous les multiples de capitalisation incalculables même sur un rapport " .
+            "bien traité) — pas une erreur. La date du rapport source (source_publish_date) et le cours de " .
+            "référence utilisé pour tous les multiples ('market_price'/'market_context_date') doivent toujours " .
+            "être mentionnés : un chiffre correct pour l'exercice couvert par le rapport peut être ancien par " .
+            "rapport à aujourd'hui. Les CAGR ('revenue_cagr'/'net_income_cagr'/'dividend_cagr', chacun un objet " .
+            "{cagr_percent, start_date, end_date, years}) sont calculés sur TOUT l'historique d'analyses réussies " .
+            "de l'entreprise ('historical_reports_count'), pas seulement le dernier rapport — cagr_percent peut " .
+            "être null (historique insuffisant, période trop courte, ou valeur de départ négative/nulle) même " .
+            "quand start_date/end_date/years sont renseignés : toujours lire ces derniers pour expliquer un CAGR " .
+            "manquant plutôt que de l'ignorer silencieusement.",
+        'valuation_model' =>
+            "Modèle de valorisation intrinsèque d'UNE entreprise (api_valuation.php, action 'compute', voir " .
+            "class/ValuationModelService.php) : WACC (coût moyen pondéré du capital), ROIC/EVA (création de " .
+            "valeur économique), DCF (flux de trésorerie actualisés) et DDM (modèle de Gordon sur les " .
+            "dividendes). CRITIQUE — bien distinguer des ratios de 'fundamentals' : tout ici repose sur des " .
+            "HYPOTHÈSES DE MARCHÉ explicites ('assumptions' : taux sans risque, prime de risque marché, taux " .
+            "d'imposition, croissance terminale) choisies comme un package raisonnable pour la zone UEMOA/BRVM, " .
+            "PAS des données mesurées ou extraites — à rappeler explicitement dans toute analyse, jamais présenté " .
+            "comme un fait. Le bêta ('beta_source') est soit calculé par régression sur l'historique de cours " .
+            "réel ('computed', avec 'beta_sample_days' jours de données communes avec l'indice), soit une " .
+            "hypothèse de repli neutre (bêta=1, 'assumed_market_neutral') quand l'historique est encore trop " .
+            "court — toujours préciser lequel des deux cas s'applique. 'dcf'/'ddm' ont chacun un champ " .
+            "'applicable' (false = modèle non calculable pour cette entreprise, avec la raison exacte dans " .
+            "'reason' : FCF négatif, pas de dividende, WACC indisponible, WACC/coût des capitaux propres " .
+            "inférieur à la croissance supposée...) — ne JAMAIS interpréter un value_per_share absent comme une " .
+            "absence de valeur, toujours citer la raison. Quand applicable, 'upside_percent' compare la valeur " .
+            "théorique par action au cours de marché actuel — un signal théorique à comparer entre plusieurs " .
+            "méthodes (DCF vs DDM vs multiples de 'fundamentals') plutôt qu'un chiffre isolé, jamais un conseil " .
+            "en investissement (voir 'disclaimer').",
         'backtest' =>
             "Simulation mécanique, jour par jour, d'une règle de trading simple sur l'historique déjà persisté " .
             "d'une entreprise (api_backtest.php, action 'run'), comparée à un simple 'acheter et garder' sur la " .

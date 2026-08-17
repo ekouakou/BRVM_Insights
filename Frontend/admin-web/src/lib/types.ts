@@ -870,6 +870,47 @@ export interface PortfolioSuggestionsResult {
  * `source_publish_date` doit toujours être affiché à côté des chiffres
  * (fiabilité liée à la fraîcheur du rapport, pas garantie "temps réel").
  */
+/**
+ * CAGR calculé entre le premier et le dernier point disponible d'une série
+ * (voir FundamentalsAPI::cagrDetails() côté backend) — cagr_percent peut
+ * être null même quand start_date/end_date/years sont renseignés (période
+ * trop courte, ou valeur de départ négative/nulle) : toujours afficher
+ * start_date/end_date/years pour expliquer un CAGR manquant plutôt que
+ * de laisser un simple tiret sans justification.
+ */
+export interface FundamentalsCagr {
+  cagr_percent: number | null
+  start_date: string | null
+  end_date: string | null
+  years: number | null
+}
+
+/** Un point d'une série historique (CA/résultat net/dividende) — un rapport analysé = un point, voir FundamentalsRow.revenue_history et consorts. */
+export interface FundamentalsHistoryPoint {
+  date: string
+  report_id: number
+  report_title: string
+  report_type: string
+  value: number
+}
+
+/** Point de FundamentalsRow.combined_dividend_history — comme FundamentalsHistoryPoint, plus la provenance (rapport financier ou bulletin BRVM). */
+export interface CombinedDividendPoint extends FundamentalsHistoryPoint {
+  source: 'rapport' | 'bulletin'
+}
+
+/**
+ * Ratios fondamentaux d'une entreprise (api_fundamentals.php, action
+ * 'list') — construits à partir du dernier rapport analysé par IA avec
+ * succès (key_financials/valuation_assessment), sans nouvel appel IA :
+ * certains champs sont l'extraction telle quelle, d'autres sont calculés
+ * ici (voir FundamentalsAPI::buildRatios() côté backend pour le détail des
+ * formules). 'market_price'/'market_cap'/'enterprise_value' et tous les
+ * multiples associés (price_to_*, ev_to_*) utilisent le cours à
+ * market_context_date (celui utilisé par l'IA pour pe_ratio/price_to_book/
+ * ev_to_ebitda), jamais le cours du jour de consultation, pour rester
+ * mutuellement cohérents entre eux.
+ */
 export interface FundamentalsRow {
   company_id: number
   symbol: string
@@ -877,38 +918,217 @@ export interface FundamentalsRow {
   sector_id: number | null
   sector: string | null
   source_report_id: number
+  /** id de la ligne company_report_analyses (pas du rapport) — cible une suppression précise (api_report_analysis.php, action 'delete'). */
+  source_analysis_id: number | null
   source_report_type: string
   source_report_title: string
   source_publish_date: string | null
+  /** Fournisseur/modèle IA ayant produit CETTE analyse — un même rapport peut être analysé par plusieurs IA, voir le filtre "IA" du Tableau de bord entreprise. */
+  source_provider: string | null
+  source_model: string | null
+  market_context_date: string | null
+  market_price: number | null
   currency: string | null
+
+  // Compte de résultat
   revenue: number | null
   revenue_prior_year: number | null
   revenue_growth_percent: number | null
+  gross_profit: number | null
+  gross_margin_percent: number | null
+  operating_income: number | null
+  operating_margin_percent: number | null
+  ebitda: number | null
+  ebitda_margin_percent: number | null
   net_income: number | null
   net_income_prior_year: number | null
+  net_income_growth_percent: number | null
   net_margin_percent: number | null
-  gross_margin_percent: number | null
-  operating_margin_percent: number | null
-  ebitda_margin_percent: number | null
+
+  // Rentabilité
   roe_percent: number | null
   roa_percent: number | null
+
+  // Rotation / efficacité — asset_turnover dérivé de l'identité de DuPont (ROA ÷ marge nette), les *_turnover dérivés par inversion des délais déjà extraits (365 / délai) : peuvent diverger si la marge nette est proche de 0.
+  asset_turnover: number | null
+  receivable_turnover: number | null
+  payable_turnover: number | null
+  inventory_turnover: number | null
+
+  // Croissance historique — calculée sur tout l'historique d'analyses réussies de cette entreprise (voir FundamentalsAPI::computeGrowthMetrics() côté backend)
+  historical_reports_count: number
+  revenue_cagr: FundamentalsCagr
+  net_income_cagr: FundamentalsCagr
+  dividend_cagr: FundamentalsCagr
+  /** Séries complètes derrière les CAGR ci-dessus (pas seulement le premier/dernier point) — un point par rapport analysé où la métrique était disponible, pour tracer un graphe. */
+  revenue_history: FundamentalsHistoryPoint[]
+  net_income_history: FundamentalsHistoryPoint[]
+  /** Dividende PAR ACTION (FCFA/action) — distinct de total_dividend_history (montant total versé, même échelle que CA/résultat net). */
+  dividend_history: FundamentalsHistoryPoint[]
+  total_dividend_history: FundamentalsHistoryPoint[]
+  /** Dividende par action déclaré dans les BULLETINS BRVM (BulletinCorporateActionsService) — source indépendante de dividend_history ci-dessus, sourcée des rapports financiers. */
+  bulletin_dividend_history: FundamentalsHistoryPoint[]
+  /** Fusion de dividend_history et bulletin_dividend_history, triée par date, chaque point marqué par sa provenance. */
+  combined_dividend_history: CombinedDividendPoint[]
+
+  // Structure financière / solvabilité
+  total_debt: number | null
+  total_equity: number | null
+  cash_position: number | null
+  net_debt: number | null
   debt_to_equity: number | null
+  net_debt_to_equity: number | null
   debt_to_ebitda: number | null
+  net_debt_to_ebitda: number | null
+  interest_expense: number | null
+  interest_coverage_ratio: number | null
+
+  // Liquidité / BFR
+  current_assets: number | null
+  current_liabilities: number | null
   current_ratio: number | null
+  quick_ratio: number | null
+  working_capital: number | null
+  receivable_days: number | null
+  payable_days: number | null
+  inventory_days: number | null
+
+  // Cash-flow
+  operating_cash_flow: number | null
+  capex: number | null
   free_cash_flow: number | null
-  dividend_per_share: number | null
+  fcf_yield_percent: number | null
+
+  // Par action
   shares_outstanding: number | null
   eps: number | null
   book_value_per_share: number | null
+  dividend_per_share: number | null
+
+  // Valorisation
+  market_cap: number | null
+  enterprise_value: number | null
   pe_ratio: number | null
-  /** PER ÷ croissance du CA (%) — absent du schéma d'extraction IA existant, calculé ici. */
+  /** PER ÷ croissance du CA (%). */
   peg_ratio: number | null
+  /** PER ÷ croissance du résultat net (%) — variante plus conventionnelle du PEG. */
+  peg_earnings_ratio: number | null
   price_to_book: number | null
+  /** PER × PBR ("critère de Graham") — repère traditionnel : au-delà de 22,5, l'action est jugée chère sur ces deux mesures combinées. */
+  per_pbr_product: number | null
+  price_to_sales: number | null
+  price_to_cash_flow: number | null
   ev_to_ebitda: number | null
+  ev_to_ebit: number | null
+  ev_to_sales: number | null
+  ev_to_fcf: number | null
+
+  // Flottant — extrait par IA uniquement si l'actionnariat est chiffré dans le rapport (voir ReportAnalysisService::buildPrompt()) ; nombre d'actions/capitalisation flottante calculés à partir de ce pourcentage.
+  free_float_percent: number | null
+  free_float_shares: number | null
+  free_float_market_cap: number | null
+
+  // Dividende
   dividend_yield_percent: number | null
   payout_ratio_percent: number | null
+  retention_ratio_percent: number | null
+  dividend_coverage: number | null
+
   valuation_verdict: string | null
   valuation_rationale: string | null
+
+  // Comparables sectoriels — médiane calculée sur les autres entreprises du même secteur (voir FundamentalsAPI::applySectorComparables() côté backend), null si moins de 2 pairs disponibles pour ce multiple.
+  sector_peer_count: number
+  sector_median_pe_ratio: number | null
+  pe_ratio_vs_sector_percent: number | null
+  sector_median_price_to_book: number | null
+  price_to_book_vs_sector_percent: number | null
+  sector_median_ev_to_ebitda: number | null
+  ev_to_ebitda_vs_sector_percent: number | null
+  sector_median_dividend_yield_percent: number | null
+  dividend_yield_percent_vs_sector_percent: number | null
+}
+
+interface DcfProjectedFlow {
+  year: number
+  fcf: number
+  present_value: number
+}
+
+/**
+ * DCF (flux actualisés) — 'applicable' est false quand une condition
+ * bloquante rend le modèle inapplicable (FCF négatif, WACC indisponible,
+ * WACC <= croissance terminale...), avec la raison exacte dans 'reason'
+ * plutôt qu'un simple null sans explication.
+ */
+export interface DcfResult {
+  applicable: boolean
+  reason: string | null
+  growth_rate_percent: number | null
+  growth_rate_source: 'revenue_cagr' | 'net_income_cagr' | 'none_assumed_zero' | null
+  projected_free_cash_flows: DcfProjectedFlow[]
+  terminal_value: number | null
+  present_value_terminal_value: number | null
+  enterprise_value: number | null
+  net_debt_deducted: number | null
+  equity_value: number | null
+  value_per_share: number | null
+  market_price: number | null
+  upside_percent: number | null
+}
+
+/** DDM (Gordon Growth Model) — même logique de 'applicable'/'reason' que DcfResult. */
+export interface DdmResult {
+  applicable: boolean
+  reason: string | null
+  growth_rate_percent: number | null
+  growth_rate_source: 'dividend_cagr' | 'assumed_terminal_growth' | null
+  projected_dividend_per_share: number | null
+  value_per_share: number | null
+  market_price: number | null
+  upside_percent: number | null
+}
+
+/**
+ * Modèle de valorisation intrinsèque complet d'une entreprise
+ * (api_valuation.php, action 'compute') — voir
+ * class/ValuationModelService.php côté backend pour la méthodologie et les
+ * hypothèses de marché ('assumptions', un package par défaut validé avec
+ * l'utilisateur, jamais une donnée mesurée).
+ */
+export interface ValuationModel {
+  company_id: number
+  assumptions: {
+    risk_free_rate_percent: number
+    market_risk_premium_percent: number
+    corporate_tax_rate_percent: number
+    terminal_growth_rate_percent: number
+    dcf_explicit_years: number
+  }
+  beta: number
+  /** 'computed' = régression sur l'historique de cours réel ; 'assumed_market_neutral' = repli (bêta=1) faute d'assez de jours de bourse. */
+  beta_source: 'computed' | 'assumed_market_neutral'
+  beta_sample_days: number
+  cost_of_equity_percent: number
+  wacc: {
+    wacc_percent: number | null
+    cost_of_debt_pre_tax_percent: number
+    cost_of_debt_after_tax_percent: number
+    cost_of_debt_source: 'extracted' | 'assumed_risk_free_plus_spread'
+    equity_weight_percent: number | null
+    debt_weight_percent: number | null
+    reason: string | null
+  }
+  roic_eva: {
+    nopat: number | null
+    invested_capital: number | null
+    roic_percent: number | null
+    eva: number | null
+    eva_spread_percent: number | null
+  }
+  dcf: DcfResult
+  ddm: DdmResult
+  disclaimer: string
 }
 
 /** Une position ouverte/fermée simulée par le backtest. */
@@ -1114,6 +1334,7 @@ export interface ValuationAssessment {
   payout_ratio_percent?: number | null
   verdict?: string
   rationale?: string
+  [key: string]: unknown
 }
 
 /** Corps structuré partagé par ReportAnalysis et CompanyDocumentAnalysis (même schéma de sortie IA, voir class/ReportAnalysisService.php et class/CompanyDocumentAnalysisService.php). */
