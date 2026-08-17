@@ -24,6 +24,7 @@ import { Backtest } from './pages/Backtest'
 import { CorporateActions } from './pages/CorporateActions'
 import { Indices } from './pages/Indices'
 import { PortfolioTeam } from './pages/PortfolioTeam'
+import { OcrReports } from './pages/OcrReports'
 
 function Protected({ children }: { children: ReactNode }) {
   return (
@@ -58,6 +59,7 @@ export default function App() {
         <Route path="/corporate-actions" element={<Protected><CorporateActions /></Protected>} />
         <Route path="/indices" element={<Protected><Indices /></Protected>} />
         <Route path="/my-team" element={<Protected><PortfolioTeam /></Protected>} />
+        <Route path="/ocr" element={<Protected><OcrReports /></Protected>} />
       </Routes>
     </AuthProvider>
   )

@@ -56,6 +56,7 @@ const NAV_ITEMS = [
   { to: '/corporate-actions', label: 'Opérations sur titres' },
   { to: '/indices', label: 'Indices' },
   { to: '/my-team', label: 'Mon Équipe BRVM' },
+  { to: '/ocr', label: 'OCR rapports scannés' },
 ]
 
 export function Layout({ children }: { children: ReactNode }) {
