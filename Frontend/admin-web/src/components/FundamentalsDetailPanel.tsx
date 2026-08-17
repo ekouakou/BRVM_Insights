@@ -1,9 +1,18 @@
-import { useState } from 'react'
-import type { UseQueryResult } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
-import type { CombinedDividendPoint, FundamentalsCagr, FundamentalsHistoryPoint, FundamentalsRow, ValuationModel } from '../lib/types'
-import { ErrorState, SearchableSelect, StatTile, Tabs } from './ui'
+import { callApi, reportDownloadUrl } from '../lib/apiClient'
+import type {
+  CombinedDividendPoint,
+  FundamentalsCagr,
+  FundamentalsHistoryPoint,
+  FundamentalsRow,
+  ReportAnalysis,
+  ValuationModel,
+} from '../lib/types'
+import { ErrorState, LoadingState, Modal, SearchableSelect, StatTile, Tabs } from './ui'
 import { ChartAiAnalysis } from './ChartAiAnalysis'
+import { FinancialsEditForm } from './FinancialsEditForm'
 
 function fmt(n: number | string | null | undefined, digits = 2): string {
   if (n === null || n === undefined) return '—'
@@ -169,16 +178,150 @@ function ChartColorPicker({
  * dividendes n'ont pas la même échelle et se lisent mieux chacun sur son
  * propre axe qu'en barres groupées ou en courbe superposée.
  */
+/**
+ * Point cliqué sur un graphe, avec la position de la souris : sert à
+ * afficher le menu contextuel juste sous le curseur.
+ */
+interface ChartMenuTarget {
+  point: FundamentalsHistoryPoint
+  x: number
+  y: number
+  metricLabel: string
+  formattedValue: string
+}
+
+/**
+ * Petit menu contextuel affiché au clic sur une barre, AVANT toute action :
+ * un clic sur un graphe ne doit pas ouvrir directement une fenêtre d'édition
+ * (geste destructeur potentiel déclenché par une simple exploration), il
+ * propose d'abord ce qu'on peut faire de ce point.
+ */
+function ChartContextMenu({
+  target,
+  onEdit,
+  onClose,
+}: {
+  target: ChartMenuTarget
+  onEdit: () => void
+  onClose: () => void
+}) {
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  // Fermeture au clic ailleurs ou à la touche Échap — un menu contextuel qui
+  // reste collé à l'écran est plus gênant que pas de menu du tout.
+  //
+  // L'écoute est en phase de CAPTURE (pour passer avant les gestionnaires de
+  // recharts, sinon un second clic sur une barre refermerait et rouvrirait
+  // aussitôt le menu), ce qui impose de vérifier ici que le clic n'est pas
+  // DANS le menu : en capture, cet écouteur s'exécute avant que l'événement
+  // n'atteigne le bouton, un stopPropagation posé sur le conteneur arriverait
+  // trop tard et le menu se fermerait avant que le bouton ne réagisse — ses
+  // actions ne se déclencheraient jamais.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && menuRef.current.contains(e.target as Node)) return
+      onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('mousedown', onDown, { capture: true })
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mousedown', onDown, { capture: true })
+    }
+  }, [onClose])
+
+  // Recadrage dans la fenêtre : sans cela, un clic sur une barre à droite ou
+  // en bas ouvrirait le menu hors de l'écran.
+  const width = 260
+  const left = Math.min(target.x, window.innerWidth - width - 12)
+  const top = Math.min(target.y, window.innerHeight - 190)
+
+  return (
+    <div
+      ref={menuRef}
+      role="menu"
+      style={{ position: 'fixed', left, top, width, zIndex: 60 }}
+      className="overflow-hidden rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+    >
+      <div className="border-b border-gray-100 px-3 py-2 dark:border-gray-800">
+        <div className="text-xs font-medium text-gray-900 dark:text-gray-100">{target.point.report_title}</div>
+        <div className="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+          {target.point.date} · {target.metricLabel} : <strong>{target.formattedValue}</strong>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onEdit}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        <span aria-hidden="true">✏️</span> Corriger les chiffres du rapport
+      </button>
+
+      {/* window.open() plutôt qu'une ancre : la fermeture du menu démonte
+          l'élément dans le gestionnaire de clic, et un navigateur ne suit pas
+          toujours le lien d'une ancre disparue entre-temps. L'ouverture est
+          ici explicite et déclenchée avant la fermeture. */}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          window.open(reportDownloadUrl(target.point.report_id), '_blank', 'noopener,noreferrer')
+          onClose()
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        <span aria-hidden="true">📄</span> Ouvrir le PDF du rapport
+      </button>
+
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          const value = String(target.point.value)
+          if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(value).catch(() => window.prompt('Valeur à copier :', value))
+          } else {
+            // Presse-papiers indisponible (contexte non sécurisé) : on montre
+            // au moins la valeur, plutôt qu'un clic sans aucun effet visible.
+            window.prompt('Valeur à copier :', value)
+          }
+          onClose()
+        }}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        <span aria-hidden="true">📋</span> Copier la valeur brute
+      </button>
+
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onClose}
+        className="w-full border-t border-gray-100 px-3 py-1.5 text-left text-xs text-gray-500 hover:bg-gray-100 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-gray-800"
+      >
+        Fermer
+      </button>
+    </div>
+  )
+}
+
 function HistoryBarChart({
   title,
   data,
   color,
   valueFormatter,
+  onSelectReport,
 }: {
   title: string
   data: FundamentalsHistoryPoint[]
   color: string
   valueFormatter: (v: number) => string
+  /** Clic sur une barre : ouvre le menu contextuel à l'endroit cliqué. */
+  onSelectReport?: (point: FundamentalsHistoryPoint, event: MouseEvent) => void
 }) {
   return (
     <div>
@@ -208,9 +351,23 @@ function HistoryBarChart({
                 return point ? `${point.report_title} (${point.date})` : ''
               }}
             />
-            <Bar dataKey="value" fill={color} radius={[3, 3, 0, 0]} />
+            <Bar
+              dataKey="value"
+              fill={color}
+              radius={[3, 3, 0, 0]}
+              cursor={onSelectReport ? 'pointer' : undefined}
+              onClick={(entry: unknown, _index: number, event: unknown) => {
+                const point = (entry as { payload?: FundamentalsHistoryPoint })?.payload
+                if (point && onSelectReport) onSelectReport(point, event as MouseEvent)
+              }}
+            />
           </BarChart>
         </ResponsiveContainer>
+      )}
+      {onSelectReport && data.length >= 2 && (
+        <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-600">
+          Une valeur vous semble fausse ? Cliquez sur la barre pour ouvrir le menu des actions possibles.
+        </p>
       )}
     </div>
   )
@@ -228,10 +385,14 @@ function CombinedDividendChart({
   data,
   colorRapport,
   colorBulletin,
+  onSelectReport,
 }: {
   data: CombinedDividendPoint[]
   colorRapport: string
   colorBulletin: string
+  /** Seuls les points issus d'un RAPPORT sont corrigeables ici : ceux venant
+      d'un bulletin proviennent des opérations sur titres, une autre source. */
+  onSelectReport?: (point: CombinedDividendPoint, event: MouseEvent) => void
 }) {
   if (data.length < 2) {
     return <p className="text-xs text-gray-400 dark:text-gray-600">Historique insuffisant pour un graphe (moins de 2 points, rapports et bulletins confondus).</p>
@@ -275,13 +436,30 @@ function CombinedDividendChart({
               return point ? `${point.report_title} (${point.date})` : ''
             }}
           />
-          <Bar dataKey="value" radius={[3, 3, 0, 0]}>
+          <Bar
+            dataKey="value"
+            radius={[3, 3, 0, 0]}
+            onClick={(entry: unknown, _index: number, event: unknown) => {
+              const point = (entry as { payload?: CombinedDividendPoint })?.payload
+              if (point && point.source === 'rapport' && onSelectReport) onSelectReport(point, event as MouseEvent)
+            }}
+          >
             {data.map((p) => (
-              <Cell key={dataKeyOf(p)} fill={p.source === 'bulletin' ? colorBulletin : colorRapport} />
+              <Cell
+                key={dataKeyOf(p)}
+                fill={p.source === 'bulletin' ? colorBulletin : colorRapport}
+                cursor={onSelectReport && p.source === 'rapport' ? 'pointer' : undefined}
+              />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      {onSelectReport && (
+        <p className="mt-0.5 text-[11px] text-gray-400 dark:text-gray-600">
+          Cliquez sur une barre « Rapports » pour ouvrir le menu des actions. Les barres « Bulletins »
+          viennent des opérations sur titres publiées par la BRVM et se corrigent depuis cet écran-là.
+        </p>
+      )}
     </div>
   )
 }
@@ -488,6 +666,35 @@ export function FundamentalsDetailPanel({ row, valuationQuery }: { row: Fundamen
   const chartColors = useFundamentalsChartColors()
   // '' = tous les types de rapport confondus — voir availableReportTypes() et le filtre "Type de rapport" ci-dessous.
   const [historyReportType, setHistoryReportType] = useState('')
+
+  // Correction manuelle déclenchée par un clic sur une barre. Le formulaire
+  // doit être pré-rempli avec TOUS les chiffres déjà connus du rapport :
+  // la sauvegarde manuelle remplace l'ensemble de key_financials, éditer une
+  // seule valeur sans les autres les effacerait (voir
+  // ReportAnalysisService::saveManualFinancials).
+  const queryClient = useQueryClient()
+  // Deux étapes distinctes : le clic ouvre d'abord un menu (menuTarget), et
+  // seul le choix « Corriger » ouvre la fenêtre d'édition (editingPoint).
+  const [menuTarget, setMenuTarget] = useState<ChartMenuTarget | null>(null)
+  const [editingPoint, setEditingPoint] = useState<FundamentalsHistoryPoint | null>(null)
+
+  /** Ouvre le menu contextuel sous le curseur pour le point cliqué. */
+  const openMenu =
+    (metricLabel: string, valueFormatter: (v: number) => string) =>
+    (point: FundamentalsHistoryPoint, event: MouseEvent) => {
+      setMenuTarget({
+        point,
+        x: event?.clientX ?? window.innerWidth / 2,
+        y: (event?.clientY ?? window.innerHeight / 2) + 8,
+        metricLabel,
+        formattedValue: valueFormatter(point.value),
+      })
+    }
+  const editingAnalysisQuery = useQuery({
+    queryKey: ['report-analysis-latest', editingPoint?.report_id],
+    queryFn: () => callApi<ReportAnalysis | null>('api_report_analysis.php', 'get', { report_id: editingPoint?.report_id }),
+    enabled: editingPoint !== null,
+  })
   const reportTypes = availableReportTypes(row)
   const filterByReportType = (data: FundamentalsHistoryPoint[]) =>
     historyReportType === '' ? data : data.filter((p) => p.report_type === historyReportType)
@@ -573,10 +780,10 @@ export function FundamentalsDetailPanel({ row, valuationQuery }: { row: Fundamen
           )}
 
           <div className="flex flex-col gap-4">
-            <HistoryBarChart title="Chiffre d'affaires" data={filterByReportType(row.revenue_history)} color={chartColors.colorFor('revenue')} valueFormatter={fmtCompact} />
-            <HistoryBarChart title="Résultat net" data={filterByReportType(row.net_income_history)} color={chartColors.colorFor('net_income')} valueFormatter={fmtCompact} />
-            <HistoryBarChart title="Dividendes totaux versés" data={filterByReportType(row.total_dividend_history)} color={chartColors.colorFor('total_dividend')} valueFormatter={fmtCompact} />
-            <HistoryBarChart title="Dividende par action (rapports)" data={filterByReportType(row.dividend_history)} color={chartColors.colorFor('dividend_per_share')} valueFormatter={(v) => `${fmt(v, 2)} FCFA`} />
+            <HistoryBarChart title="Chiffre d'affaires" data={filterByReportType(row.revenue_history)} color={chartColors.colorFor('revenue')} valueFormatter={fmtCompact} onSelectReport={openMenu("Chiffre d'affaires", fmtCompact)} />
+            <HistoryBarChart title="Résultat net" data={filterByReportType(row.net_income_history)} color={chartColors.colorFor('net_income')} valueFormatter={fmtCompact} onSelectReport={openMenu('Résultat net', fmtCompact)} />
+            <HistoryBarChart title="Dividendes totaux versés" data={filterByReportType(row.total_dividend_history)} color={chartColors.colorFor('total_dividend')} valueFormatter={fmtCompact} onSelectReport={openMenu('Dividendes totaux versés', fmtCompact)} />
+            <HistoryBarChart title="Dividende par action (rapports)" data={filterByReportType(row.dividend_history)} color={chartColors.colorFor('dividend_per_share')} valueFormatter={(v) => `${fmt(v, 2)} FCFA`} onSelectReport={openMenu('Dividende par action', (v) => `${fmt(v, 2)} FCFA`)} />
             {/* Sourcé des BULLETINS BRVM (déclarations de dividende), pas des rapports financiers — voir
                 FundamentalsRow.bulletin_dividend_history. Pas de filtre "Type de rapport" ici : les bulletins
                 n'ont pas de notion de trimestriel/semestriel/annuel, cela viderait toujours le graphe. */}
@@ -592,11 +799,49 @@ export function FundamentalsDetailPanel({ row, valuationQuery }: { row: Fundamen
                 data={row.combined_dividend_history}
                 colorRapport={chartColors.colorFor('dividend_per_share')}
                 colorBulletin={chartColors.colorFor('bulletin_dividend')}
+                onSelectReport={openMenu('Dividende par action', (v) => `${fmt(v, 2)} FCFA`)}
               />
             </div>
           </div>
         </div>
       )}
+
+      {menuTarget && (
+        <ChartContextMenu
+          target={menuTarget}
+          onClose={() => setMenuTarget(null)}
+          onEdit={() => {
+            setEditingPoint(menuTarget.point)
+            setMenuTarget(null)
+          }}
+        />
+      )}
+
+      {editingPoint !== null &&
+        (editingAnalysisQuery.isLoading ? (
+          <Modal title="Corriger les chiffres du rapport" onClose={() => setEditingPoint(null)}>
+            <LoadingState label="Chargement des chiffres déjà enregistrés…" />
+          </Modal>
+        ) : (
+          <FinancialsEditForm
+            reportId={editingPoint.report_id}
+            reportTitle={`${editingPoint.report_title} (${editingPoint.date})`}
+            initialKeyFinancials={editingAnalysisQuery.data?.analysis?.key_financials ?? null}
+            initialValuationAssessment={editingAnalysisQuery.data?.analysis?.valuation_assessment ?? null}
+            onClose={() => setEditingPoint(null)}
+            onSaved={() => {
+              // Les graphes sont alimentés par api_fundamentals.php. Les
+              // clés diffèrent selon l'écran ('fundamentals-list',
+              // 'fundamentals-history', 'fundamentals-years') : un prédicat
+              // les couvre toutes, là où une clé fixe en raterait certaines
+              // et laisserait des barres périmées à l'écran.
+              queryClient.invalidateQueries({
+                predicate: (query) => String(query.queryKey[0] ?? '').startsWith('fundamentals'),
+              })
+              queryClient.invalidateQueries({ queryKey: ['report-analysis-latest', editingPoint.report_id] })
+            }}
+          />
+        ))}
 
       {detailTab === 'rentabilite' && (
         <div className="flex flex-col gap-5">

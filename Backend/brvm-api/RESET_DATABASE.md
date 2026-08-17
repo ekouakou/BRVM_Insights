@@ -37,83 +37,72 @@ retour en arrière possible une fois exécuté (sauf sauvegarde préalable).
 
 ## Étape 1 — Tout supprimer
 
+> **#1451 / #1217 « Impossible de supprimer un enregistrement père » ?**
+> C'est que `SET FOREIGN_KEY_CHECKS = 0;` n'a pas été exécuté dans la MÊME
+> session que les `DROP`. Cause quasi systématique : n'avoir copié qu'une
+> partie du bloc — phpMyAdmin affiche alors la requête fautive, qui commence
+> directement par `DROP TABLE`. **Copiez le bloc ci-dessous en entier**, de
+> la première à la dernière ligne, et exécutez-le d'un seul coup.
+
 À coller dans **phpMyAdmin → onglet SQL** (production) ou à exécuter via
-`mysql -u root -p brvm_trading_app < ce_fichier.sql` (local) :
+`mysql -u root -p brvm_trading_app < ce_fichier.sql` (local).
+
+Ce script se met à jour tout seul : il lit la liste réelle des tables et des
+vues de la base courante au moment de l'exécution, plutôt que de s'appuyer
+sur une liste écrite à la main. Aucune table ajoutée par une future migration
+ne peut donc lui échapper — c'était le défaut de la version précédente, qu'il
+fallait compléter à chaque migration sous peine de laisser des tables
+survivre à la « remise à zéro » et provoquer des `#1050 already exists` au
+réimport. Il est relançable sans risque : sur une base déjà vide, il affiche
+simplement « Aucune table à supprimer ».
 
 ```sql
+-- Liste des tables concaténée en une seule commande : la limite par défaut
+-- de GROUP_CONCAT (1024 caractères) tronquerait la liste au-delà d'une
+-- quarantaine de tables, et la suppression serait silencieusement partielle.
+SET SESSION group_concat_max_len = 1000000;
+
+-- Indispensable, et dans la MÊME session que les DROP : sans cela, toute
+-- table référencée par une clé étrangère refuse d'être supprimée.
 SET FOREIGN_KEY_CHECKS = 0;
 
--- Procédure stockée (ni une table ni une vue, DROP TABLE/VIEW ne la touche
--- pas — omise ici par le passé, ce qui laissait #1304 "already exists" au
--- réimport même après avoir vidé tables et vues)
+-- Procédures stockées : ni des tables ni des vues, DROP TABLE/VIEW ne les
+-- touche pas (oubli qui laissait #1304 "already exists" au réimport).
 DROP PROCEDURE IF EXISTS calculate_technical_indicators;
 
-
 -- Vues (DROP TABLE ne fonctionne pas dessus, il faut DROP VIEW)
-DROP VIEW IF EXISTS latest_quotes;
-DROP VIEW IF EXISTS top_gainers;
-DROP VIEW IF EXISTS top_losers;
-DROP VIEW IF EXISTS volume_leaders;
+SET @vues = NULL;
+SELECT GROUP_CONCAT(CONCAT('`', TABLE_NAME, '`')) INTO @vues
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'VIEW';
+SET @sql = IF(@vues IS NULL, 'SELECT "Aucune vue a supprimer" AS resultat',
+              CONCAT('DROP VIEW IF EXISTS ', @vues));
+PREPARE requete FROM @sql; EXECUTE requete; DEALLOCATE PREPARE requete;
 
--- Suivi des migrations (voir scripts/migrate.php) — inclus pour une remise à
--- zéro totale, sinon d'anciennes entrées "déjà appliquée" pourraient rester
--- même après suppression des tables qu'elles concernaient.
-DROP TABLE IF EXISTS schema_migrations;
-
--- Tables, dans un ordre quelconque grâce à FOREIGN_KEY_CHECKS=0 ci-dessus.
--- ⚠️ Cette liste doit être complétée à CHAQUE nouvelle migration créant une
--- table : une table oubliée ici survit à la « remise à zéro » et provoque un
--- #1050 "already exists" au réimport (constaté par le passé avec la
--- procédure stockée et les vues, d'où les DROP séparés ci-dessus).
-DROP TABLE IF EXISTS
-    admin_sessions,
-    admin_users,
-    combined_analyses,
-    company_chat_messages,
-    company_document_analyses,
-    company_document_contents,
-    company_documents,
-    chart_analyses,
-    -- Migrations 017/018/020 : Mon Équipe BRVM (portefeuille simulé)
-    portfolio_ai_reviews,
-    portfolio_team_proposals,
-    portfolio_thesis,
-    portfolio_cash_reserve,
-    portfolio_holdings,
-    -- Migration 019 : journal d'informations de marché
-    company_market_events,
-    -- Migration 021 : annonces émetteurs BRVM
-    issuer_announcement_analyses,
-    issuer_announcement_contents,
-    issuer_announcements,
-    -- Migration 022 : carnet d'ordres & liquidité
-    intraday_execution_flow,
-    order_book_snapshots,
-    market_bulletin_corporate_actions,
-    market_bulletin_comparisons,
-    market_bulletin_analyses,
-    market_bulletin_contents,
-    market_bulletins,
-    company_report_comparisons,
-    company_report_analyses,
-    company_report_contents,
-    company_reports,
-    price_alerts,
-    technical_indicators,
-    sync_logs,
-    system_config,
-    index_composition,
-    index_values,
-    market_indices,
-    intraday_total_variation,
-    intraday_quotes,
-    stock_quotes,
-    companies,
-    countries,
-    sectors;
+-- Toutes les tables de la base courante, y compris schema_migrations (pour
+-- une remise à zéro totale : sinon d'anciennes entrées "déjà appliquée"
+-- resteraient alors que les tables concernées ont disparu).
+SET @tables = NULL;
+SELECT GROUP_CONCAT(CONCAT('`', TABLE_NAME, '`')) INTO @tables
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE';
+SET @sql = IF(@tables IS NULL, 'SELECT "Aucune table a supprimer" AS resultat',
+              CONCAT('DROP TABLE IF EXISTS ', @tables));
+PREPARE requete FROM @sql; EXECUTE requete; DEALLOCATE PREPARE requete;
 
 SET FOREIGN_KEY_CHECKS = 1;
 ```
+
+### Vérifier que la base est bien vide
+
+```sql
+SELECT COUNT(*) AS objets_restants
+FROM information_schema.TABLES
+WHERE TABLE_SCHEMA = DATABASE();
+```
+
+Le résultat doit être `0`. S'il ne l'est pas, c'est que le bloc n'a pas été
+exécuté en entier (voir l'avertissement en tête de section).
 
 Vérifie ensuite que la base est bien vide (0 table, 0 vue) avant de
 continuer — dans phpMyAdmin, la liste des tables à gauche doit être vide.
