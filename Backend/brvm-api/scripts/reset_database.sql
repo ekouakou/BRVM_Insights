@@ -65,6 +65,10 @@ DROP TABLE IF EXISTS
     -- Migration 022 : carnet d'ordres & liquidité
     intraday_execution_flow,
     order_book_snapshots,
+    -- Migration 024 : PER/rendement officiels BRVM par valeur
+    bulletin_stock_metrics,
+    -- Migration 025 : marché obligataire
+    bulletin_bond_metrics,
     market_bulletin_corporate_actions,
     market_bulletin_comparisons,
     market_bulletin_analyses,

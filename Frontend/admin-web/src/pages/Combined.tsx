@@ -196,6 +196,7 @@ export function Combined() {
   const [provider, setProvider] = useState<AiProvider>('gemini')
   const [model, setModel] = useState('')
   const modelListId = useId()
+  const [reportTypeFilter, setReportTypeFilter] = useState('')
 
   const companiesQuery = useQuery({
     queryKey: ['companies-list'],
@@ -286,7 +287,9 @@ export function Combined() {
   // Seuls les rapports/bulletins déjà mis en forme en markdown sont utilisables pour
   // l'analyse IA combinée (voir demande utilisateur) — les autres restent visibles
   // mais grisés/non sélectionnables plutôt que masqués.
-  const eligibleReports = (reportsQuery.data ?? []).filter((r) => r.text_extracted)
+  const eligibleReports = (reportsQuery.data ?? [])
+    .filter((r) => r.text_extracted)
+    .filter((r) => !reportTypeFilter || r.report_type === reportTypeFilter)
   const selectableReports = eligibleReports.filter((r) => r.markdown_status === 'success')
   const allReportsSelected = selectableReports.length > 0 && selectableReports.every((r) => selectedReportIds.has(r.id))
 
@@ -345,21 +348,38 @@ export function Combined() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Rapports sélectionnés">
           <div className="flex flex-col gap-3">
-            <label>
-              <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
-              <Select value={companyId ?? ''} onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : null)}>
-                <option value="">— Choisir —</option>
-                {(companiesQuery.data ?? []).map((c) => (
-                  <option key={c.company_id} value={c.company_id}>{c.symbol} — {c.name}</option>
-                ))}
-              </Select>
-            </label>
+            <div className="flex flex-wrap gap-3">
+              <label className="min-w-[180px] flex-1">
+                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
+                <Select value={companyId ?? ''} onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">— Choisir —</option>
+                  {(companiesQuery.data ?? []).map((c) => (
+                    <option key={c.company_id} value={c.company_id}>{c.symbol} — {c.name}</option>
+                  ))}
+                </Select>
+              </label>
+              <label className="w-40">
+                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Type de rapport</span>
+                <Select value={reportTypeFilter} onChange={(e) => setReportTypeFilter(e.target.value)}>
+                  <option value="">Tous les types</option>
+                  <option value="annuel">Annuel</option>
+                  <option value="semestriel">Semestriel</option>
+                  <option value="trimestriel">Trimestriel</option>
+                  <option value="etats_financiers">États financiers</option>
+                  <option value="attestation_cac">Attestation CAC</option>
+                </Select>
+              </label>
+            </div>
 
             {reportsQuery.isLoading && <LoadingState />}
             {reportsQuery.data && (
               <div className="flex max-h-52 flex-col gap-1 overflow-y-auto rounded-md border border-gray-200 p-2 dark:border-gray-800">
                 {eligibleReports.length === 0 && (
-                  <p className="p-2 text-xs text-gray-500 dark:text-gray-400">Aucun rapport avec texte extrait pour cette entreprise.</p>
+                  <p className="p-2 text-xs text-gray-500 dark:text-gray-400">
+                    {reportTypeFilter
+                      ? 'Aucun rapport de ce type avec texte extrait pour cette entreprise.'
+                      : 'Aucun rapport avec texte extrait pour cette entreprise.'}
+                  </p>
                 )}
                 {eligibleReports.length > 0 && (
                   <label className="flex cursor-pointer items-center gap-2 rounded border-b border-gray-100 px-2 py-1 text-xs font-medium text-gray-500 dark:border-gray-800 dark:text-gray-400">

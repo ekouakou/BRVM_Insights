@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -62,7 +62,6 @@ import { CompanyChatBot } from '../components/CompanyChatBot'
 import { CompanyMarketEvents } from '../components/CompanyMarketEvents'
 import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
 import { ExecutionFlowPanel, OrderBookLiquidityPanel } from '../components/CompanyOrderBook'
-import { CompanyDividends } from '../components/CompanyDividends'
 import { FundamentalsDetailPanel, REPORT_TYPE_LABELS } from '../components/FundamentalsDetailPanel'
 import { FinancialsEditForm } from '../components/FinancialsEditForm'
 import { DailyQuotesChart } from '../components/DailyQuotesChart'
@@ -374,7 +373,6 @@ const TABS = [
   { id: 'fondamentaux', label: 'Fondamentaux' },
   { id: 'evenements', label: 'Événements' },
   { id: 'annonces', label: 'Annonces BRVM' },
-  { id: 'dividendes', label: 'Dividendes' },
   { id: 'operations', label: 'Opérations sur titres' },
   { id: 'rapports', label: 'Rapports' },
   { id: 'backtest', label: 'Backtest rapide' },
@@ -386,6 +384,7 @@ type TabId = (typeof TABS)[number]['id']
 
 export function CompanyDashboard() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const initialSymbol = searchParams.get('symbol')
   // Permet un lien direct vers un onglet précis (ex. depuis la page Fondamentaux : /company?symbol=ABJC&tab=fondamentaux)
@@ -494,7 +493,7 @@ export function CompanyDashboard() {
   })
 
   // Rendement du dividende et rang sur le marché, affichés dans le bandeau
-  // résumé. Même clé de cache que l'onglet Dividendes (CompanyDividends) :
+  // résumé. Même clé de cache que CompanyDividends (Opérations sur titres) :
   // le classement complet du marché n'est donc chargé qu'une seule fois.
   const dividendRankingQuery = useQuery({
     queryKey: ['dividend-ranking', 24],
@@ -1093,8 +1092,9 @@ export function CompanyDashboard() {
               )}
             </div>
             <div className="ml-auto flex flex-wrap items-center justify-end gap-4">
-              {/* Rendement du dividende + rang sur le marché (voir onglet
-                  Dividendes pour le détail des versements). */}
+              {/* Rendement du dividende + rang sur le marché — le détail des
+                  versements (graphe + tableau) vit désormais dans Opérations
+                  sur titres, voir CorporateActions.tsx onglet "dividendes". */}
               {dividendStanding ? (
                 <BannerStat
                   label="Rendement"
@@ -1102,8 +1102,8 @@ export function CompanyDashboard() {
                   rank={dividendStanding.rank}
                   total={dividendStanding.total}
                   tone="positive"
-                  title={`Dernier dividende : ${dividendStanding.row.last_amount} FCFA par action, versé le ${dividendStanding.row.last_date}. Cliquer pour voir le détail.`}
-                  onClick={() => setActiveTab('dividendes')}
+                  title={`Dernier dividende : ${dividendStanding.row.last_amount} FCFA par action, versé le ${dividendStanding.row.last_date}. Cliquer pour voir le détail dans Opérations sur titres.`}
+                  onClick={() => navigate(`/corporate-actions?tab=dividendes&symbol=${selectedCompany?.symbol ?? ''}`)}
                 />
               ) : (
                 dividendRankingQuery.data && (
@@ -1915,26 +1915,6 @@ export function CompanyDashboard() {
                 </p>
               </InfoPanel>
               <OrderBookLiquidityPanel companyId={companyId} startDate={startDate} endDate={endDate} />
-            </div>
-          )}
-
-          {activeTab === 'dividendes' && companyId !== null && (
-            <div className="flex flex-col gap-4">
-              <InfoPanel>
-                <p>
-                  <strong>À quoi sert cet onglet.</strong> Un dividende, c'est la part du bénéfice que l'entreprise
-                  reverse à ses actionnaires. Tu trouves ici <strong>tous les versements connus de cette
-                  entreprise</strong> (graphe et tableau détaillé), et sa place parmi{' '}
-                  <strong>tous les rendements du marché</strong> pour savoir si elle paie bien comparée aux autres.
-                </p>
-                <p>
-                  Le <strong>rendement</strong> rapporte le dividende au cours actuel : c'est ce que te
-                  rapporterait ton argent au prix d'aujourd'hui. Deux rappels : le jour du détachement, le cours
-                  baisse mécaniquement d'environ le montant versé (ce n'est pas une chute) ; et les montants
-                  affichés sont bruts, avant l'IRVM (10 à 12 % selon ta situation).
-                </p>
-              </InfoPanel>
-              <CompanyDividends companyId={companyId} symbol={selectedCompany?.symbol ?? ''} />
             </div>
           )}
 

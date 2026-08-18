@@ -84,6 +84,66 @@ async function parseJsonBody(response: Response): Promise<{ success: boolean; da
  * -> {success, data?, message?}. On centralise ça ici, avec le header
  * X-Auth-Token (pas "Authorization", voir class/AuthGuard.php côté backend).
  */
+/**
+ * URL de téléchargement du modèle de saisie d'un format d'état financier.
+ * Le token voyage en paramètre d'URL : un téléchargement déclenché par le
+ * navigateur ne peut pas poser d'en-tête X-Auth-Token (même principe que
+ * reportDownloadUrl ci-dessus).
+ */
+export function statementTemplateUrl(
+  statementType: string | null,
+  rows = 5,
+  prefill?: { reportId?: number; companyId?: number; reportIds?: number[] },
+): string {
+  const token = getToken() ?? ''
+  // `rows` = nombre de lignes vierges préparées, une par état à saisir.
+  const parts = [`action=import_template`, `rows=${rows}`, `token=${encodeURIComponent(token)}`]
+  if (statementType) parts.push(`statement_type=${encodeURIComponent(statementType)}`)
+  // Pré-remplissage depuis les analyses IA : le fichier arrive déjà rempli,
+  // à vérifier puis réimporter.
+  if (prefill?.reportId) parts.push(`prefill_report_id=${prefill.reportId}`)
+  if (prefill?.companyId) parts.push(`prefill_company_id=${prefill.companyId}`)
+  if (prefill?.reportIds?.length) parts.push(`prefill_report_ids=${prefill.reportIds.join(',')}`)
+  return `${API_BASE_URL}/api_financial_statements.php?${parts.join('&')}`
+}
+
+/**
+ * Variante de callApi() pour un envoi de FICHIER (multipart/form-data).
+ *
+ * Ne pose PAS d'en-tête Content-Type : le navigateur doit le générer
+ * lui-même avec la « boundary » du multipart, sinon le serveur ne sait pas
+ * découper le corps et $_FILES reste vide.
+ */
+export async function callApiUpload<T = unknown>(
+  endpoint: string,
+  action: string,
+  file: File,
+  params: Record<string, string> = {},
+): Promise<T> {
+  const token = getToken()
+  const form = new FormData()
+  form.append('action', action)
+  form.append('file', file)
+  for (const [key, value] of Object.entries(params)) form.append(key, value)
+
+  const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+    method: 'POST',
+    headers: { ...(token ? { 'X-Auth-Token': token } : {}) },
+    body: form,
+  })
+
+  if (response.status === 401) {
+    clearToken()
+    throw new ApiError('Session expirée, reconnecte-toi', 401)
+  }
+
+  const body = await parseJsonBody(response)
+  if (!body.success) {
+    throw new ApiError(body.message ?? 'Erreur inconnue', response.status)
+  }
+  return body.data as T
+}
+
 export async function callApi<T = unknown>(
   endpoint: string,
   action: string,

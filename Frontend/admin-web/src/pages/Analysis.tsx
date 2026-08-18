@@ -190,6 +190,7 @@ export function Analysis() {
   const queryClient = useQueryClient()
   const [companyId, setCompanyId] = useState<number | null>(null)
   const [reportId, setReportId] = useState<number | null>(null)
+  const [reportTypeFilter, setReportTypeFilter] = useState('')
   const [provider, setProvider] = useState<AiProvider>('gemini')
   const [model, setModel] = useState('')
   const modelListId = useId()
@@ -203,8 +204,8 @@ export function Analysis() {
   const selectedCompany = companiesQuery.data?.find((c) => c.company_id === companyId)
 
   const reportsQuery = useQuery({
-    queryKey: ['reports-for-company', selectedCompany?.symbol],
-    queryFn: () => callApi<ReportSummary[]>('api_reports.php', 'list', { symbol: selectedCompany?.symbol }),
+    queryKey: ['reports-for-company', selectedCompany?.symbol, reportTypeFilter],
+    queryFn: () => callApi<ReportSummary[]>('api_reports.php', 'list', { symbol: selectedCompany?.symbol, report_type: reportTypeFilter || undefined }),
     enabled: !!selectedCompany,
   })
 
@@ -301,6 +302,18 @@ export function Analysis() {
               {(companiesQuery.data ?? []).map((c) => (
                 <option key={c.company_id} value={c.company_id}>{c.symbol} — {c.name}</option>
               ))}
+            </Select>
+          </label>
+
+          <label className="w-44">
+            <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Type de rapport</span>
+            <Select value={reportTypeFilter} onChange={(e) => { setReportTypeFilter(e.target.value); setReportId(null) }}>
+              <option value="">Tous les types</option>
+              <option value="annuel">Annuel</option>
+              <option value="semestriel">Semestriel</option>
+              <option value="trimestriel">Trimestriel</option>
+              <option value="etats_financiers">États financiers</option>
+              <option value="attestation_cac">Attestation CAC</option>
             </Select>
           </label>
 

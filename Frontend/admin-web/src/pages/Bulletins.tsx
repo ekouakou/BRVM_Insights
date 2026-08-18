@@ -765,6 +765,9 @@ export function Bulletins() {
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Corrige directement le texte markdown ci-dessous (tableaux, chiffres, coquilles d'extraction...),
                     puis enregistre — remplace la version actuelle, même effet qu'un import de fichier .md.
+                    Le PER/rendement et les opérations sur titres déjà extraits pour ce bulletin (page Opérations sur
+                    titres) seront invalidés et réapparaîtront comme « en attente » pour être réextraits sur ce texte
+                    corrigé.
                   </p>
                   <textarea
                     value={editedMarkdown}

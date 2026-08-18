@@ -92,7 +92,12 @@ class BulletinCorporateActionsService {
 
             // Réextraction = source de vérité : on repart de zéro pour ce
             // bulletin plutôt que d'accumuler des doublons à chaque relance.
-            $this->crud->remove('market_bulletin_corporate_actions', ['bulletin_id' => $bulletinId]);
+            // DynamiqueCrud::remove() ajoute un LIMIT 1 systématique (pensé
+            // pour supprimer UNE ligne identifiée) : sur plusieurs dizaines
+            // de lignes par bulletin, il n'en supprimerait qu'une seule et
+            // les relances s'accumuleraient en doublons — d'où un DELETE
+            // direct, sans limite, ici.
+            $this->crud->executeCustomQuery("DELETE FROM market_bulletin_corporate_actions WHERE bulletin_id = ?", [$bulletinId]);
 
             foreach ($actions as $action) {
                 $rawName = trim((string) ($action['company_name'] ?? ''));

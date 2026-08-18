@@ -42,15 +42,32 @@ export function AnalysisBadge({ count, models }: { count: number; models: string
   )
 }
 
-export function StatTile({ label, value, tone = 'default' }: { label: string; value: ReactNode; tone?: 'default' | 'positive' | 'negative' }) {
+export function StatTile({
+  label,
+  value,
+  tone = 'default',
+  tooltip,
+}: {
+  label: string
+  value: ReactNode
+  tone?: 'default' | 'positive' | 'negative'
+  /** Explication du calcul effectué, affichée au survol (infobulle native) — utile pour les ratios dont la formule n'est pas évidente (PER, PBR, ROE...). */
+  tooltip?: string
+}) {
   const toneClass =
     tone === 'positive' ? 'text-emerald-600 dark:text-emerald-400'
     : tone === 'negative' ? 'text-red-600 dark:text-red-400'
     : 'text-gray-900 dark:text-gray-100'
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950">
-      <div className="text-xs text-gray-500 dark:text-gray-400">{label}</div>
+    <div
+      className={`rounded-lg border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-950 ${tooltip ? 'cursor-help' : ''}`}
+      title={tooltip}
+    >
+      <div className="text-xs text-gray-500 dark:text-gray-400">
+        {label}
+        {tooltip && <span className="ml-1 text-gray-400 dark:text-gray-500">ⓘ</span>}
+      </div>
       <div className={`mt-1 text-xl font-semibold ${toneClass}`}>{value}</div>
     </div>
   )

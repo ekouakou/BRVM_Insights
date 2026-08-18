@@ -1,3 +1,8 @@
+
+## IMPORTER UNE BASE DE DONNEE TRES LOURDES
+gunzip -c ~/Downloads/dump_brimmobi_brvm_trading_app_2026-08-17_171701.sql.gz \
+  | /Applications/MAMP/Library/bin/mysql -h127.0.0.1 -P3306 -uroot -proot brvm_trading_app
+
 # Réinitialisation complète de la base de données
 
 Script de suppression totale (tables + vues) pour repartir d'une base vide et

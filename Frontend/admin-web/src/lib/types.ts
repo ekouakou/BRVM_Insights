@@ -1624,6 +1624,135 @@ export interface CorporateActionsExtractResult {
   updated_at: string | null
 }
 
+/** Une ligne du tableau "par valeur" d'un BOC : PER et rendement net officiels BRVM pour une séance. */
+export interface StockMetric {
+  id: number
+  bulletin_id: number
+  publish_date: string
+  company_id: number | null
+  company_symbol: string | null
+  company_name: string | null
+  symbol_raw: string
+  company_name_raw: string | null
+  close_price: number | string | null
+  per: number | string | null
+  yield_net_percent: number | string | null
+  bulletin_title?: string
+}
+
+/** Bulletin dont le texte est disponible mais pas encore extrait pour les métriques par valeur. */
+export interface PendingStockMetricsBulletin {
+  id: number
+  title: string
+  publish_date: string
+}
+
+/** Bulletin déjà extrait pour les métriques par valeur (pour un sélecteur). */
+export interface ExtractedStockMetricsBulletin {
+  id: number
+  title: string
+  publish_date: string
+}
+
+/** api_bulletin_stock_metrics.php, action 'list'. */
+export interface StockMetricsListResult {
+  metrics: StockMetric[]
+  count: number
+  bulletins: ExtractedStockMetricsBulletin[]
+  pending_bulletins: PendingStockMetricsBulletin[]
+  pending_count: number
+}
+
+/** api_bulletin_stock_metrics.php, action 'extract'/'get'. */
+export interface StockMetricsExtractResult {
+  bulletin: { id: number; title: string; publish_date: string }
+  status: 'success' | 'error' | null
+  error_message: string | null
+  provider: string | null
+  model: string | null
+  metrics: StockMetric[]
+  cached: boolean
+  updated_at: string | null
+}
+
+export type BondCategory =
+  | 'sovereign'
+  | 'financial_institution'
+  | 'corporate'
+  | 'gss_financial'
+  | 'gss_corporate'
+  | 'fctc_public'
+  | 'fctc_financial'
+  | 'fctc_corporate'
+  | 'fctc_gss_corporate'
+  | 'sukuk'
+  | 'convertible'
+
+/** Une ligne obligataire d'un BOC : cours, coupon couru, périodicité, échéance (api_bulletin_bond_metrics.php). */
+export interface BondMetric {
+  id: number
+  bulletin_id: number
+  publish_date: string
+  symbol: string
+  title: string | null
+  category: BondCategory
+  nominal_value: number | string | null
+  previous_price: number | string | null
+  day_price: number | string | null
+  day_price_status: 'NC' | 'SP' | null
+  reference_price: number | string | null
+  volume: number | string | null
+  value_traded: number | string | null
+  accrued_coupon: number | string | null
+  period_type: 'A' | 'S' | 'T' | null
+  net_amount: number | string | null
+  maturity_date: string | null
+  amortization_type: string | null
+  bulletin_title?: string
+}
+
+/** Bulletin dont le texte est disponible mais pas encore extrait pour le marché obligataire. */
+export interface PendingBondMetricsBulletin {
+  id: number
+  title: string
+  publish_date: string
+}
+
+/** Bulletin déjà extrait pour le marché obligataire (pour un sélecteur). */
+export interface ExtractedBondMetricsBulletin {
+  id: number
+  title: string
+  publish_date: string
+}
+
+/** api_bulletin_bond_metrics.php, action 'list'. */
+export interface BondMetricsListResult {
+  bonds: BondMetric[]
+  count: number
+  bulletins: ExtractedBondMetricsBulletin[]
+  pending_bulletins: PendingBondMetricsBulletin[]
+  pending_count: number
+}
+
+/** api_bulletin_bond_metrics.php, action 'extract'/'get'. */
+export interface BondMetricsExtractResult {
+  bulletin: { id: number; title: string; publish_date: string }
+  status: 'success' | 'error' | null
+  error_message: string | null
+  provider: string | null
+  model: string | null
+  bonds: BondMetric[]
+  cached: boolean
+  updated_at: string | null
+}
+
+/** api_bulletin_bond_metrics.php, action 'symbols'. */
+export interface BondSymbolOption {
+  symbol: string
+  title: string | null
+  category: BondCategory
+}
+
 export interface CombinedAnalysisResult {
   id: number
   report_ids: number[]
@@ -1709,6 +1838,38 @@ export interface OrderBookSnapshotRow {
 export interface OrderBookSnapshotsResult {
   snapshots: OrderBookSnapshotRow[]
   source: string
+}
+
+/** Une séance agrégée pour tout le marché (api_order_book.php, action 'market_pressure'). */
+export interface MarketPressureDay {
+  snapshot_date: string
+  bulletin_id: number
+  bulletin_title: string | null
+  companies_total: number
+  companies_no_book: number
+  total_bid_qty: number | string
+  total_ask_qty: number | string
+  companies_buyer: number
+  companies_seller: number
+  net_qty: number
+  imbalance_ratio: number | null
+  dominant: 'acheteur' | 'vendeur' | 'equilibre'
+}
+
+/** Bulletin dont le carnet d'ordres n'est pas encore extrait. */
+export interface PendingOrderBookBulletin {
+  id: number
+  title: string
+  publish_date: string
+}
+
+/** api_order_book.php, action 'market_pressure'. */
+export interface MarketPressureResult {
+  days: MarketPressureDay[]
+  pending_bulletins: PendingOrderBookBulletin[]
+  pending_count: number
+  nature: Record<string, string[]>
+  note: string
 }
 
 /** Intervalle d'exécution intraday (delta du volume cumulé brvm.org). */

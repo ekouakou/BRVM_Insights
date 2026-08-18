@@ -4,9 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { BarChart, Bar, LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts'
-import { callApi, reportDownloadUrl, uploadFile } from '../lib/apiClient'
+import { callApi, reportDownloadUrl, uploadFile, statementTemplateUrl } from '../lib/apiClient'
 import type { BackfillCompanyProgress, ComparisonResult, CompanyMatchResult, DiscoverResult, ReportAnalysis, ReportDetail, ReportProcessResult, ReportSummary } from '../lib/types'
-import { AnalysisBadge, Button, Card, ErrorState, LoadingState, MarkdownBadge, Modal, StatTile, Table } from '../components/ui'
+import { AnalysisBadge, Button, Card, ErrorState, LoadingState, MarkdownBadge, Modal, Select, StatTile, Table } from '../components/ui'
 import { BoltIcon, CloseIcon, EditIcon, EyeIcon, IconButton, InfoIcon, RetryIcon, UploadIcon } from '../components/icons'
 import { FinancialsEditForm } from '../components/FinancialsEditForm'
 
@@ -18,6 +18,7 @@ interface BackfillProgress {
 export function Reports() {
   const navigate = useNavigate()
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null)
+  const [reportTypeFilter, setReportTypeFilter] = useState('')
   const [results, setResults] = useState<Record<number, ReportProcessResult>>({})
   const [pendingId, setPendingId] = useState<number | null>(null)
   const [transportErrors, setTransportErrors] = useState<Record<number, string>>({})
@@ -57,8 +58,8 @@ export function Reports() {
   })
 
   const reportsQuery = useQuery({
-    queryKey: ['reports-list', selectedSymbol],
-    queryFn: () => callApi<ReportSummary[]>('api_reports.php', 'list', { symbol: selectedSymbol }),
+    queryKey: ['reports-list', selectedSymbol, reportTypeFilter],
+    queryFn: () => callApi<ReportSummary[]>('api_reports.php', 'list', { symbol: selectedSymbol, report_type: reportTypeFilter || undefined }),
     enabled: !!selectedSymbol,
   })
 
@@ -483,9 +484,23 @@ export function Reports() {
 
         <Card>
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400">
-              {selectedSymbol ? `Rapports — ${selectedSymbol}` : 'Sélectionne une entreprise'}
-            </h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                {selectedSymbol ? `Rapports — ${selectedSymbol}` : 'Sélectionne une entreprise'}
+              </h2>
+              {selectedSymbol && (
+                <label className="w-44">
+                  <Select value={reportTypeFilter} onChange={(e) => setReportTypeFilter(e.target.value)} className="text-xs">
+                    <option value="">Tous les types</option>
+                    <option value="annuel">Annuel</option>
+                    <option value="semestriel">Semestriel</option>
+                    <option value="trimestriel">Trimestriel</option>
+                    <option value="etats_financiers">États financiers</option>
+                    <option value="attestation_cac">Attestation CAC</option>
+                  </Select>
+                </label>
+              )}
+            </div>
             {selectedSymbol && (
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -540,6 +555,24 @@ export function Reports() {
                   <span className="flex items-center gap-2">
                     <BoltIcon />
                     {`Analyser les rapports sélectionnés (${selectedReportIds.length})`}
+                  </span>
+                </Button>
+                {/* Même sélection, autre usage : produire le tableau Excel
+                    des états financiers, une ligne par rapport coché. */}
+                <Button
+                  variant="secondary"
+                  disabled={selectedReportIds.length === 0}
+                  onClick={() =>
+                    window.open(
+                      statementTemplateUrl(null, selectedReportIds.length, { reportIds: selectedReportIds }),
+                      '_blank',
+                      'noopener,noreferrer',
+                    )
+                  }
+                >
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden="true">⭱</span>
+                    {`Modèle États financiers des rapports sélectionnés (${selectedReportIds.length})`}
                   </span>
                 </Button>
               </div>
@@ -624,6 +657,21 @@ export function Reports() {
                             onClick={() => setEditFinancialsReportId(r.id)}
                           >
                             <EditIcon />
+                          </IconButton>
+                          {/* Modèle « États financiers » pré-rempli avec les
+                              chiffres déjà extraits de ce rapport : à vérifier
+                              dans Excel puis à réimporter. */}
+                          <IconButton
+                            title="Télécharger le modèle États financiers pré-rempli avec les chiffres de ce rapport"
+                            onClick={() =>
+                              window.open(
+                                statementTemplateUrl(null, 1, { reportId: r.id }),
+                                '_blank',
+                                'noopener,noreferrer',
+                              )
+                            }
+                          >
+                            <span aria-hidden="true" className="text-xs font-semibold">⭱</span>
                           </IconButton>
                           {!extracted && (
                             <IconButton

@@ -406,6 +406,20 @@ class BulletinsAPI {
             'extraction_error' => null,
         ], ['id' => $bulletinId]);
 
+        // Le PDF change : le markdown déjà formaté (et tout ce qui en a été
+        // extrait) portait sur l'ANCIEN fichier — voir
+        // invalidateDerivedExtractions(). Le markdown lui-même doit être
+        // reformaté depuis le nouveau texte, pas seulement ses extractions.
+        $this->crud->merge('market_bulletin_contents', [
+            'formatted_markdown' => null,
+            'markdown_status' => null,
+            'markdown_error' => null,
+            'markdown_provider' => null,
+            'markdown_model' => null,
+            'markdown_updated_at' => null,
+        ], ['bulletin_id' => $bulletinId]);
+        $this->invalidateDerivedExtractions($bulletinId);
+
         $status = $this->extractAndPersist($bulletinId, $localPath);
         return ['success' => true, 'data' => $this->bulletinStatusPayload($bulletinId, $status)];
     }
@@ -462,7 +476,44 @@ class BulletinsAPI {
             'extraction_error' => null,
         ], ['id' => $bulletinId]);
 
+        // Le markdown vient de changer : toute extraction déjà faite dessus
+        // (PER/rendement, opérations sur titres) porte sur l'ANCIEN texte —
+        // sans invalidation, une correction resterait invisible (voir
+        // invalidateDerivedExtractions()).
+        $this->invalidateDerivedExtractions($bulletinId);
+
         return ['success' => true, 'data' => ['id' => $bulletinId, 'status' => 'success']];
+    }
+
+    /**
+     * Invalide les extractions dérivées du markdown d'un bulletin — PER et
+     * rendement officiels par valeur (BulletinStockMetricsService) et
+     * opérations sur titres (BulletinCorporateActionsService) — devenues
+     * obsolètes après une correction manuelle du markdown ou le remplacement
+     * du PDF source. Ces services réutilisent leur cache dès que leur statut
+     * vaut 'success', sans savoir que le texte sous-jacent a changé entre
+     * temps ; sans cet appel, une correction resterait invisible dans
+     * l'application (PER, dividendes, etc. continueraient d'afficher les
+     * valeurs extraites de l'ancien texte). Supprime aussi les lignes déjà
+     * extraites, pas seulement leur statut, pour ne pas laisser de données
+     * périmées affichées comme à jour en attendant une réextraction — le
+     * bulletin réapparaît alors dans les listes "en attente" de
+     * CorporateActions.tsx jusqu'à ce qu'il soit réextrait.
+     */
+    private function invalidateDerivedExtractions($bulletinId) {
+        $this->crud->merge('market_bulletin_contents', [
+            'corporate_actions_status' => null,
+            'corporate_actions_error' => null,
+            'stock_metrics_status' => null,
+            'stock_metrics_error' => null,
+        ], ['bulletin_id' => $bulletinId]);
+        // DynamiqueCrud::remove() ajoute un LIMIT 1 systématique (pensé pour
+        // supprimer UNE ligne identifiée) : sur plusieurs dizaines de lignes
+        // par bulletin, il n'en supprimerait qu'une seule — d'où un DELETE
+        // direct, sans limite, ici (même correctif que dans
+        // BulletinStockMetricsService/BulletinCorporateActionsService).
+        $this->crud->executeCustomQuery("DELETE FROM market_bulletin_corporate_actions WHERE bulletin_id = ?", [$bulletinId]);
+        $this->crud->executeCustomQuery("DELETE FROM bulletin_stock_metrics WHERE bulletin_id = ?", [$bulletinId]);
     }
 
     /**

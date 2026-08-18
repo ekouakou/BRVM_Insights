@@ -54,6 +54,7 @@ const NAV_ITEMS = [
   { to: '/manual-financials', label: 'Saisie manuelle' },
   { to: '/backtest', label: 'Backtesting' },
   { to: '/corporate-actions', label: 'Opérations sur titres' },
+  { to: '/bond-market', label: 'Marché obligataire' },
   { to: '/indices', label: 'Indices' },
   { to: '/my-team', label: 'Mon Équipe BRVM' },
   { to: '/financial-statements', label: 'États financiers' },

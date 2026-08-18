@@ -307,3 +307,31 @@
 [2026-08-17 16:35:10][INFO] Anciens logs supprimés
 [2026-08-17 16:35:10][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
 [2026-08-17 16:35:10][INFO] Lock supprimé
+[2026-08-18 08:34:53][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-18 08:34:53][INFO] Lock créé
+[2026-08-18 08:34:53][INFO] Synchronisation des cotations...
+[2026-08-18 08:34:56][INFO] Cotations: Traités=47, Insérés=47, Mis à jour=0, Échoués=0
+[2026-08-18 08:34:56][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-18 08:34:56][INFO] Synchronisation des indices...
+[2026-08-18 08:34:58][INFO] Indices: Traités=12, Insérés=12, Mis à jour=0, Échoués=0
+[2026-08-18 08:34:58][INFO] Temps d'exécution total: 5.69s
+[2026-08-18 08:35:00][WARNING] Notification push non envoyée: Request is malformed: Failed to parse app_id from request
+[2026-08-18 08:35:00][INFO] Nettoyage des données antérieures à 2024-08-18
+[2026-08-18 08:35:00][INFO] Anciennes cotations supprimées
+[2026-08-18 08:35:00][INFO] Anciens logs supprimés
+[2026-08-18 08:35:00][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-18 08:35:00][INFO] Lock supprimé
+[2026-08-18 16:35:09][INFO] ========== DÉBUT SYNCHRONISATION CRON ==========
+[2026-08-18 16:35:09][INFO] Lock créé
+[2026-08-18 16:35:09][INFO] Synchronisation des cotations...
+[2026-08-18 16:35:11][INFO] Cotations: Traités=47, Insérés=0, Mis à jour=47, Échoués=0
+[2026-08-18 16:35:12][INFO] Indicateurs techniques recalculés pour 47 entreprise(s)
+[2026-08-18 16:35:12][INFO] Synchronisation des indices...
+[2026-08-18 16:35:13][INFO] Indices: Traités=12, Insérés=0, Mis à jour=12, Échoués=0
+[2026-08-18 16:35:13][INFO] Temps d'exécution total: 4.44s
+[2026-08-18 16:35:14][WARNING] Notification push non envoyée: Request is malformed: Failed to parse app_id from request
+[2026-08-18 16:35:14][INFO] Nettoyage des données antérieures à 2024-08-18
+[2026-08-18 16:35:14][INFO] Anciennes cotations supprimées
+[2026-08-18 16:35:14][INFO] Anciens logs supprimés
+[2026-08-18 16:35:14][INFO] ========== SYNCHRONISATION TERMINÉE AVEC SUCCÈS ==========
+[2026-08-18 16:35:14][INFO] Lock supprimé

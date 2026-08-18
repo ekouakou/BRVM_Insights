@@ -65,6 +65,8 @@ class OrderBookAPI {
                     return $this->executionFlow($input);
                 case 'pressure':
                     return $this->pressure($input);
+                case 'market_pressure':
+                    return $this->marketPressure($input);
                 case 'heatmap':
                     return $this->heatmap($input);
                 case 'absorption':
@@ -265,6 +267,68 @@ class OrderBookAPI {
             'days' => $rows,
             'nature' => ['calcule' => ['total_volume', 'total_value'], 'estime' => ['buy_volume', 'sell_volume', 'net_volume', 'dominant']],
             'note' => "Le sens achat/vente est estimé par tick rule (le volume neutre n'a pas pu être classé) — un indicateur de tendance, pas un décompte d'ordres réels.",
+        ]];
+    }
+
+    /**
+     * Pression acheteur/vendeur du MARCHÉ ENTIER (pas une entreprise), sur
+     * une période choisie — agrège les carnets fin de séance (🟦 observé,
+     * voir order_book_snapshots) de toutes les entreprises d'un même
+     * bulletin : la quantité résiduelle à l'achat de chacune (bid_residual_qty,
+     * ce qui reste en attente côté acheteurs à la meilleure limite, non
+     * exécuté faute de contrepartie) contre la quantité résiduelle à la
+     * vente (ask_residual_qty). Plus la somme achat dépasse la somme vente
+     * sur une séance, plus la demande non satisfaite excède l'offre à ces
+     * niveaux de prix — et inversement. Contrairement à pressure() (une
+     * entreprise, estimé par tick rule sur les exécutions intraday), ceci
+     * est 100% observé dans le bulletin, mais UNIQUEMENT sur ce qui reste
+     * affiché en fin de séance — pas un décompte de tous les ordres passés
+     * dans la journée.
+     */
+    private function marketPressure($input) {
+        list($start, $end) = $this->period($input);
+
+        $rows = $this->crud->executeCustomQuery(
+            "SELECT DATE(s.snapshot_datetime) AS snapshot_date,
+                    s.bulletin_id,
+                    b.title AS bulletin_title,
+                    COUNT(*) AS companies_total,
+                    SUM(CASE WHEN s.bid_residual_qty IS NULL AND s.ask_residual_qty IS NULL THEN 1 ELSE 0 END) AS companies_no_book,
+                    SUM(COALESCE(s.bid_residual_qty, 0)) AS total_bid_qty,
+                    SUM(COALESCE(s.ask_residual_qty, 0)) AS total_ask_qty,
+                    SUM(CASE WHEN COALESCE(s.bid_residual_qty, 0) > COALESCE(s.ask_residual_qty, 0) THEN 1 ELSE 0 END) AS companies_buyer,
+                    SUM(CASE WHEN COALESCE(s.ask_residual_qty, 0) > COALESCE(s.bid_residual_qty, 0) THEN 1 ELSE 0 END) AS companies_seller
+             FROM order_book_snapshots s
+             LEFT JOIN market_bulletins b ON b.id = s.bulletin_id
+             WHERE DATE(s.snapshot_datetime) BETWEEN ? AND ?
+             GROUP BY DATE(s.snapshot_datetime), s.bulletin_id, b.title
+             ORDER BY snapshot_date",
+            [$start, $end]
+        ) ?: [];
+
+        foreach ($rows as $i => $r) {
+            $bid = (int) $r['total_bid_qty'];
+            $ask = (int) $r['total_ask_qty'];
+            $rows[$i]['net_qty'] = $bid - $ask;
+            $rows[$i]['imbalance_ratio'] = ($bid + $ask) > 0 ? round($bid / ($bid + $ask), 4) : null;
+            $rows[$i]['dominant'] = $bid > $ask ? 'acheteur' : ($ask > $bid ? 'vendeur' : 'equilibre');
+        }
+
+        $pending = $this->crud->executeCustomQuery(
+            "SELECT b.id, b.title, b.publish_date
+             FROM market_bulletins b
+             JOIN market_bulletin_contents mbc ON mbc.bulletin_id = b.id
+             WHERE (mbc.extracted_text IS NOT NULL AND mbc.extracted_text != '')
+               AND (mbc.order_book_status IS NULL OR mbc.order_book_status != 'success')
+             ORDER BY b.publish_date DESC"
+        ) ?: [];
+
+        return ['success' => true, 'data' => [
+            'days' => $rows,
+            'pending_bulletins' => $pending,
+            'pending_count' => count($pending),
+            'nature' => ['observe' => ['total_bid_qty', 'total_ask_qty', 'companies_buyer', 'companies_seller', 'imbalance_ratio']],
+            'note' => "imbalance_ratio = quantité résiduelle à l'achat / (achat + vente), toutes entreprises confondues pour ce bulletin — 0,5 = équilibre, au-dessus = marché plutôt acheteur, en dessous = marché plutôt vendeur. Basé uniquement sur ce qui reste affiché en carnet fin de séance (pas un décompte de tous les ordres passés dans la journée).",
         ]];
     }
 

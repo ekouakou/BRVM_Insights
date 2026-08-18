@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Login } from './pages/Login'
 import { Overview } from './pages/Overview'
 import { CompanyDashboard } from './pages/CompanyDashboard'
@@ -22,15 +23,24 @@ import { Fundamentals } from './pages/Fundamentals'
 import { ManualFinancials } from './pages/ManualFinancials'
 import { Backtest } from './pages/Backtest'
 import { CorporateActions } from './pages/CorporateActions'
+import { BondMarket } from './pages/BondMarket'
 import { Indices } from './pages/Indices'
 import { PortfolioTeam } from './pages/PortfolioTeam'
 import { OcrReports } from './pages/OcrReports'
 import { FinancialStatements } from './pages/FinancialStatements'
 
 function Protected({ children }: { children: ReactNode }) {
+  const location = useLocation()
   return (
     <ProtectedRoute>
-      <Layout>{children}</Layout>
+      <Layout>
+        {/* La limite est remontée par la clé : changer d'écran repart d'un
+            état sain, sinon une erreur figerait toute la navigation. Elle est
+            placée SOUS le Layout pour que le menu reste utilisable. */}
+        <ErrorBoundary key={location.pathname} label={location.pathname}>
+          {children}
+        </ErrorBoundary>
+      </Layout>
     </ProtectedRoute>
   )
 }
@@ -58,6 +68,7 @@ export default function App() {
         <Route path="/manual-financials" element={<Protected><ManualFinancials /></Protected>} />
         <Route path="/backtest" element={<Protected><Backtest /></Protected>} />
         <Route path="/corporate-actions" element={<Protected><CorporateActions /></Protected>} />
+        <Route path="/bond-market" element={<Protected><BondMarket /></Protected>} />
         <Route path="/indices" element={<Protected><Indices /></Protected>} />
         <Route path="/my-team" element={<Protected><PortfolioTeam /></Protected>} />
         <Route path="/ocr" element={<Protected><OcrReports /></Protected>} />
