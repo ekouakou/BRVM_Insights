@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Legend, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { callApi } from '../lib/apiClient'
 import type {
   Company,
@@ -9,6 +9,8 @@ import type {
   IndexHistoryPoint,
   MarketIndex,
   MarketPressureResult,
+  OrderBookSnapshotsResult,
+  PerformanceRankingRow,
   RelativeStrengthSeries,
   StockMetric,
   StockMetricsListResult,
@@ -18,7 +20,9 @@ import { DividendCharts } from '../components/DividendCharts'
 import { CompanyDividends } from '../components/CompanyDividends'
 import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
-import { colorForCompany } from '../lib/companyGroups'
+import { DividendComparisonPanel } from '../components/DividendComparison'
+import { LiquidityComparisonPanel } from '../components/LiquidityComparison'
+import { colorForCompany, groupCompaniesBySector, useCompanyColors, usePersistedSelection } from '../lib/companyGroups'
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -118,15 +122,32 @@ export function CorporateActions() {
   const [metricsExtractingId, setMetricsExtractingId] = useState<number | null>(null)
   const [metricsAsOfDate, setMetricsAsOfDate] = useState('')
   const [metricsBulletinId, setMetricsBulletinId] = useState('')
+  // Performance du cours (rendement net = plus/moins-value) entre deux dates
+  // choisies, toutes entreprises — distinct du « Rdt. Net » officiel BRVM
+  // (colonne du bulletin) tracé plus bas : ici c'est un calcul sur le
+  // mouvement du cours, comparable à l'onglet « Par performance » de
+  // VolumeRanking.tsx (même endpoint), mais intégré à cet écran pour ne pas
+  // avoir à changer de page.
+  const [perfStartDate, setPerfStartDate] = useState(daysAgoIso(90))
+  const [perfEndDate, setPerfEndDate] = useState(todayIso())
   const [indexStartDate, setIndexStartDate] = useState(daysAgoIso(90))
   const [indexEndDate, setIndexEndDate] = useState(todayIso())
   const [selectedIndexCodes, setSelectedIndexCodes] = useState<string[]>([])
   const [pressureStartDate, setPressureStartDate] = useState(daysAgoIso(90))
   const [pressureEndDate, setPressureEndDate] = useState(todayIso())
-  const [activeTab, setActiveTab] = useState<'liste' | 'dividendes' | 'per' | 'indices' | 'annonces' | 'pression'>(
+  // Onglet « Comparaison entreprises » : sélection MULTIPLE (contrairement
+  // au sélecteur unique partagé par les autres onglets ci-dessus), même
+  // pattern que Comparison.tsx/Statistics.tsx (chips groupées par secteur,
+  // sélection persistée, couleur stable par entreprise).
+  const [comparisonSelected, setComparisonSelected] = usePersistedSelection('brvm_corporate_actions_comparison_selection')
+  const { colorFor: comparisonColorFor } = useCompanyColors()
+  const [comparisonStartDate, setComparisonStartDate] = useState(daysAgoIso(90))
+  const [comparisonEndDate, setComparisonEndDate] = useState(todayIso())
+  const [comparisonSubTab, setComparisonSubTab] = useState<'liste' | 'dividendes' | 'per' | 'indices' | 'pression'>('liste')
+  const [activeTab, setActiveTab] = useState<'liste' | 'dividendes' | 'per' | 'indices' | 'annonces' | 'pression' | 'comparaison'>(
     () =>
       initialTabParam === 'dividendes' || initialTabParam === 'per' || initialTabParam === 'indices' ||
-      initialTabParam === 'annonces' || initialTabParam === 'pression'
+      initialTabParam === 'annonces' || initialTabParam === 'pression' || initialTabParam === 'comparaison'
         ? initialTabParam
         : 'liste',
   )
@@ -139,6 +160,17 @@ export function CorporateActions() {
   const companyOptions = useMemo(() => {
     return [...(companiesQuery.data ?? [])].sort((a, b) => a.name.localeCompare(b.name))
   }, [companiesQuery.data])
+
+  // Groupement par secteur pour les chips de sélection multiple de l'onglet
+  // Comparaison — même utilitaire que Comparison.tsx/Statistics.tsx.
+  const { sectors: comparisonSectors, unclassified: comparisonUnclassified } = useMemo(
+    () => groupCompaniesBySector(companyOptions),
+    [companyOptions],
+  )
+
+  function toggleComparisonCompany(id: number) {
+    setComparisonSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
 
   // Applique le symbole passé dans l'URL une seule fois, dès que la liste
   // des entreprises est chargée — ne doit jamais écraser un choix fait
@@ -254,23 +286,127 @@ export function CorporateActions() {
     },
   })
 
+  // Carnet d'ordres résiduel d'UNE entreprise (l'entreprise sélectionnée en
+  // haut de page) sur la période choisie — répond à « ses actionnaires
+  // sont-ils plutôt acheteurs ou vendeurs ? », par opposition au marché
+  // entier. Même formule que marketPressure() côté backend (net = achat -
+  // vente, imbalance_ratio = achat / (achat+vente)), reprise ici côté
+  // client car `snapshots` ne calcule ni net_qty ni dominant par ligne
+  // (contrairement à market_pressure qui agrège déjà tout le marché).
+  const companyOrderBookQuery = useQuery({
+    queryKey: ['company-order-book-snapshots', selectedCompanyId, pressureStartDate, pressureEndDate],
+    queryFn: () =>
+      callApi<OrderBookSnapshotsResult>('api_order_book.php', 'snapshots', {
+        company_id: selectedCompanyId,
+        start_date: pressureStartDate,
+        end_date: pressureEndDate,
+      }),
+    enabled: activeTab === 'pression' && !!selectedCompanyId && pressurePeriodEnabled,
+  })
+
   const pressureChartData = useMemo(() => {
-    const days = marketPressureQuery.data?.days ?? []
-    return [...days]
+    const rows = companyOrderBookQuery.data?.snapshots ?? []
+    return [...rows]
       .sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date))
-      .map((d) => ({
-        date: d.snapshot_date,
-        net_qty: d.net_qty,
-        imbalance_ratio: d.imbalance_ratio,
-        companies_buyer: d.companies_buyer,
-        companies_seller: d.companies_seller,
-        bulletin_title: d.bulletin_title,
-      }))
-  }, [marketPressureQuery.data])
-  const pressureDays = marketPressureQuery.data?.days ?? []
-  const buyerDaysCount = pressureDays.filter((d) => d.dominant === 'acheteur').length
-  const sellerDaysCount = pressureDays.filter((d) => d.dominant === 'vendeur').length
+      .filter((r) => r.bid_residual_qty !== null || r.ask_residual_qty !== null)
+      .map((r) => {
+        const bid = r.bid_residual_qty ?? 0
+        const ask = r.ask_residual_qty ?? 0
+        const net_qty = bid - ask
+        const dominant: 'acheteur' | 'vendeur' | 'equilibre' = bid > ask ? 'acheteur' : ask > bid ? 'vendeur' : 'equilibre'
+        return {
+          date: r.snapshot_date,
+          bid_qty: bid,
+          ask_qty: ask,
+          net_qty,
+          imbalance_ratio: r.imbalance_ratio !== null ? Number(r.imbalance_ratio) : null,
+          dominant,
+        }
+      })
+  }, [companyOrderBookQuery.data])
+  const buyerDaysCount = pressureChartData.filter((d) => d.dominant === 'acheteur').length
+  const sellerDaysCount = pressureChartData.filter((d) => d.dominant === 'vendeur').length
   const lastPressureDay = pressureChartData[pressureChartData.length - 1] ?? null
+
+  // --- Onglet « Comparaison entreprises » -----------------------------
+  // Trois requêtes dédiées, indépendantes des filtres/sélecteurs des autres
+  // onglets (qui portent sur UNE entreprise) : la comparaison porte sur
+  // `comparisonSelected` (plusieurs). Dividendes et Agitation du marché
+  // n'ont pas besoin de requête ici : DividendComparisonPanel et
+  // LiquidityComparisonPanel s'alimentent eux-mêmes.
+  const comparisonPeriodEnabled = comparisonStartDate !== '' && comparisonEndDate !== '' && comparisonStartDate <= comparisonEndDate
+  const comparisonActive = activeTab === 'comparaison' && comparisonSelected.length > 0
+
+  // Opérations sur titres : l'API ne filtre que sur UN company_id à la
+  // fois — on récupère donc tout sur la période puis on filtre côté client
+  // sur la sélection multiple (même contournement que le classement PER
+  // ci-dessus, qui repose déjà sur cette API sans filtre entreprise).
+  const comparisonActionsQuery = useQuery({
+    queryKey: ['corporate-actions-comparison', comparisonStartDate, comparisonEndDate],
+    queryFn: () =>
+      callApi<CorporateActionsListResult>('api_bulletin_corporate_actions.php', 'list', {
+        start_date: comparisonStartDate || undefined,
+        end_date: comparisonEndDate || undefined,
+      }),
+    enabled: comparisonActive && comparisonSubTab === 'liste',
+  })
+  const comparisonActionRows = (comparisonActionsQuery.data?.actions ?? []).filter(
+    (r) => r.company_id !== null && comparisonSelected.includes(r.company_id),
+  )
+
+  // PER & rendement net : même contournement — pas de filtre multi-entreprise
+  // côté API, filtrage client sur bulletin_stock_metrics non filtré.
+  const comparisonMetricsQuery = useQuery({
+    queryKey: ['stock-metrics-comparison', comparisonStartDate, comparisonEndDate],
+    queryFn: () =>
+      callApi<StockMetricsListResult>('api_bulletin_stock_metrics.php', 'list', {
+        start_date: comparisonStartDate || undefined,
+        end_date: comparisonEndDate || undefined,
+      }),
+    enabled: comparisonActive && comparisonSubTab === 'per',
+  })
+  const comparisonYieldChartData = useMemo(() => {
+    const rows = (comparisonMetricsQuery.data?.metrics ?? []).filter(
+      (r) => r.company_id !== null && comparisonSelected.includes(r.company_id),
+    )
+    const byDate = new Map<string, Record<string, number | string>>()
+    for (const r of rows) {
+      if (r.yield_net_percent === null) continue
+      const row = byDate.get(r.publish_date) ?? { date: r.publish_date }
+      row[r.company_symbol ?? r.symbol_raw] = Number(r.yield_net_percent)
+      byDate.set(r.publish_date, row)
+    }
+    return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+  }, [comparisonMetricsQuery.data, comparisonSelected])
+
+  // Indice & performance : `relative_strength` accepte déjà un tableau de
+  // company_ids — même endpoint que l'onglet Indices ci-dessus, juste avec
+  // la sélection multiple au lieu d'un seul id (voir Statistics.tsx pour le
+  // même usage multi-entreprises de cet endpoint).
+  const comparisonRelativeStrengthQuery = useQuery({
+    queryKey: ['corporate-actions-comparison-relative-strength', comparisonSelected, comparisonStartDate, comparisonEndDate],
+    queryFn: () =>
+      callApi<RelativeStrengthSeries[]>('api_quotes.php', 'relative_strength', {
+        company_ids: comparisonSelected,
+        start_date: comparisonStartDate,
+        end_date: comparisonEndDate,
+      }),
+    enabled: comparisonActive && comparisonSubTab === 'indices' && comparisonPeriodEnabled,
+  })
+  const comparisonRelativeStrengthSeries = comparisonRelativeStrengthQuery.data ?? []
+  const comparisonRelativeStrengthChartData = useMemo(() => {
+    const byDate = new Map<string, Record<string, number | string>>()
+    for (const serie of comparisonRelativeStrengthSeries) {
+      for (const point of serie.data) {
+        const row = byDate.get(point.date) ?? { date: point.date }
+        if (point.relative_strength !== null) row[serie.symbol] = point.relative_strength
+        if (point.index_variation_percent !== null) row['BRVM-COMPOSITE'] = point.index_variation_percent
+        byDate.set(point.date, row)
+      }
+    }
+    return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)))
+  }, [comparisonRelativeStrengthSeries])
+  // ----------------------------------------------------------------------
 
   const filters = {
     company_id: selectedCompanyId || undefined,
@@ -311,6 +447,26 @@ export function CorporateActions() {
     enabled: activeTab === 'per',
   })
 
+  const perfPeriodEnabled = activeTab === 'per' && !!perfStartDate && !!perfEndDate && perfStartDate <= perfEndDate
+
+  const performanceRankingQuery = useQuery({
+    queryKey: ['corporate-actions-performance-ranking', perfStartDate, perfEndDate],
+    queryFn: () =>
+      callApi<PerformanceRankingRow[]>('api_quotes.php', 'performance_ranking', {
+        start_date: perfStartDate,
+        end_date: perfEndDate,
+      }),
+    enabled: perfPeriodEnabled,
+  })
+
+  const perfRankingChartData = useMemo(
+    () =>
+      (performanceRankingQuery.data ?? [])
+        .filter((r) => r.variation_percent !== null)
+        .map((r) => ({ company_id: r.company_id, symbol: r.symbol, name: r.name, variation: r.variation_percent as number })),
+    [performanceRankingQuery.data],
+  )
+
   const metricsExtractMutation = useMutation({
     mutationFn: (bulletinId: number) =>
       callApi('api_bulletin_stock_metrics.php', 'extract', { bulletin_id: bulletinId }),
@@ -345,6 +501,35 @@ export function CorporateActions() {
       }))
   }, [companyHistoryQuery.data])
 
+  // Classement multi-entreprises du rendement net officiel BRVM — une seule
+  // barre par entreprise (dernière valeur connue), construit à partir de
+  // metricsRows qui contient déjà toutes les entreprises quand aucune n'est
+  // sélectionnée en haut de page. metricsRows est trié par publish_date
+  // décroissant (côté API), donc la première ligne rencontrée par entreprise
+  // est la plus récente — même logique que latestMetric ci-dessous, répétée
+  // par entreprise plutôt que pour une seule.
+  const yieldRankingChartData = useMemo(() => {
+    if (selectedCompanyId) return []
+    const rows: StockMetric[] = metricsQuery.data?.metrics ?? []
+    const seen = new Set<number | string>()
+    const result: { key: string; symbol: string; name: string; value: number; publish_date: string; bulletin_title: string | null }[] = []
+    for (const r of rows) {
+      const key = r.company_id ?? r.symbol_raw
+      if (seen.has(key)) continue
+      seen.add(key)
+      if (r.yield_net_percent === null) continue
+      result.push({
+        key: String(key),
+        symbol: r.company_symbol ?? r.symbol_raw,
+        name: r.company_name ?? r.company_name_raw ?? r.symbol_raw,
+        value: Number(r.yield_net_percent),
+        publish_date: r.publish_date,
+        bulletin_title: r.bulletin_title ?? null,
+      })
+    }
+    return result.sort((a, b) => b.value - a.value)
+  }, [metricsQuery.data, selectedCompanyId])
+
   const data = listQuery.data
   const rows = data?.actions ?? []
   const metricsData = metricsQuery.data
@@ -375,13 +560,13 @@ export function CorporateActions() {
 
       <Card>
         <div className="flex flex-wrap items-end gap-4">
-          <label className="w-64">
+          <label className="w-full sm:w-96">
             <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprise</span>
             <SearchableSelect
               value={selectedCompanyId}
               onChange={setSelectedCompanyId}
               placeholder="Toutes les entreprises"
-              options={companyOptions.map((c) => ({ value: String(c.company_id), label: c.name }))}
+              options={companyOptions.map((c) => ({ value: String(c.company_id), label: `${c.symbol} — ${c.name}` }))}
             />
           </label>
           {selectedCompanyId !== '' && (
@@ -408,9 +593,10 @@ export function CorporateActions() {
           { id: 'indices', label: 'Indice & performance' },
           { id: 'annonces', label: 'Annonces BRVM' },
           { id: 'pression', label: 'Agitation du marché' },
+          { id: 'comparaison', label: 'Comparaison entreprises' },
         ]}
         active={activeTab}
-        onChange={(id) => setActiveTab(id as 'liste' | 'dividendes' | 'per' | 'indices' | 'annonces' | 'pression')}
+        onChange={(id) => setActiveTab(id as 'liste' | 'dividendes' | 'per' | 'indices' | 'annonces' | 'pression' | 'comparaison')}
       />
 
       {activeTab === 'dividendes' && (
@@ -742,6 +928,56 @@ export function CorporateActions() {
             </div>
           )}
 
+          {!selectedCompany && (
+            <Card title="Rendement net officiel BRVM par entreprise (classement)">
+              {metricsQuery.isLoading && <LoadingState label="Chargement des rendements…" />}
+              {!metricsQuery.isLoading && yieldRankingChartData.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Aucun rendement net à classer pour ces critères — choisis un bulletin, une date de référence, ou
+                  extrais d'autres bulletins ci-dessus.
+                </p>
+              )}
+              {yieldRankingChartData.length > 0 && (
+                <>
+                  <ResponsiveContainer width="100%" height={Math.max(200, 26 * yieldRankingChartData.length + 40)}>
+                    <BarChart data={yieldRankingChartData} layout="vertical" margin={{ top: 5, right: 40, bottom: 5, left: 10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
+                      <YAxis type="category" dataKey="symbol" width={70} tick={{ fontSize: 11 }} interval={0} />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null
+                          const r = payload[0].payload as (typeof yieldRankingChartData)[number]
+                          return (
+                            <div className="max-w-xs rounded-md border border-gray-200 bg-white p-2 text-xs shadow dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                              <div className="font-medium">{r.symbol} — {r.name}</div>
+                              <div className="mt-0.5">Rendement net : <strong>{fmtNum(r.value)} %</strong></div>
+                              <div className="text-gray-500 dark:text-gray-400">{r.publish_date}{r.bulletin_title ? ` — ${r.bulletin_title}` : ''}</div>
+                            </div>
+                          )
+                        }}
+                      />
+                      <Bar dataKey="value" name="Rendement net %">
+                        {yieldRankingChartData.map((r) => (
+                          <Cell
+                            key={r.key}
+                            fill={r.value >= 6 ? 'var(--chart-positive)' : r.value >= 3 ? 'var(--chart-2)' : 'var(--chart-soft)'}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Rendement net officiel BRVM (colonne « Rdt. Net » du bulletin), dernière valeur connue par
+                    entreprise selon le bulletin ou la date de référence choisis ci-dessus. Vert : au-dessus de 6 % ·
+                    orange : 3 à 6 % · gris : en dessous de 3 %. Choisis une entreprise dans le sélecteur en haut de
+                    page pour voir son évolution dans le temps plutôt que ce classement à un instant donné.
+                  </p>
+                </>
+              )}
+            </Card>
+          )}
+
           {selectedCompany && (
             <Card title={`Évolution — ${selectedCompany.name}`}>
               {companyHistoryQuery.isLoading && <LoadingState label="Chargement de l'historique…" />}
@@ -890,6 +1126,76 @@ export function CorporateActions() {
                   </tbody>
                 </table>
               </div>
+            </Card>
+          )}
+
+          <InfoPanel>
+            <p>
+              <strong>Rendement net sur une période — attention, autre calcul.</strong> Les graphes ci-dessus tracent
+              le « Rdt. Net » imprimé par la BRVM dans le bulletin, séance par séance. Le graphe ci-dessous répond à
+              une question différente : « combien mon capital a-t-il gagné (ou perdu) entre deux dates que je
+              choisis ? » — c'est la variation du cours de clôture sur la période, pas la colonne du bulletin. Ce
+              calcul ne tient pas compte des dividendes versés entre les deux dates.
+            </p>
+          </InfoPanel>
+
+          <Card>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="w-40">
+                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
+                <Input type="date" value={perfStartDate} max={perfEndDate} onChange={(e) => setPerfStartDate(e.target.value)} />
+              </label>
+              <label className="w-40">
+                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
+                <Input type="date" value={perfEndDate} min={perfStartDate} max={todayIso()} onChange={(e) => setPerfEndDate(e.target.value)} />
+              </label>
+            </div>
+            {perfStartDate > perfEndDate && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">La date de début doit précéder la date de fin.</p>
+            )}
+          </Card>
+
+          {performanceRankingQuery.isLoading && <LoadingState label="Chargement de la performance…" />}
+          {performanceRankingQuery.error && <ErrorState message={(performanceRankingQuery.error as Error).message} />}
+
+          {performanceRankingQuery.data && perfRankingChartData.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Aucune cotation sur cette période pour calculer une performance.
+            </p>
+          )}
+
+          {perfRankingChartData.length > 0 && (
+            <Card title={`Performance du cours entre le ${perfStartDate} et le ${perfEndDate}`}>
+              <ResponsiveContainer width="100%" height={Math.max(240, perfRankingChartData.length * 24)}>
+                <BarChart data={perfRankingChartData} layout="vertical" margin={{ top: 5, right: 24, bottom: 5, left: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={(v) => `${fmtNum(v, 1)}%`} />
+                  <YAxis type="category" dataKey="symbol" width={70} tick={{ fontSize: 11 }} interval={0} />
+                  <ReferenceLine x={0} stroke="var(--chart-muted)" />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const r = payload[0].payload as (typeof perfRankingChartData)[number]
+                      return (
+                        <div className="rounded-md border border-gray-200 bg-white p-2 text-xs shadow dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+                          <div className="font-medium">{r.symbol} — {r.name}</div>
+                          <div className="mt-0.5">Performance : <strong>{r.variation > 0 ? '+' : ''}{fmtNum(r.variation)} %</strong></div>
+                        </div>
+                      )
+                    }}
+                  />
+                  <Bar dataKey="variation" name="Performance %" radius={[0, 4, 4, 0]}>
+                    {perfRankingChartData.map((r) => (
+                      <Cell key={r.company_id} fill={r.variation >= 0 ? 'var(--chart-positive)' : 'var(--chart-negative)'} />
+                    ))}
+                    <LabelList dataKey="variation" position="right" formatter={(v) => `${fmtNum(v as number, 1)}%`} className="fill-gray-500 text-[10px] dark:fill-gray-400" />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Vert : hausse du cours sur la période · rouge : baisse. Entreprises sans cotation sur la période
+                absentes du graphe (pas de valeur à calculer).
+              </p>
             </Card>
           )}
         </>
@@ -1061,192 +1367,490 @@ export function CorporateActions() {
         <>
           <InfoPanel>
             <p>
-              <strong>À quoi sert cet onglet.</strong> Chaque Bulletin Officiel de la Cote publie, pour chaque
-              action, un carnet d'ordres fin de séance : ce qu'il reste de quantité en attente à l'achat et à la
-              vente, non exécuté faute de contrepartie. Cet onglet additionne ces quantités résiduelles de{' '}
-              <strong>toutes les entreprises cotées</strong> pour chaque bulletin, afin de dire si le marché dans
-              son ensemble affiche plus de demande (acheteur) ou plus d'offre (vendeur) sur la période choisie.
+              <strong>À quoi sert cet onglet.</strong> Chaque Bulletin Officiel de la Cote publie, pour l'action
+              choisie dans le sélecteur en haut de page, un carnet d'ordres fin de séance : ce qu'il reste de
+              quantité en attente à l'achat et à la vente, non exécuté faute de contrepartie. Cet onglet répond à
+              « ses actionnaires sont-ils plutôt acheteurs ou plutôt vendeurs sur la période choisie ? ».
             </p>
             <p>
               <strong>Ce que ça mesure, et ce que ça ne mesure pas.</strong> C'est <strong>observé</strong> dans le
               bulletin (pas une estimation), mais uniquement sur ce qui reste affiché en carnet en fin de séance —
-              pas un décompte de tous les ordres passés dans la journée. Une seule valeur très illiquide avec un
-              gros carnet peut à elle seule faire basculer la somme en quantité ; le comptage « nombre d'entreprises
-              acheteuses vs vendeuses » ci-dessous complète ce risque en donnant une lecture non pondérée par la
-              taille des carnets.
+              pas un décompte de tous les ordres passés dans la journée.
             </p>
           </InfoPanel>
 
-          {!!marketPressureQuery.data?.pending_count && (
-            <Card>
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {marketPressureQuery.data.pending_count} bulletin(s) sans carnet d'ordres extrait
-                </h3>
-                <Button
-                  variant="secondary"
-                  disabled={parseOrderBooksMutation.isPending}
-                  onClick={() => parseOrderBooksMutation.mutate()}
-                >
-                  {parseOrderBooksMutation.isPending ? 'Extraction…' : "Extraire tous les carnets manquants"}
-                </Button>
-              </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Extraction déterministe (lecture directe du tableau « Quantité résiduelle » du bulletin, pas d'IA) —
-                traite tous les bulletins en attente en un seul clic.
-              </p>
-              {parseOrderBooksMutation.isError && (
-                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                  {(parseOrderBooksMutation.error as Error).message}
-                </p>
-              )}
-            </Card>
-          )}
-
-          <Card>
-            <div className="flex flex-wrap items-end gap-4">
-              <label className="w-40">
-                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
-                <Input type="date" value={pressureStartDate} max={pressureEndDate} onChange={(e) => setPressureStartDate(e.target.value)} />
-              </label>
-              <label className="w-40">
-                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
-                <Input type="date" value={pressureEndDate} min={pressureStartDate} max={todayIso()} onChange={(e) => setPressureEndDate(e.target.value)} />
-              </label>
-            </div>
-            {pressureStartDate > pressureEndDate && (
-              <p className="mt-2 text-xs text-red-600 dark:text-red-400">La date de début doit précéder la date de fin.</p>
-            )}
-          </Card>
-
-          {marketPressureQuery.isLoading && <LoadingState label="Chargement…" />}
-          {marketPressureQuery.error && <ErrorState message={(marketPressureQuery.error as Error).message} />}
-
-          {marketPressureQuery.data && pressureChartData.length === 0 && (
+          {!selectedCompany && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Aucun carnet d'ordres extrait sur cette période — extrais les bulletins en attente ci-dessus.
+              Choisis une entreprise dans le sélecteur en haut de page pour voir si ses actionnaires sont plutôt
+              acheteurs ou vendeurs.
             </p>
           )}
 
-          {pressureChartData.length > 0 && (
+          {selectedCompany && (
             <>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <StatTile
-                  label="Séances plutôt acheteuses"
-                  value={`${buyerDaysCount} / ${pressureChartData.length}`}
-                  tone={buyerDaysCount > sellerDaysCount ? 'positive' : 'default'}
-                />
-                <StatTile
-                  label="Séances plutôt vendeuses"
-                  value={`${sellerDaysCount} / ${pressureChartData.length}`}
-                  tone={sellerDaysCount > buyerDaysCount ? 'negative' : 'default'}
-                />
-                <StatTile
-                  label="Dernière séance connue"
-                  value={lastPressureDay ? lastPressureDay.date : '—'}
-                  tooltip={lastPressureDay?.bulletin_title ?? undefined}
-                />
-                <StatTile
-                  label="Ratio achat/(achat+vente) — dernière séance"
-                  value={lastPressureDay?.imbalance_ratio !== null && lastPressureDay?.imbalance_ratio !== undefined ? `${(lastPressureDay.imbalance_ratio * 100).toFixed(1)} %` : '—'}
-                  tooltip="0,5 (50%) = équilibre. Au-dessus : marché plutôt acheteur. En dessous : marché plutôt vendeur."
-                  tone={
-                    lastPressureDay?.imbalance_ratio === null || lastPressureDay?.imbalance_ratio === undefined
-                      ? 'default'
-                      : lastPressureDay.imbalance_ratio > 0.5
-                        ? 'positive'
-                        : lastPressureDay.imbalance_ratio < 0.5
-                          ? 'negative'
-                          : 'default'
-                  }
-                />
-              </div>
-
-              <Card title="Pression nette (quantité résiduelle achat − vente, toutes entreprises)">
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={pressureChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />
-                    <YAxis tick={{ fontSize: 10 }} width={80} tickFormatter={(v) => fmtNum(v, 0)} />
-                    <ReferenceLine y={0} stroke="var(--chart-muted)" />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null
-                        const p = payload[0].payload as (typeof pressureChartData)[number]
-                        return (
-                          <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-                            <div className="mb-1 font-medium">{p.date}</div>
-                            <div>Pression nette : <strong>{fmtNum(p.net_qty, 0)}</strong> ({p.net_qty > 0 ? 'acheteur' : p.net_qty < 0 ? 'vendeur' : 'équilibre'})</div>
-                            <div>Entreprises acheteuses : {p.companies_buyer} · vendeuses : {p.companies_seller}</div>
-                            {p.bulletin_title && <div className="mt-1 text-gray-500 dark:text-gray-400">{p.bulletin_title}</div>}
-                          </div>
-                        )
-                      }}
-                    />
-                    <Bar dataKey="net_qty" name="Pression nette">
-                      {pressureChartData.map((d, i) => (
-                        <Cell key={i} fill={d.net_qty > 0 ? 'var(--chart-positive)' : d.net_qty < 0 ? 'var(--chart-negative)' : 'var(--chart-muted)'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Vert au-dessus de la ligne : quantité résiduelle à l'achat supérieure à la vente sur cette séance
-                  (marché plutôt acheteur). Rouge en dessous : l'inverse (marché plutôt vendeur).
-                </p>
-              </Card>
-
-              <Card title="Nombre d'entreprises acheteuses vs vendeuses (comptage, non pondéré par la taille du carnet)">
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={pressureChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />
-                    <YAxis tick={{ fontSize: 10 }} width={40} />
-                    <Tooltip />
-                    <Legend wrapperStyle={{ fontSize: 11 }} />
-                    <Bar dataKey="companies_buyer" name="Entreprises acheteuses" fill="var(--chart-positive)" />
-                    <Bar dataKey="companies_seller" name="Entreprises vendeuses" fill="var(--chart-negative)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
+              {!!marketPressureQuery.data?.pending_count && (
+                <Card>
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      {marketPressureQuery.data.pending_count} bulletin(s) sans carnet d'ordres extrait
+                    </h3>
+                    <Button
+                      variant="secondary"
+                      disabled={parseOrderBooksMutation.isPending}
+                      onClick={() => parseOrderBooksMutation.mutate()}
+                    >
+                      {parseOrderBooksMutation.isPending ? 'Extraction…' : "Extraire tous les carnets manquants"}
+                    </Button>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Extraction déterministe (lecture directe du tableau « Quantité résiduelle » du bulletin, pas
+                    d'IA) — traite tous les bulletins en attente en un seul clic, toutes entreprises confondues.
+                  </p>
+                  {parseOrderBooksMutation.isError && (
+                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                      {(parseOrderBooksMutation.error as Error).message}
+                    </p>
+                  )}
+                </Card>
+              )}
 
               <Card>
-                <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">{pressureChartData.length} séance(s)</div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
-                        <th className="pb-2 pr-3">Date</th>
-                        <th className="pb-2 pr-3 text-right">Qté résid. achat</th>
-                        <th className="pb-2 pr-3 text-right">Qté résid. vente</th>
-                        <th className="pb-2 pr-3 text-right">Pression nette</th>
-                        <th className="pb-2 pr-3 text-right">Ratio achat</th>
-                        <th className="pb-2 pr-3 text-right">Entr. acheteuses</th>
-                        <th className="pb-2 pr-3 text-right">Entr. vendeuses</th>
-                        <th className="pb-2 pr-3">Bulletin source</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...pressureDays].sort((a, b) => b.snapshot_date.localeCompare(a.snapshot_date)).map((d) => (
-                        <tr key={`${d.bulletin_id}-${d.snapshot_date}`} className="border-t border-gray-100 align-top dark:border-gray-800">
-                          <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{d.snapshot_date}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(d.total_bid_qty, 0)}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(d.total_ask_qty, 0)}</td>
-                          <td className={`py-2 pr-3 text-right font-semibold tabular-nums ${d.net_qty > 0 ? 'text-emerald-600 dark:text-emerald-400' : d.net_qty < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
-                            {fmtNum(d.net_qty, 0)}
-                          </td>
-                          <td className="py-2 pr-3 text-right tabular-nums">
-                            {d.imbalance_ratio !== null ? `${(d.imbalance_ratio * 100).toFixed(1)} %` : '—'}
-                          </td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{d.companies_buyer}</td>
-                          <td className="py-2 pr-3 text-right tabular-nums">{d.companies_seller}</td>
-                          <td className="py-2 pr-3 whitespace-nowrap text-gray-500 dark:text-gray-400">{d.bulletin_title}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex flex-wrap items-end gap-4">
+                  <label className="w-40">
+                    <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
+                    <Input type="date" value={pressureStartDate} max={pressureEndDate} onChange={(e) => setPressureStartDate(e.target.value)} />
+                  </label>
+                  <label className="w-40">
+                    <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
+                    <Input type="date" value={pressureEndDate} min={pressureStartDate} max={todayIso()} onChange={(e) => setPressureEndDate(e.target.value)} />
+                  </label>
                 </div>
+                {pressureStartDate > pressureEndDate && (
+                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">La date de début doit précéder la date de fin.</p>
+                )}
               </Card>
+
+              {companyOrderBookQuery.isLoading && <LoadingState label="Chargement…" />}
+              {companyOrderBookQuery.error && <ErrorState message={(companyOrderBookQuery.error as Error).message} />}
+
+              {companyOrderBookQuery.data && pressureChartData.length === 0 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Aucun carnet d'ordres extrait pour {selectedCompany.name} sur cette période — extrais les
+                  bulletins en attente ci-dessus.
+                </p>
+              )}
+
+              {pressureChartData.length > 0 && (
+                <>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <StatTile
+                      label="Séances plutôt acheteuses"
+                      value={`${buyerDaysCount} / ${pressureChartData.length}`}
+                      tone={buyerDaysCount > sellerDaysCount ? 'positive' : 'default'}
+                    />
+                    <StatTile
+                      label="Séances plutôt vendeuses"
+                      value={`${sellerDaysCount} / ${pressureChartData.length}`}
+                      tone={sellerDaysCount > buyerDaysCount ? 'negative' : 'default'}
+                    />
+                    <StatTile
+                      label="Dernière séance connue"
+                      value={lastPressureDay ? lastPressureDay.date : '—'}
+                    />
+                    <StatTile
+                      label="Ratio achat/(achat+vente) — dernière séance"
+                      value={lastPressureDay?.imbalance_ratio !== null && lastPressureDay?.imbalance_ratio !== undefined ? `${(lastPressureDay.imbalance_ratio * 100).toFixed(1)} %` : '—'}
+                      tooltip="0,5 (50%) = équilibre. Au-dessus : actionnaires plutôt acheteurs. En dessous : plutôt vendeurs."
+                      tone={
+                        lastPressureDay?.imbalance_ratio === null || lastPressureDay?.imbalance_ratio === undefined
+                          ? 'default'
+                          : lastPressureDay.imbalance_ratio > 0.5
+                            ? 'positive'
+                            : lastPressureDay.imbalance_ratio < 0.5
+                              ? 'negative'
+                              : 'default'
+                      }
+                    />
+                  </div>
+
+                  <Card title={`Pression nette (quantité résiduelle achat − vente) — ${selectedCompany.name}`}>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={pressureChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />
+                        <YAxis tick={{ fontSize: 10 }} width={80} tickFormatter={(v) => fmtNum(v, 0)} />
+                        <ReferenceLine y={0} stroke="var(--chart-muted)" />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload?.length) return null
+                            const p = payload[0].payload as (typeof pressureChartData)[number]
+                            return (
+                              <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+                                <div className="mb-1 font-medium">{p.date}</div>
+                                <div>Pression nette : <strong>{fmtNum(p.net_qty, 0)}</strong> ({p.net_qty > 0 ? 'acheteur' : p.net_qty < 0 ? 'vendeur' : 'équilibre'})</div>
+                                <div>Résiduel achat : {fmtNum(p.bid_qty, 0)} · vente : {fmtNum(p.ask_qty, 0)}</div>
+                              </div>
+                            )
+                          }}
+                        />
+                        <Bar dataKey="net_qty" name="Pression nette">
+                          {pressureChartData.map((d, i) => (
+                            <Cell key={i} fill={d.net_qty > 0 ? 'var(--chart-positive)' : d.net_qty < 0 ? 'var(--chart-negative)' : 'var(--chart-muted)'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Vert au-dessus de la ligne : quantité résiduelle à l'achat supérieure à la vente sur cette
+                      séance (actionnaires plutôt acheteurs). Rouge en dessous : l'inverse (plutôt vendeurs).
+                    </p>
+                  </Card>
+
+                  <Card title="Ratio achat/(achat+vente) dans le temps">
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={pressureChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
+                        <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />
+                        <YAxis tick={{ fontSize: 10 }} width={50} domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
+                        <ReferenceLine y={0.5} stroke="var(--chart-muted)" strokeDasharray="3 3" />
+                        <Tooltip formatter={(value) => [value !== null ? `${(Number(value) * 100).toFixed(1)} %` : '—', 'Ratio achat']} />
+                        <Line
+                          type="monotone"
+                          dataKey="imbalance_ratio"
+                          name="Ratio achat"
+                          stroke="var(--chart-1)"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          connectNulls
+                          isAnimationActive={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Au-dessus de la ligne des 50% : plus de quantité résiduelle à l'achat qu'à la vente ce
+                      jour-là (actionnaires plutôt acheteurs). En dessous : l'inverse.
+                    </p>
+                  </Card>
+
+                  <Card>
+                    <div className="mb-3 text-xs text-gray-500 dark:text-gray-400">{pressureChartData.length} séance(s)</div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                            <th className="pb-2 pr-3">Date</th>
+                            <th className="pb-2 pr-3 text-right">Qté résid. achat</th>
+                            <th className="pb-2 pr-3 text-right">Qté résid. vente</th>
+                            <th className="pb-2 pr-3 text-right">Pression nette</th>
+                            <th className="pb-2 pr-3 text-right">Ratio achat</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...pressureChartData].sort((a, b) => b.date.localeCompare(a.date)).map((d) => (
+                            <tr key={d.date} className="border-t border-gray-100 align-top dark:border-gray-800">
+                              <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{d.date}</td>
+                              <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(d.bid_qty, 0)}</td>
+                              <td className="py-2 pr-3 text-right tabular-nums">{fmtNum(d.ask_qty, 0)}</td>
+                              <td className={`py-2 pr-3 text-right font-semibold tabular-nums ${d.net_qty > 0 ? 'text-emerald-600 dark:text-emerald-400' : d.net_qty < 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                                {fmtNum(d.net_qty, 0)}
+                              </td>
+                              <td className="py-2 pr-3 text-right tabular-nums">
+                                {d.imbalance_ratio !== null ? `${(d.imbalance_ratio * 100).toFixed(1)} %` : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {activeTab === 'comparaison' && (
+        <>
+          <InfoPanel>
+            <p>
+              <strong>À quoi sert cet onglet.</strong> Les autres onglets ci-dessus se concentrent sur UNE entreprise
+              (le sélecteur en haut de page) ou sur le marché entier. Celui-ci répond à « comment ces entreprises se
+              comparent-elles entre elles ? » — coche 2 entreprises ou plus ci-dessous, choisis une période, puis
+              une des 5 vues (opérations, dividendes, PER/rendement, indice/performance, agitation du marché).
+            </p>
+            <p>
+              Cette sélection et ces dates sont propres à cet onglet — indépendantes du sélecteur d'entreprise unique
+              utilisé par les autres onglets de cette page.
+            </p>
+          </InfoPanel>
+
+          <Card>
+            <div className="flex flex-col gap-4">
+              <div>
+                <span className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Entreprises à comparer</span>
+                <div className="max-h-64 overflow-y-auto rounded-md border border-gray-200 p-3 dark:border-gray-800">
+                  {comparisonSectors.map((sector) => (
+                    <div key={sector.name} className="mb-3 last:mb-0">
+                      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        {sector.name}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {sector.members.map((c) => {
+                          const isSelected = comparisonSelected.includes(c.company_id)
+                          return (
+                            <label
+                              key={c.company_id}
+                              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${
+                                isSelected ? 'text-white' : 'border-gray-300 text-gray-600 dark:border-gray-700 dark:text-gray-300'
+                              }`}
+                              style={
+                                isSelected
+                                  ? { backgroundColor: comparisonColorFor(c.company_id, comparisonSelected), borderColor: comparisonColorFor(c.company_id, comparisonSelected) }
+                                  : undefined
+                              }
+                            >
+                              <input type="checkbox" className="hidden" checked={isSelected} onChange={() => toggleComparisonCompany(c.company_id)} />
+                              {c.symbol}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {comparisonUnclassified.length > 0 && (
+                    <div>
+                      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                        Secteur non renseigné
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {comparisonUnclassified.map((c) => {
+                          const isSelected = comparisonSelected.includes(c.company_id)
+                          return (
+                            <label
+                              key={c.company_id}
+                              className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium ${
+                                isSelected ? 'text-white' : 'border-gray-300 text-gray-600 dark:border-gray-700 dark:text-gray-300'
+                              }`}
+                              style={
+                                isSelected
+                                  ? { backgroundColor: comparisonColorFor(c.company_id, comparisonSelected), borderColor: comparisonColorFor(c.company_id, comparisonSelected) }
+                                  : undefined
+                              }
+                            >
+                              <input type="checkbox" className="hidden" checked={isSelected} onChange={() => toggleComparisonCompany(c.company_id)} />
+                              {c.symbol}
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {comparisonSelected.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setComparisonSelected([])}
+                    className="mt-1.5 text-xs text-gray-500 underline hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    Tout décocher
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-end gap-4">
+                <label className="w-40">
+                  <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
+                  <Input type="date" value={comparisonStartDate} max={comparisonEndDate} onChange={(e) => setComparisonStartDate(e.target.value)} />
+                </label>
+                <label className="w-40">
+                  <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
+                  <Input type="date" value={comparisonEndDate} min={comparisonStartDate} max={todayIso()} onChange={(e) => setComparisonEndDate(e.target.value)} />
+                </label>
+              </div>
+              {comparisonStartDate > comparisonEndDate && (
+                <p className="text-xs text-red-600 dark:text-red-400">La date de début doit précéder la date de fin.</p>
+              )}
+            </div>
+          </Card>
+
+          {comparisonSelected.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Coche au moins 2 entreprises ci-dessus pour afficher une comparaison.
+            </p>
+          )}
+
+          {comparisonSelected.length > 0 && (
+            <>
+              <Tabs
+                tabs={[
+                  { id: 'liste', label: 'Opérations sur titres' },
+                  { id: 'dividendes', label: 'Dividendes' },
+                  { id: 'per', label: 'PER & rendement' },
+                  { id: 'indices', label: 'Indice & performance' },
+                  { id: 'pression', label: 'Agitation du marché' },
+                ]}
+                active={comparisonSubTab}
+                onChange={(id) => setComparisonSubTab(id as 'liste' | 'dividendes' | 'per' | 'indices' | 'pression')}
+              />
+
+              {comparisonSubTab === 'liste' && (
+                <Card title="Opérations sur titres — entreprises sélectionnées">
+                  {comparisonActionsQuery.isLoading && <LoadingState label="Chargement…" />}
+                  {comparisonActionsQuery.error && <ErrorState message={(comparisonActionsQuery.error as Error).message} />}
+                  {comparisonActionsQuery.data && comparisonActionRows.length === 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Aucune opération pour ces entreprises sur la période choisie.
+                    </p>
+                  )}
+                  {comparisonActionRows.length > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                            <th className="pb-2 pr-3">Date</th>
+                            <th className="pb-2 pr-3">Entreprise</th>
+                            <th className="pb-2 pr-3">Type</th>
+                            <th className="pb-2 pr-3 text-right">Montant</th>
+                            <th className="pb-2 pr-3">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[...comparisonActionRows]
+                            .sort((a, b) => (b.event_date ?? '').localeCompare(a.event_date ?? ''))
+                            .map((r) => (
+                              <tr key={r.id} className="border-t border-gray-100 align-top dark:border-gray-800">
+                                <td className="py-2 pr-3 whitespace-nowrap tabular-nums">{r.event_date ?? '—'}</td>
+                                <td className="py-2 pr-3 whitespace-nowrap">
+                                  <span
+                                    className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                                    style={{ backgroundColor: comparisonColorFor(r.company_id as number, comparisonSelected) }}
+                                  />
+                                  <span className="font-medium">{r.company_symbol}</span>
+                                </td>
+                                <td className="py-2 pr-3">
+                                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${actionTypeBadgeClass(r.action_type)}`}>
+                                    {actionTypeLabel(r.action_type)}
+                                  </span>
+                                </td>
+                                <td className="py-2 pr-3 text-right tabular-nums">{fmtAmount(r.amount, r.currency)}</td>
+                                <td className="py-2 pr-3 max-w-md text-gray-600 dark:text-gray-300">{r.description ?? '—'}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </Card>
+              )}
+
+              {comparisonSubTab === 'dividendes' && (
+                <DividendComparisonPanel companies={companyOptions} selectedIds={comparisonSelected} colorFor={comparisonColorFor} />
+              )}
+
+              {comparisonSubTab === 'per' && (
+                <Card title="Rendement net officiel BRVM (par bulletin) — entreprises sélectionnées">
+                  {comparisonMetricsQuery.isLoading && <LoadingState label="Chargement…" />}
+                  {comparisonMetricsQuery.error && <ErrorState message={(comparisonMetricsQuery.error as Error).message} />}
+                  {comparisonMetricsQuery.data && comparisonYieldChartData.length === 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Aucun rendement net connu pour ces entreprises sur la période choisie.
+                    </p>
+                  )}
+                  {comparisonYieldChartData.length > 0 && (
+                    <ResponsiveContainer width="100%" height={320}>
+                      <LineChart data={comparisonYieldChartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+                        <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${v}%`} />
+                        <Tooltip formatter={(value, name) => [`${fmtNum(value as number)} %`, name]} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        {comparisonSelected.map((id) => {
+                          const symbol = companyOptions.find((c) => c.company_id === id)?.symbol
+                          if (!symbol) return null
+                          return (
+                            <Line
+                              key={id}
+                              type="monotone"
+                              dataKey={symbol}
+                              stroke={comparisonColorFor(id, comparisonSelected)}
+                              dot={{ r: 3 }}
+                              strokeWidth={2}
+                              connectNulls
+                              isAnimationActive={false}
+                            />
+                          )
+                        })}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Un point par bulletin déjà extrait contenant l'entreprise — une valeur absente du bulletin n'est
+                    pas tracée plutôt que d'être devinée.
+                  </p>
+                </Card>
+              )}
+
+              {comparisonSubTab === 'indices' && (
+                <Card title="Surperformance / sous-performance quotidienne vs BRVM-COMPOSITE">
+                  {comparisonRelativeStrengthQuery.isLoading && <LoadingState label="Chargement…" />}
+                  {comparisonRelativeStrengthQuery.error && (
+                    <ErrorState message={(comparisonRelativeStrengthQuery.error as Error).message} />
+                  )}
+                  {comparisonRelativeStrengthQuery.data && comparisonRelativeStrengthChartData.length === 0 && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Aucune donnée pour cette sélection sur la période choisie.
+                    </p>
+                  )}
+                  {comparisonRelativeStrengthChartData.length > 0 && (
+                    <ResponsiveContainer width="100%" height={320}>
+                      <LineChart data={comparisonRelativeStrengthChartData}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-800" />
+                        <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={30} />
+                        <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => `${v}%`} />
+                        <ReferenceLine y={0} stroke="var(--chart-muted)" strokeDasharray="3 3" />
+                        <Tooltip formatter={(value, name) => [`${Number(value) > 0 ? '+' : ''}${Number(value).toFixed(2)}%`, name]} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        <Line
+                          type="monotone"
+                          dataKey="BRVM-COMPOSITE"
+                          name="BRVM-COMPOSITE (variation quotidienne)"
+                          stroke="var(--chart-muted)"
+                          strokeDasharray="5 3"
+                          dot={false}
+                          strokeWidth={1.5}
+                          connectNulls
+                        />
+                        {comparisonRelativeStrengthSeries.map((serie) => (
+                          <Line
+                            key={serie.company_id}
+                            type="monotone"
+                            dataKey={serie.symbol}
+                            stroke={comparisonColorFor(serie.company_id, comparisonSelected)}
+                            dot={false}
+                            strokeWidth={2}
+                            connectNulls
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Au-dessus de 0% : l'entreprise a fait mieux que le marché ce jour-là. En-dessous : moins bien —
+                    même si son propre cours a progressé.
+                  </p>
+                </Card>
+              )}
+
+              {comparisonSubTab === 'pression' && (
+                <LiquidityComparisonPanel
+                  companies={companyOptions}
+                  selectedIds={comparisonSelected}
+                  colorFor={comparisonColorFor}
+                  startDate={comparisonStartDate}
+                  endDate={comparisonEndDate}
+                />
+              )}
             </>
           )}
         </>
