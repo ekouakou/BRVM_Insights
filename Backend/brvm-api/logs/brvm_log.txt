@@ -775,3 +775,57 @@
 [2026-08-18 16:35:13] Exemple première ligne: {"Nom":"BRVM – COMPOSITE TOTAL RETURN","Fermeture précédente":200.78,"Fermeture":203.11,"Variation (%)":1.16,"Variation 31 décembre (%)":1.7}
 [2026-08-18 16:35:13] Indices sauvegardés: 12 enregistrements à 2026-08-18 16:35:13
 [2026-08-18 16:35:13] Récupération des indices terminée avec succès !
+[2026-08-19 09:22:30] Début de la récupération des données BRVM...
+[2026-08-19 09:22:30] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-08-19 09:22:32] Succès avec curl !
+[2026-08-19 09:22:32] HTML récupéré, taille: 56080 caractères
+[2026-08-19 09:22:32] Élément #block-system-main trouvé : section
+[2026-08-19 09:22:32] Tableau trouvé dans #block-system-main
+[2026-08-19 09:22:32] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-08-19 09:22:32] Nombre d'en-têtes: 7
+[2026-08-19 09:22:32] Lignes de données extraites: 47
+[2026-08-19 09:22:32] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":"0","Cours veille (FCFA)":3385,"Cours Ouverture (FCFA)":"0","Cours Clôture (FCFA)":3385,"Variation (%)":0}
+[2026-08-19 09:22:32] Données sauvegardées: 47 enregistrements à 2026-08-19 09:22:32
+[2026-08-19 09:22:32] Récupération terminée avec succès !
+[2026-08-19 09:22:32] Début de la récupération des indices BRVM...
+[2026-08-19 09:22:32] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-08-19 09:22:34] Succès avec curl !
+[2026-08-19 09:22:34] HTML des indices récupéré, taille: 46531 caractères
+[2026-08-19 09:22:34] Nombre d'en-têtes: 5
+[2026-08-19 09:22:34] Lignes de données extraites: 4
+[2026-08-19 09:22:34] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":242.89,"Fermeture":242.89,"Variation (%)":0,"Variation 31 décembre (%)":1.97}
+[2026-08-19 09:22:34] Nombre d'en-têtes: 5
+[2026-08-19 09:22:34] Lignes de données extraites: 7
+[2026-08-19 09:22:34] Exemple première ligne: {"Nom":"BRVM - CONSOMMATION DE BASE","Fermeture précédente":287.69,"Fermeture":287.69,"Variation (%)":0,"Variation 31 décembre (%)":1.51}
+[2026-08-19 09:22:34] Nombre d'en-têtes: 5
+[2026-08-19 09:22:34] Lignes de données extraites: 1
+[2026-08-19 09:22:34] Exemple première ligne: {"Nom":"BRVM – COMPOSITE TOTAL RETURN","Fermeture précédente":203.11,"Fermeture":203.11,"Variation (%)":0,"Variation 31 décembre (%)":1.7}
+[2026-08-19 09:22:34] Indices sauvegardés: 12 enregistrements à 2026-08-19 09:22:34
+[2026-08-19 09:22:34] Récupération des indices terminée avec succès !
+[2026-08-19 16:35:07] Début de la récupération des données BRVM...
+[2026-08-19 16:35:07] Tentative avec curl sur https://www.brvm.org/fr/cours-actions/0...
+[2026-08-19 16:35:09] Succès avec curl !
+[2026-08-19 16:35:09] HTML récupéré, taille: 57681 caractères
+[2026-08-19 16:35:09] Élément #block-system-main trouvé : section
+[2026-08-19 16:35:09] Tableau trouvé dans #block-system-main
+[2026-08-19 16:35:09] Classes du tableau: table table-hover table-striped sticky-enabled
+[2026-08-19 16:35:09] Nombre d'en-têtes: 7
+[2026-08-19 16:35:09] Lignes de données extraites: 47
+[2026-08-19 16:35:09] Exemple première ligne: {"Symbole":"ABJC","Nom":"SERVAIR ABIDJAN COTE D'IVOIRE","Volume":2807,"Cours veille (FCFA)":3385,"Cours Ouverture (FCFA)":3385,"Cours Clôture (FCFA)":3385,"Variation (%)":0}
+[2026-08-19 16:35:09] Données sauvegardées: 47 enregistrements à 2026-08-19 16:35:09
+[2026-08-19 16:35:09] Récupération terminée avec succès !
+[2026-08-19 16:35:10] Début de la récupération des indices BRVM...
+[2026-08-19 16:35:10] Tentative avec curl sur https://www.brvm.org/fr/indices...
+[2026-08-19 16:35:12] Succès avec curl !
+[2026-08-19 16:35:12] HTML des indices récupéré, taille: 47806 caractères
+[2026-08-19 16:35:12] Nombre d'en-têtes: 5
+[2026-08-19 16:35:12] Lignes de données extraites: 4
+[2026-08-19 16:35:12] Exemple première ligne: {"Nom":"BRVM-30","Fermeture précédente":242.89,"Fermeture":247.63,"Variation (%)":1.95,"Variation 31 décembre (%)":1.97}
+[2026-08-19 16:35:12] Nombre d'en-têtes: 5
+[2026-08-19 16:35:12] Lignes de données extraites: 7
+[2026-08-19 16:35:12] Exemple première ligne: {"Nom":"BRVM - CONSOMMATION DE BASE","Fermeture précédente":287.69,"Fermeture":291.01,"Variation (%)":1.15,"Variation 31 décembre (%)":1.51}
+[2026-08-19 16:35:12] Nombre d'en-têtes: 5
+[2026-08-19 16:35:12] Lignes de données extraites: 1
+[2026-08-19 16:35:12] Exemple première ligne: {"Nom":"BRVM – COMPOSITE TOTAL RETURN","Fermeture précédente":203.11,"Fermeture":206.56,"Variation (%)":1.7,"Variation 31 décembre (%)":1.7}
+[2026-08-19 16:35:12] Indices sauvegardés: 12 enregistrements à 2026-08-19 16:35:12
+[2026-08-19 16:35:12] Récupération des indices terminée avec succès !

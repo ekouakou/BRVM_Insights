@@ -1872,6 +1872,69 @@ export interface MarketPressureResult {
   note: string
 }
 
+/**
+ * Statistiques du marché (tableau « Statistiques du marché » du BOC) pour un
+ * bulletin — Actions et Obligations, capitalisation, volume, valeur et
+ * compteurs de titres transigés/en hausse/en baisse/inchangés
+ * (api_bulletin_market_stats.php).
+ */
+export interface MarketStatsDay {
+  id: number
+  bulletin_id: number
+  publish_date: string
+  actions_volume: number | string | null
+  actions_volume_change_percent: number | string | null
+  actions_value_traded: number | string | null
+  actions_value_change_percent: number | string | null
+  actions_capitalization: number | string | null
+  actions_capitalization_change_percent: number | string | null
+  actions_titles_traded: number | string | null
+  actions_titles_traded_change_percent: number | string | null
+  actions_titles_up: number | string | null
+  actions_titles_up_change_percent: number | string | null
+  actions_titles_down: number | string | null
+  actions_titles_down_change_percent: number | string | null
+  actions_titles_unchanged: number | string | null
+  actions_titles_unchanged_change_percent: number | string | null
+  obligations_capitalization: number | string | null
+  obligations_capitalization_change_percent: number | string | null
+  obligations_volume: number | string | null
+  obligations_volume_change_percent: number | string | null
+  obligations_value_traded: number | string | null
+  obligations_value_change_percent: number | string | null
+  obligations_titles_traded: number | string | null
+  obligations_titles_traded_change_percent: number | string | null
+  obligations_titles_up: number | string | null
+  obligations_titles_up_change_percent: number | string | null
+  obligations_titles_down: number | string | null
+  obligations_titles_down_change_percent: number | string | null
+  obligations_titles_unchanged: number | string | null
+  obligations_titles_unchanged_change_percent: number | string | null
+  /** Tableau « Indicateurs du marché » (BRVM COMPOSITE) — un seul niveau chacun, pas de % d'évolution. */
+  per_moyen_marche: number | string | null
+  taux_rendement_moyen: number | string | null
+  taux_rentabilite_moyen: number | string | null
+  nombre_societes_cotees: number | string | null
+  nombre_lignes_obligataires: number | string | null
+  volume_moyen_annuel_seance: number | string | null
+  valeur_moyenne_annuelle_seance: number | string | null
+  ratio_moyen_liquidite: number | string | null
+  ratio_moyen_satisfaction: number | string | null
+  ratio_moyen_tendance: number | string | null
+  ratio_moyen_couverture: number | string | null
+  taux_rotation_moyen: number | string | null
+  prime_risque_marche: number | string | null
+  nombre_sgi_participantes: number | string | null
+  bulletin_title: string
+}
+
+/** api_bulletin_market_stats.php, action 'list'. */
+export interface MarketStatsListResult {
+  days: MarketStatsDay[]
+  pending_bulletins: PendingOrderBookBulletin[]
+  pending_count: number
+}
+
 /** Intervalle d'exécution intraday (delta du volume cumulé brvm.org). */
 export interface ExecutionIntervalRow {
   trading_date: string

@@ -67,7 +67,14 @@ class BulletinOrderBookService {
             }
 
             // Remplacement (jamais d'addition) : les snapshots de CE bulletin.
-            $this->crud->remove('order_book_snapshots', ['bulletin_id' => $bulletinId]);
+            // DynamiqueCrud::remove() ajoute un LIMIT 1 systématique (pensé
+            // pour supprimer UNE ligne identifiée) : sur ~47 entreprises par
+            // bulletin, il n'en supprimerait qu'une seule et la réextraction
+            // échouerait en silence sur la contrainte UNIQUE uk_snapshot —
+            // d'où un DELETE direct, sans limite, ici (même correctif que
+            // BulletinStockMetricsService/BulletinCorporateActionsService/
+            // BulletinBondMetricsService).
+            $this->crud->executeCustomQuery("DELETE FROM order_book_snapshots WHERE bulletin_id = ?", [$bulletinId]);
             foreach ($rows as $row) {
                 $this->crud->persist('order_book_snapshots', $row);
             }

@@ -1,83 +1,83 @@
 {
-    "timestamp": "2026-08-18 16:35:11",
+    "timestamp": "2026-08-19 16:35:09",
     "data": [
         {
             "Symbole": "ABJC",
             "Nom": "SERVAIR ABIDJAN COTE D'IVOIRE",
-            "Volume": 4589,
+            "Volume": 2807,
             "Cours veille (FCFA)": 3385,
-            "Cours Ouverture (FCFA)": 3345,
+            "Cours Ouverture (FCFA)": 3385,
             "Cours Clôture (FCFA)": 3385,
-            "Variation (%)": 2.58
+            "Variation (%)": 0
         },
         {
             "Symbole": "BICB",
             "Nom": "BANQUE INTERNATIONALE POUR L’INDUSTRIE ET LE COMMERCE DU BENIN",
-            "Volume": 52947,
-            "Cours veille (FCFA)": 8300,
-            "Cours Ouverture (FCFA)": 7860,
-            "Cours Clôture (FCFA)": 8295,
-            "Variation (%)": -2.35
+            "Volume": 133418,
+            "Cours veille (FCFA)": 8500,
+            "Cours Ouverture (FCFA)": 8295,
+            "Cours Clôture (FCFA)": 8405,
+            "Variation (%)": 1.33
         },
         {
             "Symbole": "BICC",
             "Nom": "BICI COTE D'IVOIRE",
-            "Volume": 710,
-            "Cours veille (FCFA)": 28995,
-            "Cours Ouverture (FCFA)": 28980,
-            "Cours Clôture (FCFA)": 29000,
-            "Variation (%)": 0.02
+            "Volume": 2938,
+            "Cours veille (FCFA)": 29450,
+            "Cours Ouverture (FCFA)": 28810,
+            "Cours Clôture (FCFA)": 29200,
+            "Variation (%)": 0.69
         },
         {
             "Symbole": "BNBC",
             "Nom": "BERNABE COTE D'IVOIRE",
-            "Volume": 1907,
-            "Cours veille (FCFA)": 1985,
-            "Cours Ouverture (FCFA)": 2000,
-            "Cours Clôture (FCFA)": 1995,
-            "Variation (%)": 0.5
+            "Volume": 2320,
+            "Cours veille (FCFA)": 1995,
+            "Cours Ouverture (FCFA)": 1995,
+            "Cours Clôture (FCFA)": 1990,
+            "Variation (%)": -0.25
         },
         {
             "Symbole": "BOAB",
             "Nom": "BANK OF AFRICA BENIN",
-            "Volume": 7848,
-            "Cours veille (FCFA)": 9300,
-            "Cours Ouverture (FCFA)": 9350,
-            "Cours Clôture (FCFA)": 9400,
-            "Variation (%)": 6.82
+            "Volume": 11085,
+            "Cours veille (FCFA)": 9000,
+            "Cours Ouverture (FCFA)": 9300,
+            "Cours Clôture (FCFA)": 9100,
+            "Variation (%)": -3.19
         },
         {
             "Symbole": "BOABF",
             "Nom": "BANK OF AFRICA BURKINA FASO",
-            "Volume": 3117,
-            "Cours veille (FCFA)": 7300,
-            "Cours Ouverture (FCFA)": 7300,
-            "Cours Clôture (FCFA)": 7350,
-            "Variation (%)": 0.68
+            "Volume": 6006,
+            "Cours veille (FCFA)": 7200,
+            "Cours Ouverture (FCFA)": 7350,
+            "Cours Clôture (FCFA)": 7300,
+            "Variation (%)": -0.68
         },
         {
             "Symbole": "BOAC",
             "Nom": "BANK OF AFRICA COTE D'IVOIRE",
-            "Volume": 11767,
+            "Volume": 10649,
             "Cours veille (FCFA)": 13450,
-            "Cours Ouverture (FCFA)": 13400,
-            "Cours Clôture (FCFA)": 13450,
-            "Variation (%)": 0.37
+            "Cours Ouverture (FCFA)": 13450,
+            "Cours Clôture (FCFA)": 13300,
+            "Variation (%)": -1.12
         },
         {
             "Symbole": "BOAM",
             "Nom": "BANK OF AFRICA MALI",
-            "Volume": 5874,
-            "Cours veille (FCFA)": 6185,
-            "Cours Ouverture (FCFA)": 6180,
-            "Cours Clôture (FCFA)": 6175,
-            "Variation (%)": -0.16
+            "Volume": 7791,
+            "Cours veille (FCFA)": 6240,
+            "Cours Ouverture (FCFA)": 6185,
+            "Cours Clôture (FCFA)": 6290,
+            "Variation (%)": 1.86
         },
         {
             "Symbole": "BOAN",
             "Nom": "BANK OF AFRICA NIGER",
-            "Volume": 2411,
-            "Cours veille (FCFA)": 5150,
+            "Volume": 10419,
+            "Cours veille (FCFA)": 5255,
             "Cours Ouverture (FCFA)": 5150,
             "Cours Clôture (FCFA)": 5150,
             "Variation (%)": 0
@@ -85,7 +85,7 @@
         {
             "Symbole": "BOAS",
             "Nom": "BANK OF AFRICA SENEGAL",
-            "Volume": 24039,
+            "Volume": 26316,
             "Cours veille (FCFA)": 7800,
             "Cours Ouverture (FCFA)": 7800,
             "Cours Clôture (FCFA)": 7800,
@@ -94,345 +94,345 @@
         {
             "Symbole": "CABC",
             "Nom": "SICABLE COTE D'IVOIRE",
-            "Volume": 1519,
-            "Cours veille (FCFA)": 3600,
-            "Cours Ouverture (FCFA)": 3600,
-            "Cours Clôture (FCFA)": 3600,
-            "Variation (%)": 0
+            "Volume": 1063,
+            "Cours veille (FCFA)": 3700,
+            "Cours Ouverture (FCFA)": 3595,
+            "Cours Clôture (FCFA)": 3690,
+            "Variation (%)": 2.5
         },
         {
             "Symbole": "CBIBF",
             "Nom": "CORIS BANK INTERNATIONAL BURKINA FASO",
-            "Volume": 1658,
-            "Cours veille (FCFA)": 28315,
-            "Cours Ouverture (FCFA)": 28500,
-            "Cours Clôture (FCFA)": 28330,
-            "Variation (%)": 0.05
+            "Volume": 2065,
+            "Cours veille (FCFA)": 28330,
+            "Cours Ouverture (FCFA)": 28000,
+            "Cours Clôture (FCFA)": 28700,
+            "Variation (%)": 1.31
         },
         {
             "Symbole": "CFAC",
             "Nom": "CFAO MOTORS COTE D'IVOIRE",
-            "Volume": 4878,
-            "Cours veille (FCFA)": 1620,
-            "Cours Ouverture (FCFA)": 1660,
-            "Cours Clôture (FCFA)": 1600,
-            "Variation (%)": -3.9
+            "Volume": 1989,
+            "Cours veille (FCFA)": 1650,
+            "Cours Ouverture (FCFA)": 1625,
+            "Cours Clôture (FCFA)": 1630,
+            "Variation (%)": 1.88
         },
         {
             "Symbole": "CIEC",
             "Nom": "CIE COTE D'IVOIRE",
-            "Volume": 3259,
-            "Cours veille (FCFA)": 6355,
-            "Cours Ouverture (FCFA)": 5925,
-            "Cours Clôture (FCFA)": 6360,
-            "Variation (%)": 7.43
+            "Volume": 3246,
+            "Cours veille (FCFA)": 6805,
+            "Cours Ouverture (FCFA)": 6805,
+            "Cours Clôture (FCFA)": 6835,
+            "Variation (%)": 7.47
         },
         {
             "Symbole": "ECOC",
             "Nom": "ECOBANK COTE D'IVOIRE",
-            "Volume": 7359,
-            "Cours veille (FCFA)": 16885,
-            "Cours Ouverture (FCFA)": 16000,
-            "Cours Clôture (FCFA)": 16885,
-            "Variation (%)": 5.5
+            "Volume": 3162,
+            "Cours veille (FCFA)": 16500,
+            "Cours Ouverture (FCFA)": 16875,
+            "Cours Clôture (FCFA)": 16500,
+            "Variation (%)": -2.28
         },
         {
             "Symbole": "ETIT",
             "Nom": "Ecobank Transnational Incorporated TOGO",
-            "Volume": 913572,
-            "Cours veille (FCFA)": 67,
-            "Cours Ouverture (FCFA)": 67,
-            "Cours Clôture (FCFA)": 67,
-            "Variation (%)": 3.08
+            "Volume": 2199479,
+            "Cours veille (FCFA)": 68,
+            "Cours Ouverture (FCFA)": 66,
+            "Cours Clôture (FCFA)": 68,
+            "Variation (%)": 1.49
         },
         {
             "Symbole": "FTSC",
             "Nom": "FILTISAC COTE D'IVOIRE",
-            "Volume": 1395,
+            "Volume": 4375,
             "Cours veille (FCFA)": 2150,
-            "Cours Ouverture (FCFA)": 2150,
-            "Cours Clôture (FCFA)": 2120,
-            "Variation (%)": -1.4
+            "Cours Ouverture (FCFA)": 2030,
+            "Cours Clôture (FCFA)": 2150,
+            "Variation (%)": 1.42
         },
         {
             "Symbole": "LNBB",
             "Nom": "LOTERIE NATIONALE DU BENIN",
-            "Volume": 9960,
-            "Cours veille (FCFA)": 4135,
-            "Cours Ouverture (FCFA)": 4100,
-            "Cours Clôture (FCFA)": 4135,
-            "Variation (%)": 1.97
+            "Volume": 5926,
+            "Cours veille (FCFA)": 4195,
+            "Cours Ouverture (FCFA)": 4135,
+            "Cours Clôture (FCFA)": 4180,
+            "Variation (%)": 1.09
         },
         {
             "Symbole": "NEIC",
             "Nom": "NEI-CEDA COTE D'IVOIRE",
-            "Volume": 1269,
-            "Cours veille (FCFA)": 2175,
-            "Cours Ouverture (FCFA)": 2175,
-            "Cours Clôture (FCFA)": 2180,
-            "Variation (%)": 0.23
+            "Volume": 909,
+            "Cours veille (FCFA)": 2180,
+            "Cours Ouverture (FCFA)": 2180,
+            "Cours Clôture (FCFA)": 2195,
+            "Variation (%)": 0.69
         },
         {
             "Symbole": "NSBC",
             "Nom": "NSIA BANQUE COTE D'IVOIRE",
-            "Volume": 1854,
-            "Cours veille (FCFA)": 23050,
-            "Cours Ouverture (FCFA)": 23050,
-            "Cours Clôture (FCFA)": 23210,
-            "Variation (%)": 0.69
+            "Volume": 4898,
+            "Cours veille (FCFA)": 23210,
+            "Cours Ouverture (FCFA)": 23210,
+            "Cours Clôture (FCFA)": 23000,
+            "Variation (%)": -0.9
         },
         {
             "Symbole": "NTLC",
             "Nom": "NESTLE COTE D'IVOIRE",
-            "Volume": 360,
-            "Cours veille (FCFA)": 17400,
-            "Cours Ouverture (FCFA)": 17350,
-            "Cours Clôture (FCFA)": 17350,
-            "Variation (%)": -0.29
+            "Volume": 2701,
+            "Cours veille (FCFA)": 17000,
+            "Cours Ouverture (FCFA)": 17345,
+            "Cours Clôture (FCFA)": 17000,
+            "Variation (%)": -2.02
         },
         {
             "Symbole": "ONTBF",
             "Nom": "ONATEL BURKINA FASO",
-            "Volume": 5976,
-            "Cours veille (FCFA)": 2900,
-            "Cours Ouverture (FCFA)": 2900,
-            "Cours Clôture (FCFA)": 2900,
-            "Variation (%)": 0
+            "Volume": 15573,
+            "Cours veille (FCFA)": 2945,
+            "Cours Ouverture (FCFA)": 2850,
+            "Cours Clôture (FCFA)": 2945,
+            "Variation (%)": 1.55
         },
         {
             "Symbole": "ORAC",
             "Nom": "ORANGE COTE D'IVOIRE",
-            "Volume": 1836,
-            "Cours veille (FCFA)": 19000,
-            "Cours Ouverture (FCFA)": 18505,
-            "Cours Clôture (FCFA)": 19000,
-            "Variation (%)": 2.43
+            "Volume": 4709,
+            "Cours veille (FCFA)": 19520,
+            "Cours Ouverture (FCFA)": 19000,
+            "Cours Clôture (FCFA)": 19510,
+            "Variation (%)": 2.68
         },
         {
             "Symbole": "ORGT",
             "Nom": "ORAGROUP TOGO",
-            "Volume": 3317,
-            "Cours veille (FCFA)": 3060,
-            "Cours Ouverture (FCFA)": 3060,
-            "Cours Clôture (FCFA)": 3035,
-            "Variation (%)": -0.82
+            "Volume": 3675,
+            "Cours veille (FCFA)": 3035,
+            "Cours Ouverture (FCFA)": 3005,
+            "Cours Clôture (FCFA)": 3090,
+            "Variation (%)": 1.81
         },
         {
             "Symbole": "PALC",
             "Nom": "PALM COTE D'IVOIRE",
-            "Volume": 5612,
-            "Cours veille (FCFA)": 9495,
-            "Cours Ouverture (FCFA)": 9255,
-            "Cours Clôture (FCFA)": 9400,
-            "Variation (%)": 1.08
+            "Volume": 2555,
+            "Cours veille (FCFA)": 9600,
+            "Cours Ouverture (FCFA)": 9465,
+            "Cours Clôture (FCFA)": 9600,
+            "Variation (%)": 2.13
         },
         {
             "Symbole": "PRSC",
             "Nom": "TRACTAFRIC MOTORS COTE D'IVOIRE",
-            "Volume": 712,
-            "Cours veille (FCFA)": 4450,
-            "Cours Ouverture (FCFA)": 4400,
+            "Volume": 1590,
+            "Cours veille (FCFA)": 4405,
+            "Cours Ouverture (FCFA)": 4405,
             "Cours Clôture (FCFA)": 4405,
-            "Variation (%)": -1.01
+            "Variation (%)": 0
         },
         {
             "Symbole": "SAFC",
             "Nom": "SAFCA COTE D'IVOIRE",
-            "Volume": 4195,
-            "Cours veille (FCFA)": 5615,
+            "Volume": 2641,
+            "Cours veille (FCFA)": 5730,
             "Cours Ouverture (FCFA)": 5700,
-            "Cours Clôture (FCFA)": 5610,
-            "Variation (%)": -2.09
+            "Cours Clôture (FCFA)": 5700,
+            "Variation (%)": 1.6
         },
         {
             "Symbole": "SCRC",
             "Nom": "SUCRIVOIRE COTE D'IVOIRE",
-            "Volume": 9613,
-            "Cours veille (FCFA)": 3590,
-            "Cours Ouverture (FCFA)": 3555,
-            "Cours Clôture (FCFA)": 3565,
-            "Variation (%)": -0.7
+            "Volume": 18964,
+            "Cours veille (FCFA)": 3485,
+            "Cours Ouverture (FCFA)": 3560,
+            "Cours Clôture (FCFA)": 3495,
+            "Variation (%)": -1.96
         },
         {
             "Symbole": "SDCC",
             "Nom": "SODE COTE D'IVOIRE",
-            "Volume": 1599,
-            "Cours veille (FCFA)": 11895,
-            "Cours Ouverture (FCFA)": 11895,
-            "Cours Clôture (FCFA)": 11970,
-            "Variation (%)": 0.63
+            "Volume": 2046,
+            "Cours veille (FCFA)": 11970,
+            "Cours Ouverture (FCFA)": 11970,
+            "Cours Clôture (FCFA)": 12145,
+            "Variation (%)": 1.46
         },
         {
             "Symbole": "SDSC",
             "Nom": "AFRICA GLOBAL LOGISTICS COTE D'IVOIRE",
-            "Volume": 25251,
-            "Cours veille (FCFA)": 2585,
-            "Cours Ouverture (FCFA)": 2640,
-            "Cours Clôture (FCFA)": 2600,
-            "Variation (%)": -3.7
+            "Volume": 25827,
+            "Cours veille (FCFA)": 2700,
+            "Cours Ouverture (FCFA)": 2585,
+            "Cours Clôture (FCFA)": 2695,
+            "Variation (%)": 3.65
         },
         {
             "Symbole": "SEMC",
             "Nom": "EVIOSYS PACKAGING SIEM COTE D'IVOIRE",
-            "Volume": 26683,
-            "Cours veille (FCFA)": 1590,
-            "Cours Ouverture (FCFA)": 1480,
-            "Cours Clôture (FCFA)": 1590,
-            "Variation (%)": 7.43
+            "Volume": 23638,
+            "Cours veille (FCFA)": 1585,
+            "Cours Ouverture (FCFA)": 1650,
+            "Cours Clôture (FCFA)": 1600,
+            "Variation (%)": 0.63
         },
         {
             "Symbole": "SGBC",
             "Nom": "SOCIETE GENERALE COTE D'IVOIRE",
-            "Volume": 7088,
-            "Cours veille (FCFA)": 39300,
-            "Cours Ouverture (FCFA)": 39500,
-            "Cours Clôture (FCFA)": 39200,
-            "Variation (%)": -0.25
+            "Volume": 3976,
+            "Cours veille (FCFA)": 39200,
+            "Cours Ouverture (FCFA)": 39300,
+            "Cours Clôture (FCFA)": 39300,
+            "Variation (%)": 0.26
         },
         {
             "Symbole": "SHEC",
             "Nom": "VIVO ENERGY COTE D'IVOIRE",
-            "Volume": 4174,
-            "Cours veille (FCFA)": 2400,
-            "Cours Ouverture (FCFA)": 2350,
+            "Volume": 3447,
+            "Cours veille (FCFA)": 2390,
+            "Cours Ouverture (FCFA)": 2400,
             "Cours Clôture (FCFA)": 2400,
-            "Variation (%)": 2.13
+            "Variation (%)": 0
         },
         {
             "Symbole": "SIBC",
             "Nom": "SOCIETE IVOIRIENNE DE BANQUE COTE D'IVOIRE",
-            "Volume": 10604,
-            "Cours veille (FCFA)": 9300,
-            "Cours Ouverture (FCFA)": 9200,
-            "Cours Clôture (FCFA)": 9285,
-            "Variation (%)": -0.16
+            "Volume": 15052,
+            "Cours veille (FCFA)": 9285,
+            "Cours Ouverture (FCFA)": 9280,
+            "Cours Clôture (FCFA)": 9200,
+            "Variation (%)": -0.92
         },
         {
             "Symbole": "SICC",
             "Nom": "SICOR COTE D'IVOIRE",
-            "Volume": 698,
-            "Cours veille (FCFA)": 10200,
-            "Cours Ouverture (FCFA)": 9990,
-            "Cours Clôture (FCFA)": 10100,
-            "Variation (%)": -0.98
+            "Volume": 277,
+            "Cours veille (FCFA)": 9400,
+            "Cours Ouverture (FCFA)": 9400,
+            "Cours Clôture (FCFA)": 9380,
+            "Variation (%)": -7.13
         },
         {
             "Symbole": "SIVC",
             "Nom": "ERIUM COTE D’IVOIRE",
-            "Volume": 1573,
-            "Cours veille (FCFA)": 2390,
-            "Cours Ouverture (FCFA)": 2410,
-            "Cours Clôture (FCFA)": 2390,
-            "Variation (%)": -0.83
+            "Volume": 1185,
+            "Cours veille (FCFA)": 2305,
+            "Cours Ouverture (FCFA)": 2255,
+            "Cours Clôture (FCFA)": 2350,
+            "Variation (%)": -1.67
         },
         {
             "Symbole": "SLBC",
             "Nom": "SOLIBRA COTE D'IVOIRE",
-            "Volume": 295,
-            "Cours veille (FCFA)": 38000,
-            "Cours Ouverture (FCFA)": 38000,
-            "Cours Clôture (FCFA)": 37500,
-            "Variation (%)": -1.32
+            "Volume": 4470,
+            "Cours veille (FCFA)": 37500,
+            "Cours Ouverture (FCFA)": 37500,
+            "Cours Clôture (FCFA)": 38000,
+            "Variation (%)": 1.33
         },
         {
             "Symbole": "SMBC",
             "Nom": "SMB COTE D'IVOIRE",
-            "Volume": 540,
+            "Volume": 1299,
             "Cours veille (FCFA)": 16445,
             "Cours Ouverture (FCFA)": 16445,
-            "Cours Clôture (FCFA)": 16445,
-            "Variation (%)": 0
+            "Cours Clôture (FCFA)": 16500,
+            "Variation (%)": 0.33
         },
         {
             "Symbole": "SNTS",
             "Nom": "SONATEL SENEGAL",
-            "Volume": 3006,
-            "Cours veille (FCFA)": 31900,
-            "Cours Ouverture (FCFA)": 31990,
-            "Cours Clôture (FCFA)": 32500,
-            "Variation (%)": 1.88
+            "Volume": 4867,
+            "Cours veille (FCFA)": 34400,
+            "Cours Ouverture (FCFA)": 32400,
+            "Cours Clôture (FCFA)": 34400,
+            "Variation (%)": 5.85
         },
         {
             "Symbole": "SOGC",
             "Nom": "SOGB COTE D'IVOIRE",
-            "Volume": 2275,
-            "Cours veille (FCFA)": 7850,
-            "Cours Ouverture (FCFA)": 7900,
-            "Cours Clôture (FCFA)": 7900,
-            "Variation (%)": 0.64
+            "Volume": 2823,
+            "Cours veille (FCFA)": 8195,
+            "Cours Ouverture (FCFA)": 7995,
+            "Cours Clôture (FCFA)": 8290,
+            "Variation (%)": 4.94
         },
         {
             "Symbole": "SPHC",
             "Nom": "SAPH COTE D'IVOIRE",
-            "Volume": 52971,
-            "Cours veille (FCFA)": 8990,
-            "Cours Ouverture (FCFA)": 9000,
-            "Cours Clôture (FCFA)": 8990,
-            "Variation (%)": 7.02
+            "Volume": 10161,
+            "Cours veille (FCFA)": 9600,
+            "Cours Ouverture (FCFA)": 9050,
+            "Cours Clôture (FCFA)": 9660,
+            "Variation (%)": 7.45
         },
         {
             "Symbole": "STAC",
             "Nom": "SETAO COTE D'IVOIRE",
-            "Volume": 7676,
-            "Cours veille (FCFA)": 2540,
-            "Cours Ouverture (FCFA)": 2500,
+            "Volume": 2712,
+            "Cours veille (FCFA)": 2530,
+            "Cours Ouverture (FCFA)": 2505,
             "Cours Clôture (FCFA)": 2530,
-            "Variation (%)": -0.59
+            "Variation (%)": 0
         },
         {
             "Symbole": "STBC",
             "Nom": "SITAB COTE D'IVOIRE",
-            "Volume": 3656,
-            "Cours veille (FCFA)": 23000,
+            "Volume": 3399,
+            "Cours veille (FCFA)": 22650,
             "Cours Ouverture (FCFA)": 23000,
-            "Cours Clôture (FCFA)": 23000,
-            "Variation (%)": 0
+            "Cours Clôture (FCFA)": 23100,
+            "Variation (%)": 0.43
         },
         {
             "Symbole": "TTLC",
             "Nom": "TOTALENERGIES MARKETING COTE D'IVOIRE",
-            "Volume": 21097,
-            "Cours veille (FCFA)": 3280,
-            "Cours Ouverture (FCFA)": 3150,
-            "Cours Clôture (FCFA)": 3300,
-            "Variation (%)": 2.8
+            "Volume": 4462,
+            "Cours veille (FCFA)": 3235,
+            "Cours Ouverture (FCFA)": 3250,
+            "Cours Clôture (FCFA)": 3230,
+            "Variation (%)": -2.12
         },
         {
             "Symbole": "TTLS",
             "Nom": "TOTALENERGIES MARKETING SENEGAL",
-            "Volume": 3926,
-            "Cours veille (FCFA)": 3745,
-            "Cours Ouverture (FCFA)": 3700,
-            "Cours Clôture (FCFA)": 3800,
-            "Variation (%)": 2.7
+            "Volume": 2275,
+            "Cours veille (FCFA)": 3700,
+            "Cours Ouverture (FCFA)": 3900,
+            "Cours Clôture (FCFA)": 3700,
+            "Variation (%)": -2.63
         },
         {
             "Symbole": "UNLC",
             "Nom": "UNILEVER COTE D'IVOIRE",
-            "Volume": 26,
-            "Cours veille (FCFA)": 53650,
-            "Cours Ouverture (FCFA)": 53650,
+            "Volume": 40,
+            "Cours veille (FCFA)": 54000,
+            "Cours Ouverture (FCFA)": 54000,
             "Cours Clôture (FCFA)": 54000,
-            "Variation (%)": -6.88
+            "Variation (%)": 0
         },
         {
             "Symbole": "UNXC",
             "Nom": "UNIWAX COTE D'IVOIRE",
-            "Volume": 21352,
-            "Cours veille (FCFA)": 2260,
-            "Cours Ouverture (FCFA)": 2260,
-            "Cours Clôture (FCFA)": 2260,
-            "Variation (%)": 7.36
+            "Volume": 34846,
+            "Cours veille (FCFA)": 2390,
+            "Cours Ouverture (FCFA)": 2425,
+            "Cours Clôture (FCFA)": 2425,
+            "Variation (%)": 7.3
         }
     ],
     "total_records": 47,
     "sample_record": {
         "Symbole": "ABJC",
         "Nom": "SERVAIR ABIDJAN COTE D'IVOIRE",
-        "Volume": 4589,
+        "Volume": 2807,
         "Cours veille (FCFA)": 3385,
-        "Cours Ouverture (FCFA)": 3345,
+        "Cours Ouverture (FCFA)": 3385,
         "Cours Clôture (FCFA)": 3385,
-        "Variation (%)": 2.58
+        "Variation (%)": 0
     }
 }

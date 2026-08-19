@@ -463,6 +463,58 @@ class ChartAnalysisService {
             "'documents_available_count' indiquent combien de rapports/documents existent au total pour cette " .
             "entreprise (au-delà de ceux éventuellement inclus en texte intégral, voir contexte complémentaire " .
             "ci-dessous s'il est fourni).",
+        'bulletin_yield_ranking' =>
+            "Classement de TOUTES les entreprises par rendement net officiel BRVM (colonne « Rdt. Net » du " .
+            "tableau « par valeur » de chaque Bulletin Officiel de la Cote, api_bulletin_stock_metrics.php, " .
+            "action 'list') — pas le rendement calculé par ailleurs dans l'application (voir chart_type " .
+            "'dividend_yield', qui recalcule à partir des dividendes extraits et d'un cours de référence " .
+            "différent) : ici c'est le chiffre imprimé tel quel par la BRVM pour la séance du bulletin choisi (le " .
+            "plus récent traité, un bulletin précis, ou celui le plus proche d'une date de référence sans jamais " .
+            "regarder après). Une entreprise absente n'a pas forcément un rendement nul : son bulletin peut " .
+            "simplement ne pas avoir encore été extrait (pending_count) ou ne pas apparaître dans son tableau ce " .
+            "jour-là.",
+        'bulletin_per_yield_history' =>
+            "Historique, bulletin par bulletin, du PER et du rendement net officiels BRVM ainsi que du cours de " .
+            "clôture d'une ou plusieurs entreprises, extraits du tableau « par valeur » de chaque Bulletin " .
+            "Officiel de la Cote déjà traité (api_bulletin_stock_metrics.php, action 'list', filtré par " .
+            "symbole). Ce PER utilise TOUJOURS le nombre d'actions en circulation réel à la date du bulletin — " .
+            "contrairement au PER recalculé ailleurs dans l'application à partir du nombre d'actions ACTUEL de " .
+            "l'entreprise (voir écran États financiers), donc plus fiable après une augmentation de capital, un " .
+            "rachat ou un split. Un point par bulletin déjà extrait contenant cette entreprise, PAS une séance " .
+            "sur deux : un intervalle irrégulier entre deux points signifie seulement que des bulletins " .
+            "intermédiaires n'ont pas encore été traités, pas une absence de cotation. Une valeur manquante dans " .
+            "le bulletin (tiret imprimé) est absente du tracé plutôt qu'interpolée ou devinée.",
+        'market_pressure_breadth' =>
+            "Largeur du marché en pression acheteur/vendeur, PORTÉE MARCHÉ ENTIER (pas une entreprise) : pour " .
+            "chaque bulletin, à partir du carnet d'ordres fin de séance de CHAQUE entreprise cotée " .
+            "(api_order_book.php, action 'market_pressure' — quantités résiduelles à l'achat/à la vente " .
+            "observées dans le Bulletin Officiel de la Cote, jamais estimées), compte combien d'entreprises ont " .
+            "plus de quantité résiduelle à l'achat qu'à la vente ('companies_buyer'), l'inverse " .
+            "('companies_seller'), ou sont à l'équilibre/sans carnet ('companies_equilibre') — chaque entreprise " .
+            "compte pour 1 quelle que soit sa taille, contrairement à une somme brute de quantités où un seul " .
+            "titre très liquide écraserait le comportement des actionnaires des autres entreprises (cette somme " .
+            "brute, 'bid_qty'/'ask_qty', est fournie pour mémoire uniquement). 'companies_ratio' = " .
+            "companies_buyer / (companies_buyer + companies_seller), 0,5 = équilibre entre le nombre " .
+            "d'entreprises plutôt acheteuses et plutôt vendeuses. RÈGLE ABSOLUE : ceci décrit ce qui reste " .
+            "affiché en carnet en fin de séance, pas un décompte de tous les ordres passés dans la journée — ne " .
+            "jamais présenter comme un fait ce qui n'est qu'une photographie de fin de séance.",
+        'bulletin_market_stats' =>
+            "Statistiques agrégées du marché ENTIER, une valeur par bulletin, extraites de façon DÉTERMINISTE " .
+            "(regex sur le texte brut du bulletin, pas d'IA — donc jamais d'hallucination possible sur ces " .
+            "chiffres) des tableaux « Statistiques du marché » et « Indicateurs du marché » du Bulletin Officiel " .
+            "de la Cote (api_bulletin_market_stats.php, action 'list') : capitalisation boursière, volume et " .
+            "valeur transigés, nombre de titres transigés/en hausse/en baisse/inchangés — chacun décliné pour le " .
+            "marché des ACTIONS et celui des OBLIGATIONS séparément (deux tableaux distincts du bulletin, ne " .
+            "jamais les confondre ni les additionner) — puis 14 indicateurs synthétiques calculés par la BRVM " .
+            "sur le BRVM COMPOSITE : PER moyen du marché (souvent calculé sans UNILEVER CI, valeur aberrante), " .
+            "taux de rendement et de rentabilité moyens, ratios moyens de liquidité/satisfaction/tendance/" .
+            "couverture (échelle propre à la BRVM, sans borne fixe universelle — commenter leur évolution " .
+            "relative, pas leur niveau absolu comme bon ou mauvais dans l'absolu), taux de rotation moyen, prime " .
+            "de risque du marché, nombre de sociétés cotées/de lignes obligataires/de SGI participantes " .
+            "(indicateurs de composition du marché, évoluent très lentement — une variation d'un bulletin à " .
+            "l'autre est notable). Volume/valeur moyens annuels par séance sont des moyennes glissantes sur un " .
+            "an, donc quasi constants d'un bulletin au suivant par construction — ne pas s'étonner de leur " .
+            "stabilité.",
     ];
 
     private $crud;

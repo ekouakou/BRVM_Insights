@@ -69,6 +69,8 @@ DROP TABLE IF EXISTS
     bulletin_stock_metrics,
     -- Migration 025 : marché obligataire
     bulletin_bond_metrics,
+    -- Migration 026 : volumes et valeurs transigés du marché
+    bulletin_market_stats,
     market_bulletin_corporate_actions,
     market_bulletin_comparisons,
     market_bulletin_analyses,

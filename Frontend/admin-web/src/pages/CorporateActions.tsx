@@ -7,6 +7,7 @@ import type {
   Company,
   CorporateActionsListResult,
   IndexHistoryPoint,
+  LiquidityRankingResult,
   MarketIndex,
   MarketPressureResult,
   OrderBookSnapshotsResult,
@@ -22,6 +23,7 @@ import { CompanyAnnouncements } from '../components/CompanyAnnouncements'
 import { ChartAiAnalysis } from '../components/ChartAiAnalysis'
 import { DividendComparisonPanel } from '../components/DividendComparison'
 import { LiquidityComparisonPanel } from '../components/LiquidityComparison'
+import { MarketStatsCharts } from '../components/MarketStatsCharts'
 import { colorForCompany, groupCompaniesBySector, useCompanyColors, usePersistedSelection } from '../lib/companyGroups'
 
 function todayIso() {
@@ -275,6 +277,44 @@ export function CorporateActions() {
     enabled: activeTab === 'pression' && pressurePeriodEnabled,
   })
 
+  // Pression toutes entreprises confondues (par opposition à pressureChartData
+  // ci-dessous, qui ne porte que sur l'entreprise sélectionnée) — répond à
+  // « le marché est-il plutôt acheteur ou plutôt vendeur ? ». marketPressureQuery
+  // agrège déjà tout ça côté backend (marketPressure()), il ne restait qu'à
+  // le mettre en forme pour l'affichage.
+  //
+  // On raisonne en LARGEUR de marché (nombre d'entreprises plutôt acheteuses
+  // vs vendeuses, chacune comptant pour 1) plutôt qu'en quantités brutes
+  // sommées (net_qty/imbalance_ratio du backend) : une seule valeur très
+  // liquide écraserait sinon le comportement des actionnaires des autres
+  // entreprises dans la somme. Ça reflète mieux « les actionnaires vendent-ils,
+  // en général ? » que la quantité agrégée, dominée par les plus gros titres.
+  const marketWidePressureChartData = useMemo(() => {
+    const rows = marketPressureQuery.data?.days ?? []
+    return [...rows]
+      .sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date))
+      .map((r) => {
+        const companiesEquilibre = Math.max(0, r.companies_total - r.companies_no_book - r.companies_buyer - r.companies_seller)
+        const breadthDenom = r.companies_buyer + r.companies_seller
+        return {
+          date: r.snapshot_date,
+          bid_qty: Number(r.total_bid_qty),
+          ask_qty: Number(r.total_ask_qty),
+          net_qty: r.net_qty,
+          companies_buyer: r.companies_buyer,
+          companies_seller: r.companies_seller,
+          companies_equilibre: companiesEquilibre,
+          companies_total: r.companies_total,
+          companies_dominant: r.companies_buyer > r.companies_seller ? 'acheteur' : r.companies_seller > r.companies_buyer ? 'vendeur' : 'equilibre',
+          companies_ratio: breadthDenom > 0 ? r.companies_buyer / breadthDenom : null,
+          bulletin_title: r.bulletin_title,
+        }
+      })
+  }, [marketPressureQuery.data])
+  const marketBuyerDaysCount = marketWidePressureChartData.filter((d) => d.companies_dominant === 'acheteur').length
+  const marketSellerDaysCount = marketWidePressureChartData.filter((d) => d.companies_dominant === 'vendeur').length
+  const lastMarketPressureDay = marketWidePressureChartData[marketWidePressureChartData.length - 1] ?? null
+
   // Extraction déterministe (regex, pas d'IA) du carnet d'ordres — un seul
   // appel traite TOUS les bulletins en attente d'un coup (voir
   // BulletinOrderBookService::extractAll()), contrairement aux extractions
@@ -285,6 +325,33 @@ export function CorporateActions() {
       queryClient.invalidateQueries({ queryKey: ['market-pressure'] })
     },
   })
+
+  // Comparaison ENTREPRISE PAR ENTREPRISE (pas dans le temps, contrairement
+  // aux graphes ci-dessus) des quantités résiduelles à l'achat vs à la
+  // vente, moyennées sur la période choisie — même endpoint que le classement
+  // de liquidité déjà utilisé ailleurs dans l'application
+  // (api_order_book.php, action 'ranking'), réutilisé ici tel quel.
+  const bidAskRankingQuery = useQuery({
+    queryKey: ['bid-ask-ranking', pressureStartDate, pressureEndDate],
+    queryFn: () =>
+      callApi<LiquidityRankingResult>('api_order_book.php', 'ranking', {
+        start_date: pressureStartDate,
+        end_date: pressureEndDate,
+      }),
+    enabled: activeTab === 'pression' && pressurePeriodEnabled,
+  })
+
+  const bidAskChartData = useMemo(() => {
+    const rows = bidAskRankingQuery.data?.rows ?? []
+    return rows
+      .filter((r) => r.avg_bid_qty !== null || r.avg_ask_qty !== null)
+      .map((r) => {
+        const bid = r.avg_bid_qty ?? 0
+        const ask = r.avg_ask_qty ?? 0
+        return { symbol: r.symbol, name: r.name, bid_qty: bid, ask_qty: ask, net_qty: bid - ask }
+      })
+      .sort((a, b) => b.net_qty - a.net_qty)
+  }, [bidAskRankingQuery.data])
 
   // Carnet d'ordres résiduel d'UNE entreprise (l'entreprise sélectionnée en
   // haut de page) sur la période choisie — répond à « ses actionnaires
@@ -973,6 +1040,11 @@ export function CorporateActions() {
                     orange : 3 à 6 % · gris : en dessous de 3 %. Choisis une entreprise dans le sélecteur en haut de
                     page pour voir son évolution dans le temps plutôt que ce classement à un instant donné.
                   </p>
+                  <ChartAiAnalysis
+                    chartType="bulletin_yield_ranking"
+                    parameters={metricsFilters}
+                    data={yieldRankingChartData}
+                  />
                 </>
               )}
             </Card>
@@ -1073,6 +1145,13 @@ export function CorporateActions() {
                 bulletins traités jusqu'ici (voir la liste des bulletins en attente plus haut pour compléter la
                 couverture). Une valeur absente du bulletin (tiret) n'est pas tracée plutôt que d'être devinée.
               </p>
+              <ChartAiAnalysis
+                chartType="bulletin_per_yield_history"
+                parameters={{ company_id: selectedCompanyId }}
+                data={historyChartData}
+                disabled={historyChartData.length <= 1}
+                disabledReason={historyChartData.length <= 1 ? "Pas assez de bulletins extraits pour cette entreprise" : undefined}
+              />
             </Card>
           )}
 
@@ -1196,6 +1275,11 @@ export function CorporateActions() {
                 Vert : hausse du cours sur la période · rouge : baisse. Entreprises sans cotation sur la période
                 absentes du graphe (pas de valeur à calculer).
               </p>
+              <ChartAiAnalysis
+                chartType="performance_ranking"
+                parameters={{ start_date: perfStartDate, end_date: perfEndDate }}
+                data={perfRankingChartData}
+              />
             </Card>
           )}
         </>
@@ -1367,10 +1451,10 @@ export function CorporateActions() {
         <>
           <InfoPanel>
             <p>
-              <strong>À quoi sert cet onglet.</strong> Chaque Bulletin Officiel de la Cote publie, pour l'action
-              choisie dans le sélecteur en haut de page, un carnet d'ordres fin de séance : ce qu'il reste de
-              quantité en attente à l'achat et à la vente, non exécuté faute de contrepartie. Cet onglet répond à
-              « ses actionnaires sont-ils plutôt acheteurs ou plutôt vendeurs sur la période choisie ? ».
+              <strong>À quoi sert cet onglet.</strong> Chaque Bulletin Officiel de la Cote publie un carnet d'ordres
+              fin de séance : ce qu'il reste de quantité en attente à l'achat et à la vente, non exécuté faute de
+              contrepartie. Cet onglet répond à « le marché est-il plutôt acheteur ou plutôt vendeur ? » — toutes
+              entreprises confondues ci-dessous, puis pour l'action choisie dans le sélecteur en haut de page.
             </p>
             <p>
               <strong>Ce que ça mesure, et ce que ça ne mesure pas.</strong> C'est <strong>observé</strong> dans le
@@ -1379,57 +1463,243 @@ export function CorporateActions() {
             </p>
           </InfoPanel>
 
+          <Card>
+            <div className="flex flex-wrap items-end gap-4">
+              <label className="w-40">
+                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
+                <Input type="date" value={pressureStartDate} max={pressureEndDate} onChange={(e) => setPressureStartDate(e.target.value)} />
+              </label>
+              <label className="w-40">
+                <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
+                <Input type="date" value={pressureEndDate} min={pressureStartDate} max={todayIso()} onChange={(e) => setPressureEndDate(e.target.value)} />
+              </label>
+            </div>
+            {pressureStartDate > pressureEndDate && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400">La date de début doit précéder la date de fin.</p>
+            )}
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Cette période s'applique à toutes les sections ci-dessous — pression du marché entier dans le temps,
+              comparaison achat/vente entreprise par entreprise, volumes/valeurs du marché entier, et carnet
+              d'ordres de l'entreprise choisie en haut de page.
+            </p>
+          </Card>
+
+          {!!marketPressureQuery.data?.pending_count && (
+            <Card>
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {marketPressureQuery.data.pending_count} bulletin(s) sans carnet d'ordres extrait
+                </h3>
+                <Button variant="secondary" disabled={parseOrderBooksMutation.isPending} onClick={() => parseOrderBooksMutation.mutate()}>
+                  {parseOrderBooksMutation.isPending ? 'Extraction…' : "Extraire tous les carnets manquants"}
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Extraction déterministe (lecture directe du tableau « Quantité résiduelle » du bulletin, pas d'IA) —
+                traite tous les bulletins en attente en un seul clic, toutes entreprises confondues.
+              </p>
+              {parseOrderBooksMutation.isError && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">{(parseOrderBooksMutation.error as Error).message}</p>
+              )}
+            </Card>
+          )}
+
+          {marketPressureQuery.isLoading && <LoadingState label="Chargement…" />}
+          {marketPressureQuery.error && <ErrorState message={(marketPressureQuery.error as Error).message} />}
+
+          {marketPressureQuery.data && marketWidePressureChartData.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Aucun carnet d'ordres extrait sur cette période — extrais les bulletins en attente ci-dessus.
+            </p>
+          )}
+
+          {marketWidePressureChartData.length > 0 && (
+            <>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatTile
+                  label="Séances où plus d'entreprises sont acheteuses"
+                  value={`${marketBuyerDaysCount} / ${marketWidePressureChartData.length}`}
+                  tone={marketBuyerDaysCount > marketSellerDaysCount ? 'positive' : 'default'}
+                />
+                <StatTile
+                  label="Séances où plus d'entreprises sont vendeuses"
+                  value={`${marketSellerDaysCount} / ${marketWidePressureChartData.length}`}
+                  tone={marketSellerDaysCount > marketBuyerDaysCount ? 'negative' : 'default'}
+                />
+                <StatTile
+                  label="Dernière séance connue"
+                  value={
+                    lastMarketPressureDay
+                      ? `${lastMarketPressureDay.date} — ${
+                          lastMarketPressureDay.companies_dominant === 'acheteur'
+                            ? 'plutôt acheteur'
+                            : lastMarketPressureDay.companies_dominant === 'vendeur'
+                              ? 'plutôt vendeur'
+                              : 'équilibré'
+                        }`
+                      : '—'
+                  }
+                  tone={
+                    lastMarketPressureDay?.companies_dominant === 'acheteur'
+                      ? 'positive'
+                      : lastMarketPressureDay?.companies_dominant === 'vendeur'
+                        ? 'negative'
+                        : 'default'
+                  }
+                />
+                <StatTile
+                  label="Part d'entreprises acheteuses — dernière séance"
+                  value={
+                    lastMarketPressureDay?.companies_ratio !== null && lastMarketPressureDay?.companies_ratio !== undefined
+                      ? `${(lastMarketPressureDay.companies_ratio * 100).toFixed(0)} %`
+                      : '—'
+                  }
+                  tooltip="Part des entreprises (carnet non vide) où la quantité résiduelle à l'achat dépasse celle à la vente, parmi celles qui ne sont pas à l'équilibre. 50% = équilibre entre le nombre d'entreprises plutôt acheteuses et plutôt vendeuses."
+                  tone={
+                    lastMarketPressureDay?.companies_ratio === null || lastMarketPressureDay?.companies_ratio === undefined
+                      ? 'default'
+                      : lastMarketPressureDay.companies_ratio > 0.5
+                        ? 'positive'
+                        : lastMarketPressureDay.companies_ratio < 0.5
+                          ? 'negative'
+                          : 'default'
+                  }
+                />
+              </div>
+
+              <Card title="Largeur du marché (nombre d'entreprises plutôt acheteuses vs vendeuses)">
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={marketWidePressureChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />
+                    <YAxis tick={{ fontSize: 10 }} width={40} allowDecimals={false} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null
+                        const p = payload[0].payload as (typeof marketWidePressureChartData)[number]
+                        return (
+                          <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+                            <div className="mb-1 font-medium">{p.date}</div>
+                            <div>
+                              Plutôt acheteuses : <strong>{p.companies_buyer}</strong> / {p.companies_total}
+                            </div>
+                            <div>
+                              Plutôt vendeuses : <strong>{p.companies_seller}</strong> / {p.companies_total}
+                            </div>
+                            <div>
+                              À l'équilibre / sans carnet : {p.companies_equilibre} / {p.companies_total}
+                            </div>
+                            <div className="mt-1 text-gray-500 dark:text-gray-400">
+                              Pour mémoire, quantités résiduelles sommées (dominées par les plus gros titres) :
+                              achat {fmtNum(p.bid_qty, 0)} · vente {fmtNum(p.ask_qty, 0)}
+                            </div>
+                            {p.bulletin_title && <div className="mt-1 text-gray-500 dark:text-gray-400">{p.bulletin_title}</div>}
+                          </div>
+                        )
+                      }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar stackId="largeur" dataKey="companies_buyer" name="Plutôt acheteuses" fill="var(--chart-positive)" />
+                    <Bar stackId="largeur" dataKey="companies_seller" name="Plutôt vendeuses" fill="var(--chart-negative)" />
+                    <Bar stackId="largeur" dataKey="companies_equilibre" name="Équilibre / sans carnet" fill="var(--chart-muted)" />
+                  </BarChart>
+                </ResponsiveContainer>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Chaque entreprise compte pour 1, quelle que soit sa taille — contrairement à une somme de
+                  quantités où un seul titre très liquide écraserait le comportement des actionnaires des autres
+                  entreprises. Répond à « les actionnaires sont-ils, en général, plutôt vendeurs ou acheteurs ? ».
+                </p>
+              </Card>
+
+              <Card title="Part d'entreprises plutôt acheteuses dans le temps">
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart data={marketWidePressureChartData} margin={{ top: 5, right: 10, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} minTickGap={20} />
+                    <YAxis tick={{ fontSize: 10 }} width={50} domain={[0, 1]} tickFormatter={(v) => `${Math.round(v * 100)}%`} />
+                    <ReferenceLine y={0.5} stroke="var(--chart-muted)" strokeDasharray="3 3" />
+                    <Tooltip formatter={(value) => [value !== null ? `${(Number(value) * 100).toFixed(0)} %` : '—', "Part d'entreprises acheteuses"]} />
+                    <Line
+                      type="monotone"
+                      dataKey="companies_ratio"
+                      name="Part d'entreprises acheteuses"
+                      stroke="var(--chart-1)"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      connectNulls
+                      isAnimationActive={false}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Au-dessus de la ligne des 50% : ce jour-là, plus d'entreprises comptent davantage de quantité
+                  résiduelle à l'achat qu'à la vente (marché plutôt acheteur en largeur). En dessous : l'inverse.
+                </p>
+                <ChartAiAnalysis
+                  chartType="market_pressure_breadth"
+                  parameters={{ start_date: pressureStartDate, end_date: pressureEndDate }}
+                  data={marketWidePressureChartData}
+                />
+              </Card>
+            </>
+          )}
+
+          {bidAskRankingQuery.isLoading && <LoadingState label="Chargement du classement par entreprise…" />}
+          {bidAskRankingQuery.error && <ErrorState message={(bidAskRankingQuery.error as Error).message} />}
+
+          {bidAskChartData.length > 0 && (
+            <Card title={`Quantité résiduelle achat vs vente, entreprise par entreprise — du ${pressureStartDate} au ${pressureEndDate}`}>
+              <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+                Moyenne des carnets fin de séance sur la période choisie ci-dessus (modifiable via les dates de
+                début/fin en haut de cet onglet), une entreprise à la fois — trié de la plus acheteuse (en haut) à
+                la plus vendeuse (en bas). Complète les graphes ci-dessus, qui regardent le marché entier dans le
+                temps plutôt qu'entreprise par entreprise à un instant donné.
+              </p>
+              <ResponsiveContainer width="100%" height={Math.max(240, 26 * bidAskChartData.length + 40)}>
+                <BarChart data={bidAskChartData} layout="vertical" margin={{ top: 5, right: 30, bottom: 5, left: 10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-muted)" strokeOpacity={0.3} horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => fmtNum(v, 0)} />
+                  <YAxis type="category" dataKey="symbol" width={70} tick={{ fontSize: 10 }} interval={0} />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null
+                      const p = payload[0].payload as (typeof bidAskChartData)[number]
+                      return (
+                        <div className="rounded-md border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+                          <div className="mb-1 font-medium">{p.symbol} — {p.name}</div>
+                          <div>Quantité résiduelle achat (moy.) : <strong>{fmtNum(p.bid_qty, 0)}</strong></div>
+                          <div>Quantité résiduelle vente (moy.) : <strong>{fmtNum(p.ask_qty, 0)}</strong></div>
+                          <div className="mt-1 text-gray-500 dark:text-gray-400">
+                            Net : {p.net_qty > 0 ? '+' : ''}{fmtNum(p.net_qty, 0)} ({p.net_qty > 0 ? 'plutôt acheteur' : p.net_qty < 0 ? 'plutôt vendeur' : 'équilibre'})
+                          </div>
+                        </div>
+                      )
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="bid_qty" name="Quantité achat (moy.)" fill="var(--chart-positive)" />
+                  <Bar dataKey="ask_qty" name="Quantité vente (moy.)" fill="var(--chart-negative)" />
+                </BarChart>
+              </ResponsiveContainer>
+              <ChartAiAnalysis
+                chartType="liquidity_ranking"
+                parameters={{ start_date: pressureStartDate, end_date: pressureEndDate, criterion: 'bid_ask_qty' }}
+                data={bidAskChartData}
+              />
+            </Card>
+          )}
+
+          <MarketStatsCharts startDate={pressureStartDate} endDate={pressureEndDate} enabled={pressurePeriodEnabled} />
+
           {!selectedCompany && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Choisis une entreprise dans le sélecteur en haut de page pour voir si ses actionnaires sont plutôt
-              acheteurs ou vendeurs.
+              Choisis une entreprise dans le sélecteur en haut de page pour voir en plus si SES actionnaires sont
+              plutôt acheteurs ou vendeurs.
             </p>
           )}
 
           {selectedCompany && (
             <>
-              {!!marketPressureQuery.data?.pending_count && (
-                <Card>
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                      {marketPressureQuery.data.pending_count} bulletin(s) sans carnet d'ordres extrait
-                    </h3>
-                    <Button
-                      variant="secondary"
-                      disabled={parseOrderBooksMutation.isPending}
-                      onClick={() => parseOrderBooksMutation.mutate()}
-                    >
-                      {parseOrderBooksMutation.isPending ? 'Extraction…' : "Extraire tous les carnets manquants"}
-                    </Button>
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    Extraction déterministe (lecture directe du tableau « Quantité résiduelle » du bulletin, pas
-                    d'IA) — traite tous les bulletins en attente en un seul clic, toutes entreprises confondues.
-                  </p>
-                  {parseOrderBooksMutation.isError && (
-                    <p className="mt-2 text-xs text-red-600 dark:text-red-400">
-                      {(parseOrderBooksMutation.error as Error).message}
-                    </p>
-                  )}
-                </Card>
-              )}
-
-              <Card>
-                <div className="flex flex-wrap items-end gap-4">
-                  <label className="w-40">
-                    <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de début</span>
-                    <Input type="date" value={pressureStartDate} max={pressureEndDate} onChange={(e) => setPressureStartDate(e.target.value)} />
-                  </label>
-                  <label className="w-40">
-                    <span className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Date de fin</span>
-                    <Input type="date" value={pressureEndDate} min={pressureStartDate} max={todayIso()} onChange={(e) => setPressureEndDate(e.target.value)} />
-                  </label>
-                </div>
-                {pressureStartDate > pressureEndDate && (
-                  <p className="mt-2 text-xs text-red-600 dark:text-red-400">La date de début doit précéder la date de fin.</p>
-                )}
-              </Card>
-
               {companyOrderBookQuery.isLoading && <LoadingState label="Chargement…" />}
               {companyOrderBookQuery.error && <ErrorState message={(companyOrderBookQuery.error as Error).message} />}
 
@@ -1530,6 +1800,11 @@ export function CorporateActions() {
                       Au-dessus de la ligne des 50% : plus de quantité résiduelle à l'achat qu'à la vente ce
                       jour-là (actionnaires plutôt acheteurs). En dessous : l'inverse.
                     </p>
+                    <ChartAiAnalysis
+                      chartType="order_book_liquidity"
+                      parameters={{ company_id: selectedCompanyId, start_date: pressureStartDate, end_date: pressureEndDate }}
+                      data={pressureChartData}
+                    />
                   </Card>
 
                   <Card>
@@ -1741,6 +2016,12 @@ export function CorporateActions() {
                       </table>
                     </div>
                   )}
+                  <ChartAiAnalysis
+                    chartType="corporate_actions"
+                    parameters={{ company_ids: [...comparisonSelected].sort((a, b) => a - b), start_date: comparisonStartDate, end_date: comparisonEndDate }}
+                    data={comparisonActionRows}
+                    disabled={comparisonActionRows.length === 0}
+                  />
                 </Card>
               )}
 
@@ -1788,6 +2069,12 @@ export function CorporateActions() {
                     Un point par bulletin déjà extrait contenant l'entreprise — une valeur absente du bulletin n'est
                     pas tracée plutôt que d'être devinée.
                   </p>
+                  <ChartAiAnalysis
+                    chartType="bulletin_per_yield_history"
+                    parameters={{ company_ids: [...comparisonSelected].sort((a, b) => a - b), start_date: comparisonStartDate, end_date: comparisonEndDate }}
+                    data={comparisonYieldChartData}
+                    disabled={comparisonYieldChartData.length === 0}
+                  />
                 </Card>
               )}
 
@@ -1839,6 +2126,12 @@ export function CorporateActions() {
                     Au-dessus de 0% : l'entreprise a fait mieux que le marché ce jour-là. En-dessous : moins bien —
                     même si son propre cours a progressé.
                   </p>
+                  <ChartAiAnalysis
+                    chartType="relative_strength"
+                    parameters={{ company_ids: [...comparisonSelected].sort((a, b) => a - b), start_date: comparisonStartDate, end_date: comparisonEndDate }}
+                    data={comparisonRelativeStrengthChartData}
+                    disabled={comparisonRelativeStrengthChartData.length === 0}
+                  />
                 </Card>
               )}
 
