@@ -76,6 +76,32 @@ DROP TABLE IF EXISTS
     market_bulletin_analyses,
     market_bulletin_contents,
     market_bulletins,
+    -- Migration 023 : états financiers saisis à la main
+    financial_statement_lines,
+    financial_statements,
+    -- Migration 029 : analyse approfondie par entreprise (actionnariat,
+    -- relations d'affaires, métriques opérationnelles, saisonnalité,
+    -- cyclicité, notes qualitatives, ESG, gouvernance, liquidité)
+    company_shareholders,
+    company_business_relationships,
+    company_operational_metrics,
+    company_seasonality_calendar,
+    company_cyclicality_profile,
+    company_analysis_notes,
+    company_esg_records,
+    company_governance_events,
+    company_market_liquidity_snapshots,
+    -- Migration 032 : historique du prix international de référence
+    company_international_pricing_history,
+    -- Migration 033 : historique du prix local
+    company_local_price_history,
+    -- Migration 034 : filiales et positionnement marché
+    company_subsidiaries,
+    company_market_position,
+    -- Migration 035 : historique du cours mondial de la matière première
+    company_world_price_history,
+    -- Migration 037 : historique du rendement/pourcentage de rémunération
+    company_dividend_yield_history,
     company_report_comparisons,
     company_report_analyses,
     company_report_contents,

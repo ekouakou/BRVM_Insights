@@ -115,11 +115,17 @@ class CompaniesAPI {
             'shares_outstanding' => 'c.shares_outstanding',
             'listing_date' => 'c.listing_date',
             'website' => 'c.website',
+            'description' => 'c.description',
+            'products_services' => 'c.products_services',
+            'is_seasonal' => 'c.is_seasonal',
+            'seasonal_detail' => 'c.seasonal_detail',
+            'is_trading_company' => 'c.is_trading_company',
+            'trading_classification_note' => 'c.trading_classification_note',
             'logo_url' => 'c.logo_url',
             'active' => 'c.active',
             'created_at' => 'c.created_at'
         ];
-        
+
         $whereConditions = [];
         if (!empty($where)) {
             foreach ($where as $field => $value) {
@@ -184,6 +190,11 @@ class CompaniesAPI {
             'name' => 'c.name',
             'full_name' => 'c.full_name',
             'description' => 'c.description',
+            'products_services' => 'c.products_services',
+            'is_seasonal' => 'c.is_seasonal',
+            'seasonal_detail' => 'c.seasonal_detail',
+            'is_trading_company' => 'c.is_trading_company',
+            'trading_classification_note' => 'c.trading_classification_note',
             'sector_id' => 'c.sector_id',
             'sector_name' => 's.name',
             'country_id' => 'c.country_id',
@@ -330,6 +341,11 @@ class CompaniesAPI {
             'listing_date' => $input['listing_date'] ?? null,
             'website' => trim($input['website'] ?? ''),
             'description' => trim($input['description'] ?? ''),
+            'products_services' => trim($input['products_services'] ?? ''),
+            'is_seasonal' => in_array($input['is_seasonal'] ?? '', ['non', 'partiellement', 'oui'], true) ? $input['is_seasonal'] : 'non',
+            'seasonal_detail' => trim($input['seasonal_detail'] ?? ''),
+            'is_trading_company' => !empty($input['is_trading_company']) ? 1 : 0,
+            'trading_classification_note' => trim($input['trading_classification_note'] ?? ''),
             'logo_url' => trim($input['logo_url'] ?? ''),
             'active' => (int)($input['active'] ?? 1)
         ];
@@ -366,13 +382,23 @@ class CompaniesAPI {
         $allowedFields = [
             'name', 'full_name', 'sector_id', 'country_id', 'isin_code',
             'market_cap', 'shares_outstanding', 'listing_date', 'website',
-            'description', 'logo_url', 'active'
+            'description', 'products_services', 'is_seasonal', 'seasonal_detail',
+            'is_trading_company', 'trading_classification_note',
+            'logo_url', 'active'
         ];
 
         foreach ($allowedFields as $field) {
             if (isset($input[$field])) {
                 $data[$field] = $input[$field];
             }
+        }
+
+        if (array_key_exists('is_trading_company', $data)) {
+            $data['is_trading_company'] = !empty($data['is_trading_company']) ? 1 : 0;
+        }
+
+        if (isset($data['is_seasonal']) && !in_array($data['is_seasonal'], ['non', 'partiellement', 'oui'], true)) {
+            throw new Exception("Valeur invalide pour is_seasonal (non, partiellement ou oui attendu)");
         }
 
         if (empty($data)) {

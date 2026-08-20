@@ -1,88 +1,88 @@
 {
-    "timestamp": "2026-08-19 16:35:12",
+    "timestamp": "2026-08-20 16:35:14",
     "data": [
         {
             "Nom": "BRVM-30",
-            "Fermeture précédente": 242.89,
-            "Fermeture": 247.63,
-            "Variation (%)": 1.95,
+            "Fermeture précédente": 247.63,
+            "Fermeture": 249.97,
+            "Variation (%)": 0.94,
             "Variation 31 décembre (%)": 1.97
         },
         {
             "Nom": "BRVM - COMPOSITE",
-            "Fermeture précédente": 507.13,
-            "Fermeture": 515.72,
-            "Variation (%)": 1.69,
+            "Fermeture précédente": 515.72,
+            "Fermeture": 519.59,
+            "Variation (%)": 0.75,
             "Variation 31 décembre (%)": 1.7
         },
         {
             "Nom": "BRVM - PRESTIGE",
-            "Fermeture précédente": 188.07,
-            "Fermeture": 190.74,
-            "Variation (%)": 1.42,
+            "Fermeture précédente": 190.74,
+            "Fermeture": 192.83,
+            "Variation (%)": 1.1,
             "Variation 31 décembre (%)": 1.47
         },
         {
             "Nom": "BRVM - PRINCIPAL",
-            "Fermeture précédente": 378.03,
-            "Fermeture": 381.53,
-            "Variation (%)": 0.93,
+            "Fermeture précédente": 381.53,
+            "Fermeture": 382.28,
+            "Variation (%)": 0.2,
             "Variation 31 décembre (%)": 0.78
         },
         {
             "Nom": "BRVM - CONSOMMATION DE BASE",
-            "Fermeture précédente": 287.69,
-            "Fermeture": 291.01,
-            "Variation (%)": 1.15,
+            "Fermeture précédente": 291.01,
+            "Fermeture": 285.57,
+            "Variation (%)": -1.87,
             "Variation 31 décembre (%)": 1.51
         },
         {
             "Nom": "BRVM - CONSOMMATION DISCRETIONNAIRE",
-            "Fermeture précédente": 199.72,
-            "Fermeture": 203.37,
-            "Variation (%)": 1.83,
+            "Fermeture précédente": 203.37,
+            "Fermeture": 207.51,
+            "Variation (%)": 2.04,
             "Variation 31 décembre (%)": -0.87
         },
         {
             "Nom": "BRVM - ENERGIE",
-            "Fermeture précédente": 172.17,
-            "Fermeture": 170.13,
-            "Variation (%)": -1.18,
+            "Fermeture précédente": 170.13,
+            "Fermeture": 174.87,
+            "Variation (%)": 2.79,
             "Variation 31 décembre (%)": -0.11
         },
         {
             "Nom": "BRVM - INDUSTRIELS",
-            "Fermeture précédente": 215.09,
-            "Fermeture": 219.6,
-            "Variation (%)": 2.1,
+            "Fermeture précédente": 219.6,
+            "Fermeture": 221.82,
+            "Variation (%)": 1.01,
             "Variation 31 décembre (%)": 0.12
         },
         {
             "Nom": "BRVM - SERVICES FINANCIERS",
-            "Fermeture précédente": 243.48,
-            "Fermeture": 243.36,
-            "Variation (%)": -0.05,
+            "Fermeture précédente": 243.36,
+            "Fermeture": 244.52,
+            "Variation (%)": 0.48,
             "Variation 31 décembre (%)": 0.56
         },
         {
             "Nom": "BRVM - SERVICES PUBLICS",
-            "Fermeture précédente": 266.47,
-            "Fermeture": 282.66,
-            "Variation (%)": 6.08,
+            "Fermeture précédente": 282.66,
+            "Fermeture": 293.79,
+            "Variation (%)": 3.94,
             "Variation 31 décembre (%)": 3.3
         },
         {
             "Nom": "BRVM - TELECOMMUNICATIONS",
-            "Fermeture précédente": 121.51,
-            "Fermeture": 126.71,
-            "Variation (%)": 4.28,
+            "Fermeture précédente": 126.71,
+            "Fermeture": 128.72,
+            "Variation (%)": 1.59,
             "Variation 31 décembre (%)": 3.44
         },
         {
             "Nom": "BRVM – COMPOSITE TOTAL RETURN",
-            "Fermeture précédente": 203.11,
-            "Fermeture": 206.56,
-            "Variation (%)": 1.7,
+            "Fermeture précédente": 206.56,
+            "Fermeture": 208.11,
+            "Variation (%)": 0.75,
             "Variation 31 décembre (%)": 1.7
         }
     ],
